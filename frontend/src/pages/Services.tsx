@@ -1,0 +1,304 @@
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { PlusIcon, TrashIcon, ArrowPathIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import api from '../lib/api'
+import toast from 'react-hot-toast'
+import type { ServiceConnection, ServiceConnectionCreate, ServiceType } from '../types'
+
+const serviceTypes: { value: ServiceType; label: string }[] = [
+  { value: 'sonarr', label: 'Sonarr' },
+  { value: 'radarr', label: 'Radarr' },
+  { value: 'emby', label: 'Emby' },
+  { value: 'jellyfin', label: 'Jellyfin' },
+  { value: 'jellystat', label: 'Jellystat' },
+]
+
+export default function Services() {
+  const queryClient = useQueryClient()
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingService, setEditingService] = useState<ServiceConnection | null>(null)
+
+  const { data: services, isLoading } = useQuery({
+    queryKey: ['services'],
+    queryFn: async () => {
+      const res = await api.get<ServiceConnection[]>('/services/')
+      return res.data
+    },
+  })
+
+  const createMutation = useMutation({
+    mutationFn: async (data: ServiceConnectionCreate) => {
+      const res = await api.post('/services/', data)
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      setIsModalOpen(false)
+      toast.success('Service created')
+    },
+    onError: () => toast.error('Failed to create service'),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/services/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      toast.success('Service deleted')
+    },
+    onError: () => toast.error('Failed to delete service'),
+  })
+
+  const testMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await api.post(`/services/${id}/test`)
+      return res.data
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(`Connection successful! Version: ${data.version}`)
+      } else {
+        toast.error(`Connection failed: ${data.message}`)
+      }
+    },
+    onError: () => toast.error('Test failed'),
+  })
+
+  const syncMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await api.post(`/services/${id}/sync`)
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast.success(`Synced: ${data.added} added, ${data.updated} updated`)
+    },
+    onError: () => toast.error('Sync failed'),
+  })
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Services</h1>
+          <p className="text-dark-400 mt-1">Manage Sonarr, Radarr, Emby connections</p>
+        </div>
+        <button onClick={() => setIsModalOpen(true)} className="btn-primary flex items-center gap-2">
+          <PlusIcon className="w-5 h-5" />
+          Add Service
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="grid gap-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="card animate-pulse">
+              <div className="card-body h-24" />
+            </div>
+          ))}
+        </div>
+      ) : services && services.length > 0 ? (
+        <div className="grid gap-4">
+          {services.map((service) => (
+            <div key={service.id} className="card">
+              <div className="card-body flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-lg ${service.is_enabled ? 'bg-green-500/20' : 'bg-dark-700'}`}>
+                    {service.is_enabled ? (
+                      <CheckCircleIcon className="w-6 h-6 text-green-400" />
+                    ) : (
+                      <XCircleIcon className="w-6 h-6 text-dark-400" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white">{service.name}</h3>
+                    <p className="text-sm text-dark-400">
+                      {service.service_type.toUpperCase()} • {service.url}
+                    </p>
+                    {service.last_sync && (
+                      <p className="text-xs text-dark-500">
+                        Last sync: {new Date(service.last_sync).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => testMutation.mutate(service.id)}
+                    disabled={testMutation.isPending}
+                    className="btn-ghost"
+                    title="Test Connection"
+                  >
+                    <CheckCircleIcon className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => syncMutation.mutate(service.id)}
+                    disabled={syncMutation.isPending}
+                    className="btn-ghost"
+                    title="Sync"
+                  >
+                    <ArrowPathIcon className={`w-5 h-5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => deleteMutation.mutate(service.id)}
+                    disabled={deleteMutation.isPending}
+                    className="btn-ghost text-red-400 hover:text-red-300"
+                    title="Delete"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="card">
+          <div className="card-body text-center py-12">
+            <p className="text-dark-400">No services configured yet</p>
+            <button onClick={() => setIsModalOpen(true)} className="btn-primary mt-4">
+              Add your first service
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add Service Modal */}
+      {isModalOpen && (
+        <ServiceModal
+          onClose={() => {
+            setIsModalOpen(false)
+            setEditingService(null)
+          }}
+          onSubmit={(data) => createMutation.mutate(data)}
+          isLoading={createMutation.isPending}
+          initialData={editingService}
+        />
+      )}
+    </div>
+  )
+}
+
+function ServiceModal({
+  onClose,
+  onSubmit,
+  isLoading,
+  initialData,
+}: {
+  onClose: () => void
+  onSubmit: (data: ServiceConnectionCreate) => void
+  isLoading: boolean
+  initialData?: ServiceConnection | null
+}) {
+  const [formData, setFormData] = useState<ServiceConnectionCreate>({
+    name: initialData?.name || '',
+    service_type: initialData?.service_type || 'sonarr',
+    url: initialData?.url || '',
+    api_key: initialData?.api_key || '',
+    is_enabled: initialData?.is_enabled ?? true,
+    verify_ssl: initialData?.verify_ssl ?? true,
+    timeout: initialData?.timeout || 30,
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSubmit(formData)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="card w-full max-w-md mx-4">
+        <div className="card-header">
+          <h2 className="text-lg font-semibold text-white">
+            {initialData ? 'Edit Service' : 'Add Service'}
+          </h2>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="card-body space-y-4">
+            <div>
+              <label className="label">Name</label>
+              <input
+                type="text"
+                className="input"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="My Sonarr Server"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="label">Service Type</label>
+              <select
+                className="input"
+                value={formData.service_type}
+                onChange={(e) => setFormData({ ...formData, service_type: e.target.value as ServiceType })}
+              >
+                {serviceTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="label">URL</label>
+              <input
+                type="url"
+                className="input"
+                value={formData.url}
+                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                placeholder="http://localhost:8989"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="label">API Key</label>
+              <input
+                type="password"
+                className="input"
+                value={formData.api_key}
+                onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
+                placeholder="Enter API key"
+                required
+              />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.is_enabled}
+                  onChange={(e) => setFormData({ ...formData, is_enabled: e.target.checked })}
+                  className="rounded border-dark-600 bg-dark-700 text-primary-500 focus:ring-primary-500"
+                />
+                <span className="text-sm text-dark-200">Enabled</span>
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.verify_ssl}
+                  onChange={(e) => setFormData({ ...formData, verify_ssl: e.target.checked })}
+                  className="rounded border-dark-600 bg-dark-700 text-primary-500 focus:ring-primary-500"
+                />
+                <span className="text-sm text-dark-200">Verify SSL</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="px-6 py-4 border-t border-dark-700 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" disabled={isLoading} className="btn-primary">
+              {isLoading ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}

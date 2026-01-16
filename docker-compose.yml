@@ -1,0 +1,46 @@
+services:
+  mediacleanup:
+    build: .
+    image: mediacleanup:latest
+    container_name: mediacleanup
+    restart: unless-stopped
+    # Run as root initially so entrypoint can fix permissions, then drop to appuser
+    user: "0:0"
+    ports:
+      - "8080:8080"
+    environment:
+      - TZ=${TZ:-Europe/Berlin}
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - DATABASE_URL=sqlite+aiosqlite:///./data/mediacleanup.db
+      - FIRST_USER_IS_ADMIN=true
+    volumes:
+      # Data persistence
+      - ./data:/app/data
+      # Logs
+      - ./logs:/app/logs
+      # Media mount - use the same path as your media server
+      - /media:/media:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# For development with hot reload
+# services:
+#   mediacleanup-dev:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile.dev
+#     volumes:
+#       - ./backend:/app/backend
+#       - ./frontend:/app/frontend
+#       - ./data:/app/data
+#     ports:
+#       - "8080:8080"
+#       - "5173:5173"
+#     environment:
+#       - TZ=${TZ:-Europe/Berlin}
+#       - SECRET_KEY=dev-secret-key
+#       - DATABASE_URL=sqlite+aiosqlite:///./data/mediacleanup.db

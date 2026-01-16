@@ -1,0 +1,35 @@
+# Development Dockerfile with hot reload
+FROM python:3.14-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY backend/requirements.txt ./backend/
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+# Install frontend dependencies
+COPY frontend/package.json frontend/package-lock.json* ./frontend/
+WORKDIR /app/frontend
+RUN npm ci --legacy-peer-deps
+
+WORKDIR /app
+
+# Environment
+ENV PYTHONUNBUFFERED=1 \
+    APP_ENV=development
+
+# Expose ports
+EXPOSE 8080 5173
+
+# Development entrypoint
+COPY docker-entrypoint.dev.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]

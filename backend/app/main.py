@@ -12,7 +12,7 @@ import sys
 
 from .core.config import get_settings
 from .core.database import init_db, close_db
-from .api.routes import auth, services, rules, libraries, media, notifications, system
+from .api.routes import auth, services, rules, libraries, notifications, system
 
 settings = get_settings()
 
@@ -73,7 +73,6 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(services.router, prefix="/api")
 app.include_router(rules.router, prefix="/api")
 app.include_router(libraries.router, prefix="/api")
-app.include_router(media.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(system.router, prefix="/api")
 

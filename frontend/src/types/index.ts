@@ -30,7 +30,6 @@ export interface ServiceConnection {
   is_enabled: boolean
   verify_ssl: boolean
   timeout: number
-  library_id: number | null
   created_at: string
   updated_at: string | null
   last_sync: string | null
@@ -44,28 +43,19 @@ export interface ServiceConnectionCreate {
   is_enabled?: boolean
   verify_ssl?: boolean
   timeout?: number
-  library_id?: number | null
 }
 
 export interface Library {
   id: number
   name: string
-  emby_service_id: number
-  emby_library_id: string
-  media_type: 'movie' | 'series'
+  description: string | null
+  media_type: MediaType
   path: string | null
+  external_id: string
+  service_connection_id: number
   is_enabled: boolean
+  last_synced_at: string | null
   created_at: string
-  updated_at: string | null
-}
-
-export interface LibraryCreate {
-  name: string
-  emby_service_id: number
-  emby_library_id: string
-  media_type: 'movie' | 'series'
-  path?: string | null
-  is_enabled?: boolean
 }
 
 export interface RuleConditions {

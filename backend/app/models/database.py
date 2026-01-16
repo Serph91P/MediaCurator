@@ -74,20 +74,17 @@ class ServiceConnection(Base):
     verify_ssl = Column(Boolean, default=True)
     timeout = Column(Integer, default=30)
     
-    # Optional: Library mapping for organization
-    library_id = Column(Integer, ForeignKey("libraries.id"), nullable=True)
-    
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_sync = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
-    library = relationship("Library", back_populates="service_connections")
+    libraries = relationship("Library", back_populates="service_connection")
 
 
 class Library(Base):
-    """Library grouping for service connections."""
+    """Library synced from Emby/Jellyfin media server."""
     __tablename__ = "libraries"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -95,10 +92,21 @@ class Library(Base):
     description = Column(Text, nullable=True)
     media_type = Column(SQLEnum(MediaType), nullable=False)
     path = Column(String(500), nullable=True)
+    
+    # Emby/Jellyfin sync fields
+    external_id = Column(String(100), nullable=False)  # Library ID from Emby/Jellyfin
+    service_connection_id = Column(Integer, ForeignKey("service_connections.id"), nullable=False)
+    is_enabled = Column(Boolean, default=True)  # Whether to include in cleanup processing
+    
+    # Sync tracking
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
+    # Unique constraint: one library per service connection and external id
+    __table_args__ = (UniqueConstraint('service_connection_id', 'external_id', name='uq_library_service_external'),)
+    
     # Relationships
-    service_connections = relationship("ServiceConnection", back_populates="library")
+    service_connection = relationship("ServiceConnection", back_populates="libraries")
     cleanup_rules = relationship("CleanupRule", back_populates="library")
 
 

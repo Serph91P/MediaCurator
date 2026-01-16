@@ -94,7 +94,6 @@ class ServiceConnectionBase(BaseModel):
     is_enabled: bool = True
     verify_ssl: bool = True
     timeout: int = Field(default=30, ge=5, le=300)
-    library_id: Optional[int] = None
 
     @field_validator('url')
     @classmethod
@@ -115,7 +114,6 @@ class ServiceConnectionUpdate(BaseModel):
     is_enabled: Optional[bool] = None
     verify_ssl: Optional[bool] = None
     timeout: Optional[int] = Field(None, ge=5, le=300)
-    library_id: Optional[int] = None
 
 
 class ServiceConnectionResponse(ServiceConnectionBase):
@@ -141,6 +139,9 @@ class LibraryBase(BaseModel):
     description: Optional[str] = None
     media_type: MediaType
     path: Optional[str] = None
+    external_id: str = Field(..., min_length=1, max_length=100)
+    service_connection_id: int
+    is_enabled: bool = True
 
 
 class LibraryCreate(LibraryBase):
@@ -148,18 +149,22 @@ class LibraryCreate(LibraryBase):
 
 
 class LibraryUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    description: Optional[str] = None
-    media_type: Optional[MediaType] = None
-    path: Optional[str] = None
+    is_enabled: Optional[bool] = None  # Only allow toggling enabled state
 
 
 class LibraryResponse(LibraryBase):
     id: int
+    last_synced_at: Optional[datetime] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class LibrarySyncResponse(BaseModel):
+    synced: int
+    removed: int
+    message: str
 
 
 # ==================== Cleanup Rule Schemas ====================

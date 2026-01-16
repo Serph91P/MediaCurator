@@ -8,7 +8,6 @@ import Dashboard from './pages/Dashboard'
 import Services from './pages/Services'
 import Rules from './pages/Rules'
 import Libraries from './pages/Libraries'
-import Media from './pages/Media'
 import Notifications from './pages/Notifications'
 import Settings from './pages/Settings'
 import History from './pages/History'
@@ -55,7 +54,6 @@ function App() {
         <Route path="services" element={<Services />} />
         <Route path="rules" element={<Rules />} />
         <Route path="libraries" element={<Libraries />} />
-        <Route path="media" element={<Media />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="settings" element={<Settings />} />
         <Route path="history" element={<History />} />

@@ -85,15 +85,21 @@ docker run -d \
 Production releases (main branch):
 - `latest` - Latest stable release from main branch
 - `stable` - Alias for latest
-- `0.1.5` - Specific production version (auto-incremented on merge to main)
-- `1.2.3` - Manual tagged releases (when you create a git tag)
+- `0.0.31` - Specific production version (based on commit count)
+- `v1.2.3` - Manual tagged releases (when you create a git tag)
 
 Development builds (develop branch):
 - `dev` - Latest development build from develop branch
-- `dev.0.0.27` - Specific development version (auto-incremented on push to develop)
+- `dev.0.0.30` - Specific development version (based on commit count)
 
-Git tagged releases:
-- `v1.2.3` - Manual version tags
+**Versioning:** Dev und Main teilen sich die gleiche Zählnummer (commit count).
+- Push auf dev → `dev.0.0.30`
+- Nächster Push auf dev → `dev.0.0.31`  
+- Merge auf main → `0.0.31` (gleiche Nummer!)
+- Push auf dev → `dev.0.0.32`
+
+Git tagged releases (manual bumps):
+- `v1.0.0`, `v1.2.3` - Manual version tags für MINOR/MAJOR bumps
 - `1.2` - Latest patch version of 1.2.x
 - `1` - Latest minor version of 1.x.x
 

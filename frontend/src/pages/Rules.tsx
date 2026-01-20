@@ -11,6 +11,24 @@ const mediaTypes: { value: MediaType; label: string }[] = [
   { value: 'episode', label: 'Episodes' },
 ]
 
+const seriesDeleteModes: { value: 'episode' | 'season' | 'series'; label: string; description: string }[] = [
+  { 
+    value: 'episode', 
+    label: 'Episode Level (Most Aggressive)', 
+    description: 'Only watched episodes are kept, rest is deleted'
+  },
+  { 
+    value: 'season', 
+    label: 'Season Level (Moderate)', 
+    description: 'If any episode in a season is watched, entire season is kept'
+  },
+  { 
+    value: 'series', 
+    label: 'Series Level (Most Conservative)', 
+    description: 'If any episode is watched, entire series is kept'
+  },
+]
+
 const actionTypes: { value: RuleActionType; label: string }[] = [
   { value: 'delete', label: 'Delete' },
   { value: 'unmonitor', label: 'Unmonitor' },
@@ -105,7 +123,11 @@ export default function Rules() {
                   <h3 className="font-medium text-white">{template.name}</h3>
                   <p className="text-sm text-dark-400 mt-1">{template.description}</p>
                   <div className="flex gap-2 mt-2">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">{template.media_type}</span>
+                    {template.media_types.map(mt => (
+                      <span key={mt} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">
+                        {mediaTypes.find(t => t.value === mt)?.label || mt}
+                      </span>
+                    ))}
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">{template.action}</span>
                   </div>
                 </button>
@@ -150,7 +172,11 @@ export default function Rules() {
                       <p className="text-sm text-dark-400 mt-2">{rule.description}</p>
                     )}
                     <div className="flex flex-wrap gap-2 mt-3">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">{rule.media_type}</span>
+                      {rule.media_types.map(mt => (
+                        <span key={mt} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">
+                          {mediaTypes.find(t => t.value === mt)?.label || mt}
+                        </span>
+                      ))}
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">{rule.action}</span>
                       <span className="badge bg-dark-600 text-dark-300">
                         Priority: {rule.priority}
@@ -228,7 +254,7 @@ function RuleModal({
     description: template?.description || '',
     is_enabled: true,
     priority: 0,
-    media_type: template?.media_type || 'movie',
+    media_types: template?.media_types || ['movie'],  // Array of media types
     conditions: {
       disk_space_threshold_percent: template?.conditions?.disk_space_threshold_percent || null,
       not_watched_days: template?.conditions?.not_watched_days || 180,
@@ -284,18 +310,68 @@ function RuleModal({
                   rows={2}
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-1">Media Type</label>
-                <select
-                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
-                  value={formData.media_type}
-                  onChange={(e) => setFormData({ ...formData, media_type: e.target.value as MediaType })}
-                >
+              
+              {/* Media Types Multi-Select */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-dark-200 mb-2">
+                  Media Types
+                  <span className="text-xs text-dark-400 ml-2">Select one or more types</span>
+                </label>
+                <div className="flex flex-wrap gap-4">
                   {mediaTypes.map((type) => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
+                    <label key={type.value} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.media_types.includes(type.value)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({ ...formData, media_types: [...formData.media_types, type.value] })
+                          } else {
+                            setFormData({ 
+                              ...formData, 
+                              media_types: formData.media_types.filter(t => t !== type.value) 
+                            })
+                          }
+                        }}
+                        className="rounded border-dark-600 bg-dark-700 text-primary-500"
+                      />
+                      <span className="text-sm text-dark-200">{type.label}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
+
+              {/* Series Delete Mode - nur anzeigen wenn series oder episode ausgewählt */}
+              {(formData.media_types.includes('series') || formData.media_types.includes('episode')) && (
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-dark-200 mb-2">
+                    Series Handling Mode
+                    <span className="text-xs text-dark-400 ml-2">How to handle watched episodes in a series</span>
+                  </label>
+                  <div className="space-y-2">
+                    {seriesDeleteModes.map((mode) => (
+                      <label key={mode.value} className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg hover:bg-dark-700 cursor-pointer transition-colors">
+                        <input
+                          type="radio"
+                          name="series_delete_mode"
+                          value={mode.value}
+                          checked={formData.conditions.series_delete_mode === mode.value}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            conditions: { ...formData.conditions, series_delete_mode: e.target.value as 'episode' | 'season' | 'series' }
+                          })}
+                          className="mt-0.5 border-dark-600 bg-dark-700 text-primary-500"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-dark-100">{mode.label}</div>
+                          <div className="text-xs text-dark-400 mt-0.5">{mode.description}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-dark-200 mb-1">Action</label>
                 <select

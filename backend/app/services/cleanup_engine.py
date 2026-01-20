@@ -68,8 +68,8 @@ class CleanupEngine:
                 return []
         
         for item in items:
-            # Skip if wrong media type
-            if item.media_type != rule.media_type:
+            # Skip if item's media type is not in rule's target media types
+            if item.media_type not in rule.media_types:
                 continue
             
             # Skip items watched recently (within last X days)
@@ -416,8 +416,8 @@ class CleanupEngine:
                 # Try to get disk info from library path or default media path
                 disk_info = await self.get_disk_space("/media")
             
-            # Filter items for this rule's media type
-            rule_items = [i for i in all_items if i.media_type == rule.media_type and i.id not in processed_item_ids]
+            # Filter items for this rule's media types
+            rule_items = [i for i in all_items if i.media_type in rule.media_types and i.id not in processed_item_ids]
             
             for item in rule_items:
                 evaluation = await self._evaluate_item_for_preview(item, rule, conditions, disk_info)

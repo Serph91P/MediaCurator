@@ -38,7 +38,7 @@ async def create_rule(
         description=rule_data.description,
         is_enabled=rule_data.is_enabled,
         priority=rule_data.priority,
-        media_type=rule_data.media_type,
+        media_types=rule_data.media_types,  # Now a list
         library_id=rule_data.library_id,
         conditions=rule_data.conditions.model_dump(),
         action=rule_data.action,
@@ -155,13 +155,13 @@ async def get_rule_templates(
         {
             "name": "Delete Unwatched Movies (180 days)",
             "description": "Delete movies not watched in 180 days when disk is 90% full",
-            "media_type": "movie",
+            "media_types": ["movie"],
             "conditions": {
                 "disk_space_threshold_percent": 90,
                 "not_watched_days": 180,
                 "min_age_days": 30,
                 "exclude_favorited": True,
-                "exclude_currently_watching": True
+                "exclude_watched_within_days": 30
             },
             "action": "delete",
             "grace_period_days": 7
@@ -169,13 +169,13 @@ async def get_rule_templates(
         {
             "name": "Delete Unwatched Episodes (90 days)",
             "description": "Delete episodes not watched in 90 days",
-            "media_type": "episode",
+            "media_types": ["episode"],
             "conditions": {
                 "disk_space_threshold_percent": 85,
                 "not_watched_days": 90,
                 "min_age_days": 14,
                 "exclude_favorited": True,
-                "exclude_currently_watching": True,
+                "exclude_watched_within_days": 14,
                 "series_delete_mode": "episode"
             },
             "action": "delete",
@@ -184,7 +184,7 @@ async def get_rule_templates(
         {
             "name": "Unmonitor Low-Rated Movies",
             "description": "Unmonitor movies with rating below 5.0",
-            "media_type": "movie",
+            "media_types": ["movie"],
             "conditions": {
                 "rating_below": 5.0,
                 "min_age_days": 60,
@@ -196,12 +196,27 @@ async def get_rule_templates(
         {
             "name": "Notify Only - Old Content",
             "description": "Notify about content not watched in 365 days (no auto-delete)",
-            "media_type": "movie",
+            "media_types": ["movie"],
             "conditions": {
                 "not_watched_days": 365,
                 "exclude_favorited": True
             },
             "action": "notify_only",
             "grace_period_days": 0
+        },
+        {
+            "name": "Universal Cleanup (All Media Types)",
+            "description": "Delete all unwatched content (movies, series, episodes) after 180 days",
+            "media_types": ["movie", "series", "episode"],
+            "conditions": {
+                "disk_space_threshold_percent": 90,
+                "not_watched_days": 180,
+                "min_age_days": 30,
+                "exclude_favorited": True,
+                "exclude_watched_within_days": 30,
+                "series_delete_mode": "season"
+            },
+            "action": "delete",
+            "grace_period_days": 7
         }
     ]

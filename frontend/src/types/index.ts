@@ -63,7 +63,7 @@ export interface RuleConditions {
   not_watched_days?: number | null
   min_age_days?: number | null
   exclude_favorited: boolean
-  exclude_currently_watching: boolean
+  exclude_watched_within_days?: number | null  // Exclude items watched within last X days
   series_delete_mode: SeriesDeleteMode
   min_episodes_watched_percent?: number | null
   exclude_genres: string[]
@@ -71,11 +71,9 @@ export interface RuleConditions {
   include_tags: string[]
   rating_below?: number | null
   max_items_per_run?: number | null
-  // Neue Optionen
-  add_import_exclusion?: boolean  // Zur Import-Exclusion-Liste hinzufügen
-  watched_progress_below?: number | null  // Nur löschen wenn Progress unter X%
-  exclude_recently_added_days?: number | null  // Kürzlich hinzugefügt ausschließen
-  exclude_in_progress?: boolean  // Medien mit Progress > 0 aber nicht fertig ausschließen
+  add_import_exclusion?: boolean  // Add to Import-Exclusion-List
+  watched_progress_below?: number | null  // Only delete if progress below X%
+  exclude_recently_added_days?: number | null  // Exclude recently added items
 }
 
 export interface CleanupRule {
@@ -84,7 +82,7 @@ export interface CleanupRule {
   description: string | null
   is_enabled: boolean
   priority: number
-  media_type: MediaType
+  media_types: MediaType[]  // Can target multiple types
   library_id: number | null
   conditions: RuleConditions
   action: RuleActionType
@@ -98,7 +96,7 @@ export interface CleanupRuleCreate {
   description?: string | null
   is_enabled?: boolean
   priority?: number
-  media_type: MediaType
+  media_types: MediaType[]  // Can target multiple types (movies + series + episodes)
   library_id?: number | null
   conditions: RuleConditions
   action?: RuleActionType
@@ -203,7 +201,7 @@ export interface MediaStats {
 export interface RuleTemplate {
   name: string
   description: string
-  media_type: MediaType
+  media_types: MediaType[]  // Templates can also target multiple types
   conditions: Partial<RuleConditions>
   action: RuleActionType
   grace_period_days: number

@@ -121,7 +121,7 @@ class CleanupRule(Base):
     priority = Column(Integer, default=0)  # Higher priority rules are evaluated first
     
     # Rule target
-    media_type = Column(SQLEnum(MediaType), nullable=False)
+    media_types = Column(JSON, nullable=False, default=list)  # List of media types (can be multiple: movies + series + episodes)
     library_id = Column(Integer, ForeignKey("libraries.id"), nullable=True)
     
     # Conditions (JSON for flexibility)

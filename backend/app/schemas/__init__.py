@@ -40,6 +40,12 @@ class NotificationType(str, Enum):
 
 
 class SeriesDeleteMode(str, Enum):
+    """How to handle series deletion when an episode is watched.
+    
+    EPISODE: Only the watched episode is kept (most aggressive)
+    SEASON: Entire season is kept if any episode was watched
+    SERIES: Entire series is kept if any episode was watched (most conservative)
+    """
     EPISODE = "episode"
     SEASON = "season"
     SERIES = "series"
@@ -194,7 +200,7 @@ class CleanupRuleBase(BaseModel):
     description: Optional[str] = None
     is_enabled: bool = True
     priority: int = Field(default=0, ge=0, le=100)
-    media_type: MediaType
+    media_types: List[MediaType] = Field(..., min_length=1)  # Can target multiple types (movies + series + episodes)
     library_id: Optional[int] = None
     conditions: RuleConditions
     action: RuleActionType = RuleActionType.DELETE
@@ -210,7 +216,7 @@ class CleanupRuleUpdate(BaseModel):
     description: Optional[str] = None
     is_enabled: Optional[bool] = None
     priority: Optional[int] = Field(None, ge=0, le=100)
-    media_type: Optional[MediaType] = None
+    media_types: Optional[List[MediaType]] = Field(None, min_length=1)
     library_id: Optional[int] = None
     conditions: Optional[RuleConditions] = None
     action: Optional[RuleActionType] = None

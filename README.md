@@ -59,6 +59,16 @@ docker compose up -d
 ### Docker CLI
 
 ```bash
+# Pull specific version
+docker pull ghcr.io/serph91p/mediacurator:1.0.0
+
+# Or pull latest stable
+docker pull ghcr.io/serph91p/mediacurator:latest
+
+# Or pull development version
+docker pull ghcr.io/serph91p/mediacurator:dev
+
+# Run container
 docker run -d \
   --name mediacurator \
   -p 8080:8080 \
@@ -67,8 +77,19 @@ docker run -d \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/logs:/app/logs \
   -v /media:/media:ro \
-  ghcr.io/your-username/mediacurator:latest
+  ghcr.io/serph91p/mediacurator:latest
 ```
+
+### Available Docker Tags
+
+- `latest` - Latest stable release from main branch
+- `stable` - Alias for latest
+- `dev` - Latest development build from develop branch
+- `1.2.3` - Specific version (semantic versioning)
+- `1.2` - Latest patch version of 1.2.x
+- `1` - Latest minor version of 1.x.x
+- `dev.123.abc123` - Development build with commit count and SHA
+- `sha-abc123` - Build from specific commit
 
 ## Configuration
 

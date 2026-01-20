@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Enable manual dark mode toggle via .dark class */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary-50: #f0f9ff;
   --color-primary-100: #e0f2fe;
@@ -33,20 +36,30 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Light mode scrollbar */
 ::-webkit-scrollbar {
   width: 0.5rem;
   height: 0.5rem;
 }
 
 ::-webkit-scrollbar-track {
-  background-color: var(--color-dark-800);
+  background-color: var(--color-dark-100);
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--color-dark-600);
+  background-color: var(--color-dark-400);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-dark-500);
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background-color: var(--color-dark-800);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: var(--color-dark-600);
 }

@@ -291,7 +291,7 @@ docker compose -f docker-compose.dev.yml up
 - [x] Add loading skeletons for better perceived performance
 - [x] Implement toast notifications for all user actions
 - [x] Add confirmation dialogs for destructive actions
-- [ ] Dark/Light theme toggle (currently dark-only)
+- [x] Dark/Light theme toggle with system preference support
 - [ ] Mobile First Design
 - [ ] PWA
 - [ ] Notification via PWA

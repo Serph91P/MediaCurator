@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/auth'
+import { useThemeStore } from '../stores/theme'
 import api from '../lib/api'
 import { useState, useEffect } from 'react'
 import {
@@ -19,6 +20,9 @@ import {
   XMarkIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
+  SunIcon,
+  MoonIcon,
+  ComputerDesktopIcon,
 } from '@heroicons/react/24/outline'
 
 const navigation = [
@@ -36,11 +40,22 @@ const navigation = [
 
 export default function Layout() {
   const { user, logout } = useAuthStore()
+  const { theme, setTheme } = useThemeStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const stored = localStorage.getItem('sidebarCollapsed')
     return stored === 'true'
   })
+
+  const cycleTheme = () => {
+    const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system']
+    const currentIndex = themes.indexOf(theme)
+    const nextIndex = (currentIndex + 1) % themes.length
+    setTheme(themes[nextIndex])
+  }
+
+  const ThemeIcon = theme === 'light' ? SunIcon : theme === 'dark' ? MoonIcon : ComputerDesktopIcon
+  const themeLabel = theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'System'
 
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed))
@@ -76,7 +91,7 @@ export default function Layout() {
   })
 
   return (
-    <div className="flex h-screen bg-dark-900">
+    <div className="flex h-screen bg-gray-100 dark:bg-dark-900">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -86,11 +101,11 @@ export default function Layout() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 ${sidebarCollapsed ? 'lg:w-16' : 'w-64'} bg-dark-800 border-r border-dark-700 flex flex-col transform transition-all duration-300 lg:translate-x-0 ${
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 ${sidebarCollapsed ? 'lg:w-16' : 'w-64'} bg-white dark:bg-dark-800 border-r border-gray-200 dark:border-dark-700 flex flex-col transform transition-all duration-300 lg:translate-x-0 ${
         sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full'
       }`}>
         {/* Logo */}
-        <div className="p-6 border-b border-dark-700">
+        <div className="p-6 border-b border-gray-200 dark:border-dark-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
               <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -100,7 +115,7 @@ export default function Layout() {
             {(!sidebarCollapsed || sidebarOpen) && (
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-bold text-white">MediaCleaner</h1>
+                  <h1 className="text-lg font-bold text-gray-900 dark:text-white">MediaCleaner</h1>
                   {updateData?.update_available && (
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
@@ -108,7 +123,7 @@ export default function Layout() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-dark-400">
+                <p className="text-xs text-gray-500 dark:text-dark-400">
                   {healthData?.version || 'v0.1.0'}
                   {healthData?.database === 'unhealthy' && (
                     <span className="ml-2 text-red-400" title="Database connection issue">⚠</span>
@@ -133,7 +148,7 @@ export default function Layout() {
                 } ${
                   isActive
                     ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/50'
-                    : 'text-dark-300 hover:text-white hover:bg-dark-700'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-dark-300 dark:hover:text-white dark:hover:bg-dark-700'
                 }`
               }
             >
@@ -143,10 +158,22 @@ export default function Layout() {
           ))}
         </nav>
 
+        {/* Theme Toggle */}
+        <button
+          onClick={cycleTheme}
+          className={`flex items-center gap-3 px-3 py-2.5 mx-3 mb-1 rounded-lg text-sm font-medium text-dark-300 hover:text-white hover:bg-dark-700 dark:text-dark-300 dark:hover:text-white dark:hover:bg-dark-700 transition-colors ${
+            sidebarCollapsed && !sidebarOpen ? 'justify-center' : ''
+          }`}
+          title={`Theme: ${themeLabel}`}
+        >
+          <ThemeIcon className="w-5 h-5 flex-shrink-0" />
+          {(!sidebarCollapsed || sidebarOpen) && <span>{themeLabel}</span>}
+        </button>
+
         {/* Collapse Button (Desktop only) */}
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="hidden lg:flex items-center justify-center p-3 mx-3 mb-2 text-dark-400 hover:text-white hover:bg-dark-700 rounded-lg transition-colors"
+          className="hidden lg:flex items-center justify-center p-3 mx-3 mb-2 text-dark-400 hover:text-white hover:bg-dark-700 dark:text-dark-400 dark:hover:text-white dark:hover:bg-dark-700 rounded-lg transition-colors"
           title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {sidebarCollapsed ? (
@@ -160,7 +187,7 @@ export default function Layout() {
         </button>
 
         {/* User section */}
-        <div className={`${sidebarCollapsed && !sidebarOpen ? 'p-2' : 'p-4'} border-t border-dark-700`}>
+        <div className={`${sidebarCollapsed && !sidebarOpen ? 'p-2' : 'p-4'} border-t border-dark-700 dark:border-dark-700`}>
           <div className={`flex items-center ${sidebarCollapsed && !sidebarOpen ? 'flex-col gap-2' : 'justify-between'}`}>
             <div className={`flex items-center ${sidebarCollapsed && !sidebarOpen ? '' : 'gap-3'}`}>
               <button
@@ -174,15 +201,15 @@ export default function Layout() {
               </button>
               {(!sidebarCollapsed || sidebarOpen) && (
                 <div>
-                  <p className="text-sm font-medium text-dark-100">{user?.username || 'User'}</p>
-                  <p className="text-xs text-dark-400">{user?.is_admin ? 'Admin' : 'User'}</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-dark-100">{user?.username || 'User'}</p>
+                  <p className="text-xs text-gray-500 dark:text-dark-400">{user?.is_admin ? 'Admin' : 'User'}</p>
                 </div>
               )}
             </div>
             {(!sidebarCollapsed || sidebarOpen) && (
               <button
                 onClick={logout}
-                className="p-2 text-dark-400 hover:text-dark-100 hover:bg-dark-700 rounded-lg transition-colors"
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-dark-400 dark:hover:text-dark-100 dark:hover:bg-dark-700 rounded-lg transition-colors"
                 title="Logout"
               >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
@@ -195,14 +222,14 @@ export default function Layout() {
       {/* Main content */}
       <main className="flex-1 overflow-auto">
         {/* Mobile Header with Hamburger */}
-        <div className="lg:hidden sticky top-0 z-30 bg-dark-800 border-b border-dark-700 px-4 py-3 flex items-center justify-between">
+        <div className="lg:hidden sticky top-0 z-30 bg-white dark:bg-dark-800 border-b border-gray-200 dark:border-dark-700 px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 text-dark-300 hover:text-white hover:bg-dark-700 rounded-lg transition-colors"
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-dark-300 dark:hover:text-white dark:hover:bg-dark-700 rounded-lg transition-colors"
           >
             <Bars3Icon className="w-6 h-6" />
           </button>
-          <h1 className="text-lg font-bold text-white">MediaCleaner</h1>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">MediaCleaner</h1>
           <div className="w-10" /> {/* Spacer for centering */}
         </div>
 

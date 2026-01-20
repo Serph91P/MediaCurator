@@ -5,12 +5,8 @@ import api from '../lib/api'
 import toast from 'react-hot-toast'
 import type { NotificationChannel, NotificationChannelCreate, NotificationType } from '../types'
 
-const notificationTypes: { value: NotificationType; label: string; description: string }[] = [
-  { value: 'discord', label: 'Discord', description: 'Send notifications to a Discord webhook' },
-  { value: 'slack', label: 'Slack', description: 'Send notifications to a Slack webhook' },
-  { value: 'webhook', label: 'Webhook', description: 'Send POST requests to a custom URL' },
-  { value: 'apprise', label: 'Apprise', description: 'Use Apprise for multiple services' },
-]
+// Apprise supports 90+ notification services via URLs
+// Examples: discord://webhook_id/webhook_token, ntfy://ntfy.sh/topic, tgram://bot_token/chat_id
 
 export default function Notifications() {
   const queryClient = useQueryClient()
@@ -149,21 +145,32 @@ export default function Notifications() {
                     <div>
                       <div className="flex items-center gap-3">
                         <h3 className="font-semibold text-white">{channel.name}</h3>
-                        <span className="badge badge-info">{channel.notification_type}</span>
+                        <span className="px-2 py-1 text-xs font-medium bg-primary-600/20 text-primary-400 rounded-md">
+                          Apprise
+                        </span>
                       </div>
-                      <p className="text-sm text-dark-400 mt-1">
-                        {channel.webhook_url?.substring(0, 50)}
-                        {channel.webhook_url && channel.webhook_url.length > 50 && '...'}
-                      </p>
+                      <div className="text-sm text-dark-400 mt-1 space-y-1">
+                        {((channel.config as any)?.urls || []).map((url: string, idx: number) => (
+                          <p key={idx} className="font-mono text-xs">
+                            {url.substring(0, 60)}{url.length > 60 && '...'}
+                          </p>
+                        ))}
+                      </div>
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {channel.on_delete && (
-                          <span className="badge bg-red-600/20 text-red-400">On Delete</span>
+                        {channel.notify_on_deleted && (
+                          <span className="px-2 py-1 text-xs font-medium bg-red-600/20 text-red-400 rounded-md">
+                            Deletions
+                          </span>
                         )}
-                        {channel.on_warning && (
-                          <span className="badge bg-yellow-600/20 text-yellow-400">On Warning</span>
+                        {channel.notify_on_flagged && (
+                          <span className="px-2 py-1 text-xs font-medium bg-yellow-600/20 text-yellow-400 rounded-md">
+                            Flagged
+                          </span>
                         )}
-                        {channel.on_error && (
-                          <span className="badge bg-orange-600/20 text-orange-400">On Error</span>
+                        {channel.notify_on_error && (
+                          <span className="px-2 py-1 text-xs font-medium bg-orange-600/20 text-orange-400 rounded-md">
+                            Errors
+                          </span>
                         )}
                       </div>
                     </div>
@@ -261,30 +268,38 @@ function NotificationModal({
 }) {
   const [formData, setFormData] = useState<NotificationChannelCreate>({
     name: channel?.name || '',
-    notification_type: channel?.notification_type || 'discord',
-    webhook_url: channel?.webhook_url || '',
+    notification_type: 'apprise',
+    config: channel?.config || { urls: [''] },
     is_enabled: channel?.is_enabled ?? true,
-    on_delete: channel?.on_delete ?? true,
-    on_warning: channel?.on_warning ?? true,
-    on_error: channel?.on_error ?? true,
+    notify_on_flagged: channel?.notify_on_flagged ?? true,
+    notify_on_deleted: channel?.notify_on_deleted ?? true,
+    notify_on_error: channel?.notify_on_error ?? true,
   })
+
+  const [urls, setUrls] = useState<string[]>(
+    (channel?.config as any)?.urls || ['']
+  )
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(formData)
+    onSubmit({
+      ...formData,
+      config: { urls: urls.filter(url => url.trim()) }
+    })
   }
 
-  const getPlaceholder = () => {
-    switch (formData.notification_type) {
-      case 'discord':
-        return 'https://discord.com/api/webhooks/...'
-      case 'slack':
-        return 'https://hooks.slack.com/services/...'
-      case 'apprise':
-        return 'apprise://...'
-      default:
-        return 'https://...'
-    }
+  const addUrl = () => {
+    setUrls([...urls, ''])
+  }
+
+  const removeUrl = (index: number) => {
+    setUrls(urls.filter((_, i) => i !== index))
+  }
+
+  const updateUrl = (index: number, value: string) => {
+    const newUrls = [...urls]
+    newUrls[index] = value
+    setUrls(newUrls)
   }
 
   return (
@@ -304,68 +319,99 @@ function NotificationModal({
                 className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., Discord Notifications"
+                placeholder="e.g., Discord Alerts"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-200 mb-1">Type</label>
-              <select
-                className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
-                value={formData.notification_type}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  notification_type: e.target.value as NotificationType
-                })}
-              >
-                {notificationTypes.map((type) => (
-                  <option key={type.value} value={type.value}>{type.label}</option>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-dark-200">
+                  Apprise URLs
+                </label>
+                <a
+                  href="https://github.com/caronc/apprise/wiki"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary-400 hover:text-primary-300"
+                >
+                  View Documentation →
+                </a>
+              </div>
+              <p className="text-xs text-dark-400 mb-3">
+                Use Apprise URL format to support 90+ services like Discord, Slack, Telegram, ntfy, etc.
+              </p>
+              
+              <div className="space-y-2">
+                {urls.map((url, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      type="text"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors font-mono text-sm"
+                      value={url}
+                      onChange={(e) => updateUrl(index, e.target.value)}
+                      placeholder="discord://webhook_id/webhook_token"
+                      required={index === 0}
+                    />
+                    {urls.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeUrl(index)}
+                        className="px-3 py-2 text-red-400 hover:text-red-300 transition-colors"
+                      >
+                        <TrashIcon className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
                 ))}
-              </select>
-            </div>
+              </div>
+              
+              <button
+                type="button"
+                onClick={addUrl}
+                className="mt-2 text-sm text-primary-400 hover:text-primary-300"
+              >
+                + Add another URL
+              </button>
 
-            <div>
-              <label className="block text-sm font-medium text-dark-200 mb-1">Webhook URL</label>
-              <input
-                type="url"
-                className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
-                value={formData.webhook_url || ''}
-                onChange={(e) => setFormData({ ...formData, webhook_url: e.target.value })}
-                placeholder={getPlaceholder()}
-                required
-              />
+              <div className="mt-3 p-3 bg-dark-700/50 rounded-lg text-xs text-dark-300 space-y-1">
+                <p className="font-medium text-dark-200">Examples:</p>
+                <p className="font-mono">discord://webhook_id/webhook_token</p>
+                <p className="font-mono">ntfy://ntfy.sh/my_topic</p>
+                <p className="font-mono">tgram://bot_token/chat_id</p>
+                <p className="font-mono">slack://token_a/token_b/token_c</p>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-dark-700">
-              <label className="block text-sm font-medium text-dark-200 mb-1">Events</label>
+              <label className="block text-sm font-medium text-dark-200 mb-2">Trigger Events</label>
               <div className="space-y-2">
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={formData.on_delete}
-                    onChange={(e) => setFormData({ ...formData, on_delete: e.target.checked })}
+                    checked={formData.notify_on_deleted}
+                    onChange={(e) => setFormData({ ...formData, notify_on_deleted: e.target.checked })}
                     className="rounded border-dark-600 bg-dark-700 text-primary-500"
                   />
-                  <span className="text-sm text-dark-200">Deletion events</span>
+                  <span className="text-sm text-dark-200">Media deleted</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={formData.on_warning}
-                    onChange={(e) => setFormData({ ...formData, on_warning: e.target.checked })}
+                    checked={formData.notify_on_flagged}
+                    onChange={(e) => setFormData({ ...formData, notify_on_flagged: e.target.checked })}
                     className="rounded border-dark-600 bg-dark-700 text-primary-500"
                   />
-                  <span className="text-sm text-dark-200">Warning events</span>
+                  <span className="text-sm text-dark-200">Media flagged for cleanup</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={formData.on_error}
-                    onChange={(e) => setFormData({ ...formData, on_error: e.target.checked })}
+                    checked={formData.notify_on_error}
+                    onChange={(e) => setFormData({ ...formData, notify_on_error: e.target.checked })}
                     className="rounded border-dark-600 bg-dark-700 text-primary-500"
                   />
-                  <span className="text-sm text-dark-200">Error events</span>
+                  <span className="text-sm text-dark-200">Errors</span>
                 </label>
               </div>
             </div>

@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     npm \
     && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user for development
+RUN groupadd -r -g 1000 appuser && \
+    useradd -r -u 1000 -g appuser -m -d /home/appuser -s /bin/bash appuser
+
 # Install Python dependencies
 COPY backend/requirements.txt ./backend/
 RUN pip install --no-cache-dir -r backend/requirements.txt
@@ -21,9 +25,16 @@ RUN npm ci --legacy-peer-deps
 
 WORKDIR /app
 
+# Set correct permissions for development volumes
+RUN mkdir -p /app/data /app/logs && \
+    chown -R appuser:appuser /app
+
 # Environment
 ENV PYTHONUNBUFFERED=1 \
     APP_ENV=development
+
+# Switch to non-root user
+USER appuser
 
 # Expose ports
 EXPOSE 8080 5173

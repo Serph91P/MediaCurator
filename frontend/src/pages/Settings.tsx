@@ -96,18 +96,18 @@ export default function Settings() {
       </div>
 
       {isLoading ? (
-        <div className="card animate-pulse">
-          <div className="card-body h-64" />
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg animate-pulse">
+          <div className="p-6 h-64" />
         </div>
       ) : (
         <>
           {/* General Settings */}
-          <form onSubmit={handleSubmit} className="card">
-            <div className="card-header flex items-center gap-2">
+          <form onSubmit={handleSubmit} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+            <div className="px-6 py-4 border-b border-dark-700 flex items-center gap-2">
               <Cog6ToothIcon className="w-5 h-5 text-primary-400" />
               <h2 className="text-lg font-semibold text-white">General Settings</h2>
             </div>
-            <div className="card-body space-y-6">
+            <div className="p-6 space-y-6">
               {/* Enable/Disable */}
               <div className="flex items-center justify-between">
                 <div>
@@ -154,13 +154,13 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="label flex items-center gap-2">
+                  <label className="block text-sm font-medium text-dark-200 mb-1 flex items-center gap-2">
                     <ClockIcon className="w-4 h-4" />
                     Cleanup Schedule (Cron)
                   </label>
                   <input
                     type="text"
-                    className="input font-mono"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors font-mono"
                     value={formData.cleanup_schedule || ''}
                     onChange={(e) => setFormData({ ...formData, cleanup_schedule: e.target.value })}
                     placeholder="0 3 * * *"
@@ -168,13 +168,13 @@ export default function Settings() {
                   <p className="text-xs text-dark-500 mt-1">Default: 0 3 * * * (daily at 3 AM)</p>
                 </div>
                 <div>
-                  <label className="label flex items-center gap-2">
+                  <label className="block text-sm font-medium text-dark-200 mb-1 flex items-center gap-2">
                     <ClockIcon className="w-4 h-4" />
                     Sync Schedule (Cron)
                   </label>
                   <input
                     type="text"
-                    className="input font-mono"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors font-mono"
                     value={formData.sync_schedule || ''}
                     onChange={(e) => setFormData({ ...formData, sync_schedule: e.target.value })}
                     placeholder="0 * * * *"
@@ -182,10 +182,10 @@ export default function Settings() {
                   <p className="text-xs text-dark-500 mt-1">Default: 0 * * * * (hourly)</p>
                 </div>
                 <div>
-                  <label className="label">Default Grace Period (days)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Default Grace Period (days)</label>
                   <input
                     type="number"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.default_grace_period_days || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -195,10 +195,10 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="label">Max Deletions Per Run</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Max Deletions Per Run</label>
                   <input
                     type="number"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.max_deletions_per_run || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -213,7 +213,7 @@ export default function Settings() {
               <button
                 type="submit"
                 disabled={updateMutation.isPending}
-                className="btn-primary"
+                className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
               </button>
@@ -221,29 +221,29 @@ export default function Settings() {
           </form>
 
           {/* Security */}
-          <div className="card">
-            <div className="card-header flex items-center gap-2">
+          <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+            <div className="px-6 py-4 border-b border-dark-700 flex items-center gap-2">
               <KeyIcon className="w-5 h-5 text-primary-400" />
               <h2 className="text-lg font-semibold text-white">Security</h2>
             </div>
-            <div className="card-body">
+            <div className="p-6">
               {showPasswordChange ? (
                 <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
                   <div>
-                    <label className="label">Current Password</label>
+                    <label className="block text-sm font-medium text-dark-200 mb-1">Current Password</label>
                     <input
                       type="password"
-                      className="input"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                       value={passwords.current}
                       onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
                       required
                     />
                   </div>
                   <div>
-                    <label className="label">New Password</label>
+                    <label className="block text-sm font-medium text-dark-200 mb-1">New Password</label>
                     <input
                       type="password"
-                      className="input"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                       value={passwords.new}
                       onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
                       required
@@ -251,10 +251,10 @@ export default function Settings() {
                     />
                   </div>
                   <div>
-                    <label className="label">Confirm New Password</label>
+                    <label className="block text-sm font-medium text-dark-200 mb-1">Confirm New Password</label>
                     <input
                       type="password"
-                      className="input"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                       value={passwords.confirm}
                       onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
                       required
@@ -265,14 +265,14 @@ export default function Settings() {
                     <button
                       type="submit"
                       disabled={changePasswordMutation.isPending}
-                      className="btn-primary"
+                      className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       {changePasswordMutation.isPending ? 'Changing...' : 'Change Password'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowPasswordChange(false)}
-                      className="btn-secondary"
+                      className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Cancel
                     </button>
@@ -281,7 +281,7 @@ export default function Settings() {
               ) : (
                 <button
                   onClick={() => setShowPasswordChange(true)}
-                  className="btn-secondary"
+                  className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Change Password
                 </button>
@@ -290,12 +290,12 @@ export default function Settings() {
           </div>
 
           {/* Maintenance */}
-          <div className="card">
-            <div className="card-header flex items-center gap-2">
+          <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+            <div className="px-6 py-4 border-b border-dark-700 flex items-center gap-2">
               <TrashIcon className="w-5 h-5 text-primary-400" />
               <h2 className="text-lg font-semibold text-white">Maintenance</h2>
             </div>
-            <div className="card-body space-y-4">
+            <div className="p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium text-white">Clear Cache</h3>
@@ -304,7 +304,7 @@ export default function Settings() {
                 <button
                   onClick={() => clearCacheMutation.mutate()}
                   disabled={clearCacheMutation.isPending}
-                  className="btn-secondary"
+                  className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {clearCacheMutation.isPending ? 'Clearing...' : 'Clear Cache'}
                 </button>

@@ -273,31 +273,32 @@ docker compose -f docker-compose.dev.yml up
 - [ ] Add health checks and monitoring endpoints
 
 ### ⚡ Performance & Optimization
-- [ ] Implement in-memory caching for Emby API calls (library items, watch status)
-- [ ] Increase TanStack Query cache times for rarely-changed data (5-10min)
+- [x] Implement in-memory caching for Emby API calls (library items, watch status)
+- [x] Increase TanStack Query cache times for rarely-changed data (5-10min)
 - [ ] Add debouncing for search/filter operations
 - [ ] Optimize SQLAlchemy queries with eager loading (reduce N+1 queries)
 - [ ] Add pagination for large data lists
 - [ ] Create database indexes on frequently filtered columns (service_id, media_type, created_at)
 
 ### 🎨 UI/UX Improvements
-- [ ] **Sidebar Redesign**: Fix icon positioning (icons left of text, not above)
-- [ ] Improve spacing between icons and labels
-- [ ] Add better hover and active states for navigation
+- [x] **Sidebar Redesign**: Fix icon positioning (icons left of text, not above)
+- [x] Improve spacing between icons and labels
+- [x] Add better hover and active states for navigation
 - [ ] Optional: Implement collapsible sidebar with icon-only mode
-- [ ] **Mobile Optimization**: 
-  - [ ] Add responsive breakpoints for tablets and phones
-  - [ ] Implement bottom navigation for mobile devices
-  - [ ] Ensure touch-friendly button sizes (min 44x44px)
-  - [ ] Convert tables to cards on mobile for better readability
+- [x] **Mobile Optimization**: 
+  - [x] Add responsive breakpoints for tablets and phones
+  - [x] Implement bottom navigation for mobile devices (hamburger menu)
+  - [x] Ensure touch-friendly button sizes (min 44x44px)
+  - [x] Created ResponsiveTable component for mobile card view
+  - [ ] Convert all existing tables to use ResponsiveTable
   - [ ] Use bottom sheets instead of modals on mobile
 
 ### 🔔 Notification System Enhancement
-- [ ] Refactor notifications to use Apprise URL-schema
-- [ ] Replace fixed service types with flexible URL-based configuration
-- [ ] Add UI for URL input with link to Apprise documentation
-- [ ] Support 90+ notification services via Apprise (ntfy, Telegram, Matrix, etc.)
-- [ ] Update notification service to call Apprise directly with URLs
+- [x] Refactor notifications to use Apprise URL-schema
+- [x] Replace fixed service types with flexible URL-based configuration
+- [x] Add UI for URL input with link to Apprise documentation
+- [x] Support 90+ notification services via Apprise (ntfy, Telegram, Matrix, etc.)
+- [x] Update notification service to call Apprise directly with URLs
 
 ## Contributing
 

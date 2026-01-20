@@ -125,8 +125,8 @@ export default function Notifications() {
       {isLoading ? (
         <div className="space-y-4">
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="card animate-pulse">
-              <div className="card-body h-24" />
+            <div key={i} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg animate-pulse">
+              <div className="p-6 h-24" />
             </div>
           ))}
         </div>
@@ -216,7 +216,7 @@ export default function Notifications() {
         </div>
       ) : (
         <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
-          <div className="card-body text-center py-12">
+          <div className="p-6 text-center py-12">
             <BellIcon className="w-12 h-12 mx-auto text-dark-500" />
             <p className="text-dark-400 mt-4">No notification channels configured</p>
             <p className="text-sm text-dark-500 mt-1">
@@ -289,14 +289,14 @@ function NotificationModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="card w-full max-w-md mx-4">
+      <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg w-full max-w-md mx-4">
         <div className="px-6 py-4 border-b border-dark-700">
           <h2 className="text-lg font-semibold text-white">
             {channel ? 'Edit Notification Channel' : 'Add Notification Channel'}
           </h2>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="card-body space-y-4">
+          <div className="p-6 space-y-4">
             <div>
               <label className="block text-sm font-medium text-dark-200 mb-1">Name</label>
               <input

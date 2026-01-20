@@ -119,8 +119,8 @@ export default function Rules() {
       {isLoading ? (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="card animate-pulse">
-              <div className="card-body h-24" />
+            <div key={i} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg animate-pulse">
+              <div className="p-6 h-24" />
             </div>
           ))}
         </div>
@@ -187,7 +187,7 @@ export default function Rules() {
         </div>
       ) : (
         <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
-          <div className="card-body text-center py-12">
+          <div className="p-6 text-center py-12">
             <p className="text-dark-400">No cleanup rules configured</p>
             <p className="text-sm text-dark-500 mt-1">
               Create rules to automatically clean up your media library
@@ -253,14 +253,14 @@ function RuleModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
-      <div className="card w-full max-w-2xl mx-4 my-8">
+      <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg w-full max-w-2xl mx-4 my-8">
         <div className="px-6 py-4 border-b border-dark-700">
           <h2 className="text-lg font-semibold text-white">
             {template ? `Create Rule from Template` : 'Create Cleanup Rule'}
           </h2>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="card-body space-y-6 max-h-[60vh] overflow-y-auto">
+          <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
             {/* Basic Info */}
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">

@@ -169,7 +169,7 @@ export default function Preview() {
       {/* Results */}
       {isLoading || isFetching ? (
         <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
-          <div className="card-body text-center py-12">
+          <div className="p-6 text-center py-12">
             <ArrowPathIcon className="w-8 h-8 mx-auto text-primary-500 animate-spin" />
             <p className="text-dark-400 mt-4">Evaluating cleanup rules...</p>
           </div>
@@ -189,7 +189,7 @@ export default function Preview() {
                 </p>
               </div>
             </div>
-            <div className="card bg-red-900/20 border-red-800/50">
+            <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg bg-red-900/20 border-red-800/50">
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <span className="text-red-400">Would Delete</span>
@@ -200,7 +200,7 @@ export default function Preview() {
                 </p>
               </div>
             </div>
-            <div className="card bg-green-900/20 border-green-800/50">
+            <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg bg-green-900/20 border-green-800/50">
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <span className="text-green-400">Would Skip</span>
@@ -211,7 +211,7 @@ export default function Preview() {
                 </p>
               </div>
             </div>
-            <div className="card bg-yellow-900/20 border-yellow-800/50">
+            <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg bg-yellow-900/20 border-yellow-800/50">
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <span className="text-yellow-400">Space to Free</span>
@@ -404,7 +404,7 @@ export default function Preview() {
             </div>
           ) : (
             <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
-              <div className="card-body text-center py-12">
+              <div className="p-6 text-center py-12">
                 <CheckCircleIcon className="w-12 h-12 mx-auto text-green-500" />
                 <p className="text-dark-400 mt-4">
                   {showSkipped 
@@ -417,7 +417,7 @@ export default function Preview() {
         </>
       ) : (
         <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
-          <div className="card-body text-center py-12">
+          <div className="p-6 text-center py-12">
             <EyeIcon className="w-12 h-12 mx-auto text-dark-500" />
             <p className="text-dark-400 mt-4">
               Click "Run Preview" to see what would be cleaned up

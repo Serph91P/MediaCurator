@@ -2,7 +2,10 @@
 Emby API client for media server interaction.
 """
 from typing import Dict, Any, List, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from .base import BaseServiceClient, ServiceClientError
+from ..models import ServiceConnection
 from loguru import logger
 
 
@@ -253,3 +256,183 @@ class EmbyClient(BaseServiceClient):
         """Delete an item from Emby."""
         await self.delete(f"/Items/{item_id}")
         logger.info(f"Deleted item {item_id} from Emby")
+    
+    async def create_library(
+        self,
+        name: str,
+        paths: List[str],
+        library_type: str = "mixed",
+        refresh_library: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Create a new library.
+        
+        Args:
+            name: Library name
+            paths: List of folder paths for the library
+            library_type: Type of library (movies, tvshows, mixed, music, etc.)
+            refresh_library: Whether to refresh library after creation
+            
+        Returns:
+            Dict with library info including ItemId
+        """
+        data = {
+            "Name": name,
+            "Paths": paths,
+            "CollectionType": library_type if library_type != "mixed" else None,
+            "LibraryOptions": {
+                "EnablePhotos": False,
+                "EnableRealtimeMonitor": True,
+                "EnableChapterImageExtraction": False,
+                "ExtractChapterImagesDuringLibraryScan": False,
+                "EnableInternetProviders": True,
+                "EnableAutomaticSeriesGrouping": True,
+                "SaveLocalMetadata": False,
+                "PathInfos": [{"Path": path} for path in paths]
+            }
+        }
+        
+        result = await self.post("/Library/VirtualFolders", params={"name": name}, json=data)
+        logger.info(f"Created library '{name}' at paths: {paths}")
+        
+        # Get library ID
+        libraries = await self.get_libraries()
+        library = next((lib for lib in libraries if lib.get("Name") == name), None)
+        
+        if library and refresh_library:
+            # Trigger library scan
+            library_id = library.get("ItemId")
+            if library_id:
+                await self.refresh_library(library_id)
+        
+        return library or {"Name": name, "Paths": paths}
+    
+    async def delete_library(self, name: str) -> None:
+        """Delete a library by name."""
+        await self.delete("/Library/VirtualFolders", params={"name": name})
+        logger.info(f"Deleted library '{name}'")
+    
+    async def get_library_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get library by name."""
+        libraries = await self.get_libraries()
+        return next((lib for lib in libraries if lib.get("Name") == name), None)
+    
+    async def refresh_library(self, library_id: str) -> None:
+        """Trigger a library refresh/scan."""
+        await self.post(f"/Items/{library_id}/Refresh", json={"Recursive": True})
+        logger.info(f"Triggered refresh for library {library_id}")
+    
+    async def ensure_staging_library(
+        self,
+        library_name: str,
+        staging_path: str
+    ) -> Optional[str]:
+        """
+        Ensure staging library exists, create if not.
+        
+        Args:
+            library_name: Name for the staging library
+            staging_path: Path to staging directory
+            
+        Returns:
+            Library ItemId or None if failed
+        """
+        # Check if library exists
+        library = await self.get_library_by_name(library_name)
+        
+        if library:
+            library_id = library.get("ItemId")
+            logger.info(f"Staging library '{library_name}' already exists with ID {library_id}")
+            return library_id
+        
+        # Create library
+        try:
+            library = await self.create_library(
+                name=library_name,
+                paths=[staging_path],
+                library_type="mixed",  # Support both movies and series
+                refresh_library=True
+            )
+            library_id = library.get("ItemId")
+            logger.info(f"Created staging library '{library_name}' with ID {library_id}")
+            return library_id
+        except ServiceClientError as e:
+            logger.error(f"Failed to create staging library: {e}")
+            return None
+
+
+class EmbyService:
+    """High-level service for Emby operations with database integration."""
+    
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self._clients: Dict[int, EmbyClient] = {}
+    
+    async def get_client(self, service_id: int) -> Optional[EmbyClient]:
+        """Get Emby client for a service connection."""
+        # Check cache
+        if service_id in self._clients:
+            return self._clients[service_id]
+        
+        # Load from database
+        result = await self.db.execute(
+            select(ServiceConnection).where(
+                ServiceConnection.id == service_id,
+                ServiceConnection.service_type == "emby",
+                ServiceConnection.is_enabled == True
+            )
+        )
+        service = result.scalar_one_or_none()
+        
+        if not service:
+            return None
+        
+        # Create client
+        client = EmbyClient(service.url, service.api_key)
+        self._clients[service_id] = client
+        return client
+    
+    async def get_primary_emby_service(self) -> Optional[ServiceConnection]:
+        """Get the primary Emby service connection."""
+        result = await self.db.execute(
+            select(ServiceConnection).where(
+                ServiceConnection.service_type == "emby",
+                ServiceConnection.is_enabled == True
+            ).order_by(ServiceConnection.created_at.asc())
+        )
+        return result.scalar_one_or_none()
+    
+    async def ensure_staging_library(
+        self,
+        library_name: str,
+        staging_path: str
+    ) -> Optional[str]:
+        """Ensure staging library exists on primary Emby service."""
+        service = await self.get_primary_emby_service()
+        if not service:
+            logger.error("No Emby service configured")
+            return None
+        
+        client = await self.get_client(service.id)
+        if not client:
+            return None
+        
+        return await client.ensure_staging_library(library_name, staging_path)
+    
+    async def refresh_staging_library(self, library_id: str) -> bool:
+        """Refresh staging library on primary Emby service."""
+        service = await self.get_primary_emby_service()
+        if not service:
+            return False
+        
+        client = await self.get_client(service.id)
+        if not client:
+            return False
+        
+        try:
+            await client.refresh_library(library_id)
+            return True
+        except ServiceClientError as e:
+            logger.error(f"Failed to refresh staging library: {e}")
+            return False
+

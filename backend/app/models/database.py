@@ -200,6 +200,14 @@ class MediaItem(Base):
     flagged_by_rule_id = Column(Integer, ForeignKey("cleanup_rules.id"), nullable=True)
     scheduled_cleanup_at = Column(DateTime(timezone=True), nullable=True)
     
+    # Staging status (soft-delete before permanent deletion)
+    is_staged = Column(Boolean, default=False)
+    staged_at = Column(DateTime(timezone=True), nullable=True)
+    original_path = Column(String(1000), nullable=True)  # Original path before staging
+    staged_path = Column(String(1000), nullable=True)  # Current path in staging
+    permanent_delete_at = Column(DateTime(timezone=True), nullable=True)  # When to permanently delete
+    staged_library_id = Column(String(100), nullable=True)  # Emby staging library ID
+    
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

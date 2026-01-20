@@ -13,6 +13,7 @@ import Settings from './pages/Settings'
 import History from './pages/History'
 import Preview from './pages/Preview'
 import Jobs from './pages/Jobs'
+import Staging from './pages/Staging'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -60,6 +61,7 @@ function App() {
         <Route path="settings" element={<Settings />} />
         <Route path="history" element={<History />} />
         <Route path="preview" element={<Preview />} />
+        <Route path="staging" element={<Staging />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

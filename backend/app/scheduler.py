@@ -164,6 +164,116 @@ async def run_cleanup_job():
                 await db.commit()
 
 
+async def run_staging_cleanup_job():
+    """Process expired staged items for permanent deletion."""
+    logger.info("Running staging cleanup job")
+    
+    start_time = datetime.now(timezone.utc)
+    execution_log = None
+    
+    async with async_session_maker() as db:
+        try:
+            # Create execution log
+            execution_log = JobExecutionLog(
+                job_id="staging_cleanup_job",
+                job_name="Staging Cleanup",
+                status="running",
+                started_at=start_time
+            )
+            db.add(execution_log)
+            await db.commit()
+            
+            from .services.staging import StagingService
+            from .services.emby import EmbyService
+            
+            staging_service = StagingService(db)
+            emby_service = EmbyService(db)
+            
+            # Process expired items
+            result = await staging_service.process_expired_staged_items(emby_service)
+            
+            # Update execution log
+            end_time = datetime.now(timezone.utc)
+            execution_log.status = "success" if result.get('success') else "error"
+            execution_log.completed_at = end_time
+            execution_log.duration_seconds = (end_time - start_time).total_seconds()
+            execution_log.details = {
+                "processed": result.get('processed', 0),
+                "deleted": result.get('deleted', 0),
+                "failed": result.get('failed', 0)
+            }
+            await db.commit()
+            
+            logger.info(f"Staging cleanup completed: {result}")
+            
+        except Exception as e:
+            error_msg = f"Staging cleanup job failed: {e}"
+            logger.error(error_msg)
+            
+            # Update execution log with error
+            if execution_log:
+                end_time = datetime.now(timezone.utc)
+                execution_log.status = "error"
+                execution_log.completed_at = end_time
+                execution_log.duration_seconds = (end_time - start_time).total_seconds()
+                execution_log.error_message = str(e)
+                await db.commit()
+
+
+async def run_auto_restore_job():
+    """Check staged items and auto-restore if watched."""
+    logger.info("Running auto-restore job")
+    
+    start_time = datetime.now(timezone.utc)
+    execution_log = None
+    
+    async with async_session_maker() as db:
+        try:
+            # Create execution log
+            execution_log = JobExecutionLog(
+                job_id="auto_restore_job",
+                job_name="Auto-Restore Watched",
+                status="running",
+                started_at=start_time
+            )
+            db.add(execution_log)
+            await db.commit()
+            
+            from .services.staging import StagingService
+            from .services.emby import EmbyService
+            
+            staging_service = StagingService(db)
+            emby_service = EmbyService(db)
+            
+            # Check and restore watched items
+            result = await staging_service.check_and_restore_watched(emby_service)
+            
+            # Update execution log
+            end_time = datetime.now(timezone.utc)
+            execution_log.status = "success" if result.get('success') else "error"
+            execution_log.completed_at = end_time
+            execution_log.duration_seconds = (end_time - start_time).total_seconds()
+            execution_log.details = {
+                "restored": result.get('restored', 0)
+            }
+            await db.commit()
+            
+            logger.info(f"Auto-restore completed: {result}")
+            
+        except Exception as e:
+            error_msg = f"Auto-restore job failed: {e}"
+            logger.error(error_msg)
+            
+            # Update execution log with error
+            if execution_log:
+                end_time = datetime.now(timezone.utc)
+                execution_log.status = "error"
+                execution_log.completed_at = end_time
+                execution_log.duration_seconds = (end_time - start_time).total_seconds()
+                execution_log.error_message = str(e)
+                await db.commit()
+
+
 def start_scheduler():
     """Start the scheduler with configured jobs."""
     # Sync job - default every 6 hours
@@ -184,8 +294,26 @@ def start_scheduler():
         replace_existing=True
     )
     
+    # Staging cleanup job - run daily at 3 AM to check for expired items
+    scheduler.add_job(
+        run_staging_cleanup_job,
+        IntervalTrigger(hours=24),
+        id="staging_cleanup_job",
+        name="Staging Cleanup",
+        replace_existing=True
+    )
+    
+    # Auto-restore job - check every 30 minutes for watched items
+    scheduler.add_job(
+        run_auto_restore_job,
+        IntervalTrigger(minutes=30),
+        id="auto_restore_job",
+        name="Auto-Restore Watched",
+        replace_existing=True
+    )
+    
     scheduler.start()
-    logger.info("Scheduler started with sync and cleanup jobs")
+    logger.info("Scheduler started with all jobs (sync, cleanup, staging cleanup, auto-restore)")
 
 
 def stop_scheduler():

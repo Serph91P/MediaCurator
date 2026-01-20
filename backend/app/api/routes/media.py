@@ -203,3 +203,102 @@ async def get_import_stats(
         "by_service": list(service_totals.values()),
         "recent_imports": imports[:50]  # Limit to 50 most recent
     }
+
+
+@router.get("/watch-stats")
+async def get_watch_stats(
+    limit: int = Query(default=20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get watch statistics (most watched items, recently watched, etc.)."""
+    
+    # Most watched items
+    most_watched_result = await db.execute(
+        select(MediaItem)
+        .where(MediaItem.watch_count > 0)
+        .order_by(MediaItem.watch_count.desc())
+        .limit(limit)
+    )
+    most_watched = most_watched_result.scalars().all()
+    
+    # Recently watched items
+    recently_watched_result = await db.execute(
+        select(MediaItem)
+        .where(MediaItem.last_watched_at.isnot(None))
+        .order_by(MediaItem.last_watched_at.desc())
+        .limit(limit)
+    )
+    recently_watched = recently_watched_result.scalars().all()
+    
+    # Currently watching (in progress)
+    currently_watching_result = await db.execute(
+        select(MediaItem)
+        .where(
+            and_(
+                MediaItem.is_currently_watching == True,
+                MediaItem.progress_percent > 0,
+                MediaItem.progress_percent < 100
+            )
+        )
+        .order_by(MediaItem.last_progress_update.desc())
+        .limit(limit)
+    )
+    currently_watching = currently_watching_result.scalars().all()
+    
+    # Watch statistics aggregation
+    total_watches_result = await db.execute(
+        select(func.sum(MediaItem.watch_count))
+    )
+    total_watches = total_watches_result.scalar() or 0
+    
+    watched_items_result = await db.execute(
+        select(func.count(MediaItem.id)).where(MediaItem.is_watched == True)
+    )
+    watched_items = watched_items_result.scalar() or 0
+    
+    # Most watched by type
+    movies_watched_result = await db.execute(
+        select(func.sum(MediaItem.watch_count))
+        .where(MediaItem.media_type == MediaType.MOVIE)
+    )
+    movies_watches = movies_watched_result.scalar() or 0
+    
+    episodes_watched_result = await db.execute(
+        select(func.sum(MediaItem.watch_count))
+        .where(MediaItem.media_type == MediaType.EPISODE)
+    )
+    episodes_watches = episodes_watched_result.scalar() or 0
+    
+    # Get service info for enrichment
+    services_result = await db.execute(select(ServiceConnection))
+    services = {s.id: s for s in services_result.scalars().all()}
+    
+    def format_media_item(item: MediaItem) -> dict:
+        service = services.get(item.service_connection_id)
+        return {
+            "id": item.id,
+            "title": item.title,
+            "media_type": item.media_type.value,
+            "year": item.year,
+            "watch_count": item.watch_count,
+            "is_watched": item.is_watched,
+            "last_watched_at": item.last_watched_at.isoformat() if item.last_watched_at else None,
+            "progress_percent": item.progress_percent,
+            "is_favorited": item.is_favorited,
+            "rating": item.rating,
+            "service_name": service.name if service else None,
+            "genres": item.genres if item.genres else []
+        }
+    
+    return {
+        "summary": {
+            "total_watches": int(total_watches),
+            "watched_items": watched_items,
+            "movies_watches": int(movies_watches),
+            "episodes_watches": int(episodes_watches)
+        },
+        "most_watched": [format_media_item(item) for item in most_watched],
+        "recently_watched": [format_media_item(item) for item in recently_watched],
+        "currently_watching": [format_media_item(item) for item in currently_watching]
+    }

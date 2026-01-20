@@ -109,6 +109,14 @@ export default function Dashboard() {
     },
   })
 
+  const { data: watchStats } = useQuery({
+    queryKey: ['watchStats'],
+    queryFn: async () => {
+      const res = await api.get('/media/watch-stats?limit=10')
+      return res.data
+    },
+  })
+
   const isLoading = statsLoading || mediaLoading
 
   return (
@@ -284,6 +292,101 @@ export default function Dashboard() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Watch Statistics */}
+      {watchStats && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Most Watched */}
+          <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+            <div className="px-6 py-4 border-b border-dark-700">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <TvIcon className="w-5 h-5" />
+                Most Watched
+              </h2>
+              <p className="text-sm text-dark-400 mt-1">
+                Total: {watchStats.summary?.total_watches?.toLocaleString()} plays • {watchStats.summary?.watched_items} items watched
+              </p>
+            </div>
+            <div className="p-6">
+              {watchStats.most_watched && watchStats.most_watched.length > 0 ? (
+                <div className="space-y-3">
+                  {watchStats.most_watched.slice(0, 5).map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-dark-700/50 rounded-lg hover:bg-dark-700 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-white truncate">{item.title}</h3>
+                          {item.is_favorited && (
+                            <span className="text-yellow-400 text-xs">★</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-500/20 text-primary-400">
+                            {item.media_type}
+                          </span>
+                          {item.rating && (
+                            <span className="text-xs text-dark-400">⭐ {item.rating.toFixed(1)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right ml-4">
+                        <div className="text-lg font-bold text-primary-400">{item.watch_count}</div>
+                        <div className="text-xs text-dark-500">plays</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-dark-400 py-4">No watch data available</p>
+              )}
+            </div>
+          </div>
+
+          {/* Recently Watched */}
+          <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+            <div className="px-6 py-4 border-b border-dark-700">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <PlayIcon className="w-5 h-5" />
+                Recently Watched
+              </h2>
+              <p className="text-sm text-dark-400 mt-1">
+                Movies: {watchStats.summary?.movies_watches?.toLocaleString()} plays • Episodes: {watchStats.summary?.episodes_watches?.toLocaleString()} plays
+              </p>
+            </div>
+            <div className="p-6">
+              {watchStats.recently_watched && watchStats.recently_watched.length > 0 ? (
+                <div className="space-y-3">
+                  {watchStats.recently_watched.slice(0, 5).map((item: any) => (
+                    <div key={item.id} className="flex items-start justify-between p-3 bg-dark-700/50 rounded-lg hover:bg-dark-700 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-white truncate">{item.title}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-500/20 text-primary-400">
+                            {item.media_type}
+                          </span>
+                          {item.genres && item.genres.length > 0 && (
+                            <span className="text-xs text-dark-400">{item.genres[0]}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right ml-4">
+                        <div className="text-xs text-dark-400">
+                          {item.last_watched_at
+                            ? new Date(item.last_watched_at).toLocaleDateString('de-DE', { month: 'short', day: 'numeric' })
+                            : '-'
+                          }
+                        </div>
+                        <div className="text-xs text-dark-500">{item.watch_count}× watched</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-dark-400 py-4">No recent watches</p>
+              )}
+            </div>
           </div>
         </div>
       )}

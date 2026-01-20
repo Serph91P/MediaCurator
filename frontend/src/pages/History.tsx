@@ -36,11 +36,11 @@ export default function History() {
   const getActionBadge = (action: string) => {
     switch (action) {
       case 'delete':
-        return <span className="badge badge-danger">Deleted</span>
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400">Deleted</span>
       case 'unmonitor':
-        return <span className="badge badge-warning">Unmonitored</span>
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">Unmonitored</span>
       case 'notify':
-        return <span className="badge badge-info">Notified</span>
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">Notified</span>
       default:
         return <span className="badge bg-dark-600 text-dark-300">{action}</span>
     }
@@ -65,8 +65,8 @@ export default function History() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card">
-          <div className="card-body">
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+          <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-green-600/20 flex items-center justify-center">
                 <CheckCircleIcon className="w-5 h-5 text-green-400" />
@@ -78,8 +78,8 @@ export default function History() {
             </div>
           </div>
         </div>
-        <div className="card">
-          <div className="card-body">
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+          <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary-600/20 flex items-center justify-center">
                 <TrashIcon className="w-5 h-5 text-primary-400" />
@@ -91,8 +91,8 @@ export default function History() {
             </div>
           </div>
         </div>
-        <div className="card">
-          <div className="card-body">
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+          <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-red-600/20 flex items-center justify-center">
                 <ExclamationTriangleIcon className="w-5 h-5 text-red-400" />
@@ -110,19 +110,19 @@ export default function History() {
       <div className="flex gap-2">
         <button
           onClick={() => setFilter('all')}
-          className={`btn-secondary ${filter === 'all' ? 'bg-primary-600 text-white' : ''}`}
+          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'all' ? 'bg-primary-600 text-white' : ''}`}
         >
           All
         </button>
         <button
           onClick={() => setFilter('success')}
-          className={`btn-secondary ${filter === 'success' ? 'bg-green-600 text-white' : ''}`}
+          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'success' ? 'bg-green-600 text-white' : ''}`}
         >
           Success
         </button>
         <button
           onClick={() => setFilter('error')}
-          className={`btn-secondary ${filter === 'error' ? 'bg-red-600 text-white' : ''}`}
+          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'error' ? 'bg-red-600 text-white' : ''}`}
         >
           Errors
         </button>
@@ -130,11 +130,11 @@ export default function History() {
 
       {/* Logs Table */}
       {isLoading ? (
-        <div className="card animate-pulse">
-          <div className="card-body h-96" />
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg animate-pulse">
+          <div className="p-6 h-96" />
         </div>
       ) : logs && logs.length > 0 ? (
-        <div className="card overflow-hidden">
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-dark-800/50">
@@ -204,8 +204,8 @@ export default function History() {
           </div>
         </div>
       ) : (
-        <div className="card">
-          <div className="card-body text-center py-12">
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+          <div className="p-6 text-center py-12">
             <ClockIcon className="w-12 h-12 mx-auto text-dark-500" />
             <p className="text-dark-400 mt-4">No cleanup history yet</p>
             <p className="text-sm text-dark-500 mt-1">

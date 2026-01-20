@@ -32,8 +32,8 @@ function StatCard({
   }
 
   return (
-    <div className="card">
-      <div className="card-body flex items-center gap-4">
+    <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+      <div className="p-6 flex items-center gap-4">
         <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
           <Icon className="w-6 h-6" />
         </div>
@@ -114,8 +114,8 @@ export default function Dashboard() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="card animate-pulse">
-              <div className="card-body h-24" />
+            <div key={i} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg animate-pulse">
+              <div className="p-6 h-24" />
             </div>
           ))}
         </div>
@@ -153,14 +153,14 @@ export default function Dashboard() {
       )}
 
       {/* Disk Usage */}
-      <div className="card">
-        <div className="card-header">
+      <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="px-6 py-4 border-b border-dark-700">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <CircleStackIcon className="w-5 h-5" />
             Disk Usage
           </h2>
         </div>
-        <div className="card-body space-y-6">
+        <div className="p-6 space-y-6">
           {stats?.disk_space && stats.disk_space.length > 0 ? (
             stats.disk_space.map((disk, i) => (
               <DiskUsageBar
@@ -178,17 +178,17 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="card">
-        <div className="card-header">
+      <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="px-6 py-4 border-b border-dark-700">
           <h2 className="text-lg font-semibold text-white">Quick Actions</h2>
         </div>
-        <div className="card-body">
+        <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
               onClick={async () => {
                 await api.post('/system/sync/run')
               }}
-              className="btn-secondary flex items-center justify-center gap-2 py-4"
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2 py-4"
             >
               <PlayIcon className="w-5 h-5" />
               Sync All Services
@@ -197,7 +197,7 @@ export default function Dashboard() {
               onClick={async () => {
                 await api.post('/system/cleanup/run', null, { params: { dry_run: true } })
               }}
-              className="btn-secondary flex items-center justify-center gap-2 py-4"
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2 py-4"
             >
               <ExclamationTriangleIcon className="w-5 h-5" />
               Preview Cleanup
@@ -206,7 +206,7 @@ export default function Dashboard() {
               onClick={async () => {
                 await api.post('/system/cleanup/run')
               }}
-              className="btn-danger flex items-center justify-center gap-2 py-4"
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-2 focus:outline-offset-2 focus:outline-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2 py-4"
             >
               <TrashIcon className="w-5 h-5" />
               Run Cleanup Now

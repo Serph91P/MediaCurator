@@ -1,5 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/auth'
+import api from '../lib/api'
 import {
   HomeIcon,
   ServerStackIcon,
@@ -30,6 +32,17 @@ const navigation = [
 export default function Layout() {
   const { user, logout } = useAuthStore()
 
+  // Fetch system health/version info
+  const { data: healthData } = useQuery({
+    queryKey: ['systemHealth'],
+    queryFn: async () => {
+      const res = await api.get('/system/health')
+      return res.data as { status: string; version: string; database: string; scheduler: string }
+    },
+    refetchInterval: 60000, // Refresh every minute
+    retry: false,
+  })
+
   return (
     <div className="flex h-screen bg-dark-900">
       {/* Sidebar */}
@@ -44,7 +57,12 @@ export default function Layout() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-white">MediaCleaner</h1>
-              <p className="text-xs text-dark-400">v0.0.40</p>
+              <p className="text-xs text-dark-400">
+                v{healthData?.version || '0.1.0'}
+                {healthData?.database === 'unhealthy' && (
+                  <span className="ml-2 text-red-400" title="Database connection issue">⚠</span>
+                )}
+              </p>
             </div>
           </div>
         </div>

@@ -73,3 +73,7 @@ tmp/
 temp/
 *.tmp
 *.bak
+
+# copilot
+.github/agents
+.github/prompts

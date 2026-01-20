@@ -5,13 +5,18 @@ import api from '../lib/api'
 import toast from 'react-hot-toast'
 import type { ServiceConnection, ServiceConnectionCreate, ServiceType } from '../types'
 
-const serviceTypes: { value: ServiceType; label: string }[] = [
-  { value: 'sonarr', label: 'Sonarr' },
-  { value: 'radarr', label: 'Radarr' },
-  { value: 'emby', label: 'Emby' },
-  { value: 'jellyfin', label: 'Jellyfin' },
-  { value: 'jellystat', label: 'Jellystat' },
+const serviceTypes: { value: ServiceType; label: string; category: string }[] = [
+  { value: 'sonarr', label: 'Sonarr', category: 'Download Manager' },
+  { value: 'radarr', label: 'Radarr', category: 'Download Manager' },
+  { value: 'emby', label: 'Emby', category: 'Media Server' },
+  { value: 'jellyfin', label: 'Jellyfin', category: 'Media Server' },
+  { value: 'jellystat', label: 'Jellystat', category: 'Media Server' },
 ]
+
+const getServiceCategory = (type: ServiceType): string => {
+  const service = serviceTypes.find(s => s.value === type)
+  return service?.category || 'Other'
+}
 
 export default function Services() {
   const queryClient = useQueryClient()
@@ -113,69 +118,88 @@ export default function Services() {
           ))}
         </div>
       ) : services && services.length > 0 ? (
-        <div className="grid gap-4">
-          {services.map((service) => (
-            <div key={service.id} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
-              <div className="p-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-lg ${service.is_enabled ? 'bg-green-500/20' : 'bg-dark-700'}`}>
-                    {service.is_enabled ? (
-                      <CheckCircleIcon className="w-6 h-6 text-green-400" />
-                    ) : (
-                      <XCircleIcon className="w-6 h-6 text-dark-400" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-white">{service.name}</h3>
-                    <p className="text-sm text-dark-400">
-                      {service.service_type.toUpperCase()} • {service.url}
-                    </p>
-                    {service.last_sync && (
-                      <p className="text-xs text-dark-500">
-                        Last sync: {new Date(service.last_sync).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setEditingService(service)
-                      setIsModalOpen(true)
-                    }}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title="Edit"
-                  >
-                    <PencilIcon className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => testMutation.mutate(service.id)}
-                    disabled={testMutation.isPending}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title="Test Connection"
-                  >
-                    <CheckCircleIcon className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => syncMutation.mutate(service.id)}
-                    disabled={syncMutation.isPending}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title="Sync"
-                  >
-                    <ArrowPathIcon className={`w-5 h-5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                  </button>
-                  <button
-                    onClick={() => deleteMutation.mutate(service.id)}
-                    disabled={deleteMutation.isPending}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-red-400 rounded-lg hover:bg-dark-800 hover:text-red-300 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title="Delete"
-                  >
-                    <TrashIcon className="w-5 h-5" />
-                  </button>
+        <div className="space-y-8">
+          {/* Group services by category */}
+          {['Download Manager', 'Media Server'].map((category) => {
+            const categoryServices = services.filter(
+              (s) => getServiceCategory(s.service_type) === category
+            )
+            
+            if (categoryServices.length === 0) return null
+
+            return (
+              <div key={category}>
+                <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-primary-500 rounded-full"></div>
+                  {category}
+                </h2>
+                <div className="grid gap-4">
+                  {categoryServices.map((service) => (
+                    <div key={service.id} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+                      <div className="p-6 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-3 rounded-lg ${service.is_enabled ? 'bg-green-500/20' : 'bg-dark-700'}`}>
+                            {service.is_enabled ? (
+                              <CheckCircleIcon className="w-6 h-6 text-green-400" />
+                            ) : (
+                              <XCircleIcon className="w-6 h-6 text-dark-400" />
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-white">{service.name}</h3>
+                            <p className="text-sm text-dark-400">
+                              {service.service_type.toUpperCase()} • {service.url}
+                            </p>
+                            {service.last_sync && (
+                              <p className="text-xs text-dark-500">
+                                Last sync: {new Date(service.last_sync).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingService(service)
+                              setIsModalOpen(true)
+                            }}
+                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title="Edit"
+                          >
+                            <PencilIcon className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => testMutation.mutate(service.id)}
+                            disabled={testMutation.isPending}
+                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title="Test Connection"
+                          >
+                            <CheckCircleIcon className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => syncMutation.mutate(service.id)}
+                            disabled={syncMutation.isPending}
+                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title="Sync"
+                          >
+                            <ArrowPathIcon className={`w-5 h-5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                          </button>
+                          <button
+                            onClick={() => deleteMutation.mutate(service.id)}
+                            disabled={deleteMutation.isPending}
+                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-red-400 rounded-lg hover:bg-dark-800 hover:text-red-300 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title="Delete"
+                          >
+                            <TrashIcon className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">

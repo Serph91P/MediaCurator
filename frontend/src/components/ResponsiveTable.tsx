@@ -1,17 +1,17 @@
 import { ReactNode } from 'react'
 
-interface Column {
+interface Column<T = any> {
   header: string
   accessor: string
-  cell?: (value: any, row: any) => ReactNode
+  cell?: (row: T) => ReactNode
   className?: string
-  mobileLabel?: boolean // Show as label on mobile
+  mobileLabel?: string | boolean // Label text for mobile view, or true to use header
 }
 
-interface ResponsiveTableProps {
-  columns: Column[]
-  data: any[]
-  keyExtractor: (row: any) => string | number
+interface ResponsiveTableProps<T = any> {
+  columns: Column<T>[]
+  data: T[]
+  keyExtractor: (row: T) => string | number
   emptyMessage?: string
   className?: string
 }
@@ -53,7 +53,7 @@ export default function ResponsiveTable({
               <tr key={keyExtractor(row)} className="hover:bg-dark-700/30 transition-colors">
                 {columns.map((column, idx) => (
                   <td key={idx} className={`px-6 py-4 whitespace-nowrap ${column.className || ''}`}>
-                    {column.cell ? column.cell(row[column.accessor], row) : row[column.accessor]}
+                    {column.cell ? column.cell(row) : row[column.accessor]}
                   </td>
                 ))}
               </tr>
@@ -70,16 +70,20 @@ export default function ResponsiveTable({
             className="bg-dark-800 rounded-lg border border-dark-700 p-4 space-y-3"
           >
             {columns.map((column, idx) => {
-              const value = row[column.accessor]
-              const displayValue = column.cell ? column.cell(value, row) : value
+              const displayValue = column.cell ? column.cell(row) : row[column.accessor]
 
               // Skip empty values on mobile
               if (!displayValue && displayValue !== 0) return null
 
+              // Get label for mobile view
+              const mobileLabel = typeof column.mobileLabel === 'string' 
+                ? column.mobileLabel 
+                : column.header
+
               return (
                 <div key={idx} className="flex justify-between items-start gap-4">
                   <span className="text-sm font-medium text-dark-400 flex-shrink-0">
-                    {column.header}
+                    {mobileLabel}
                   </span>
                   <div className="text-sm text-dark-100 text-right">{displayValue}</div>
                 </div>

@@ -135,9 +135,10 @@ export interface NotificationChannel {
   notification_type: NotificationType
   is_enabled: boolean
   webhook_url: string | null
-  on_delete: boolean
-  on_warning: boolean
-  on_error: boolean
+  config: Record<string, unknown>
+  notify_on_deleted: boolean
+  notify_on_flagged: boolean
+  notify_on_error: boolean
   created_at: string
   updated_at: string | null
 }
@@ -147,9 +148,10 @@ export interface NotificationChannelCreate {
   notification_type: NotificationType
   is_enabled?: boolean
   webhook_url?: string | null
-  on_delete?: boolean
-  on_warning?: boolean
-  on_error?: boolean
+  config?: Record<string, unknown>
+  notify_on_deleted?: boolean
+  notify_on_flagged?: boolean
+  notify_on_error?: boolean
 }
 
 export interface CleanupLog {

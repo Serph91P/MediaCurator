@@ -8,6 +8,10 @@ import type { NotificationChannel, NotificationChannelCreate, NotificationType }
 // Apprise supports 90+ notification services via URLs
 // Examples: discord://webhook_id/webhook_token, ntfy://ntfy.sh/topic, tgram://bot_token/chat_id
 
+const notificationTypes = [
+  { value: 'apprise', label: 'Apprise', description: 'Universal notification gateway supporting 90+ services' },
+]
+
 export default function Notifications() {
   const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)

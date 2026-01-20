@@ -1,10 +1,10 @@
-# MediaCleanup
+# MediaCurator
 
-A Docker-optimized media library cleanup application similar to Janitorr/Maintainerr. Automatically clean up your media library based on customizable rules, watch history, and disk space thresholds.
+Intelligently curate and manage your media library with automated cleanup rules. A Docker-optimized application for Sonarr, Radarr, Emby, and Jellyfin that helps you maintain a clean, organized media collection.
 
-![License](https://img.shields.io/github/license/your-username/media-cleanup)
-![Docker Pulls](https://img.shields.io/docker/pulls/your-username/media-cleanup)
-![GitHub release](https://img.shields.io/github/v/release/your-username/media-cleanup)
+![License](https://img.shields.io/github/license/Serph91P/mediacurator)
+![Docker Pulls](https://img.shields.io/docker/pulls/ghcr.io/serph91p/mediacurator)
+![GitHub release](https://img.shields.io/github/v/release/Serph91P/mediacurator)
 
 ## Features
 
@@ -33,9 +33,9 @@ A Docker-optimized media library cleanup application similar to Janitorr/Maintai
 
 ```yaml
 services:
-  mediacleanup:
-    image: ghcr.io/your-username/media-cleanup:latest
-    container_name: mediacleanup
+  mediacurator:
+    image: ghcr.io/serph91p/mediacurator:latest
+    container_name: mediacurator
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -60,14 +60,14 @@ docker compose up -d
 
 ```bash
 docker run -d \
-  --name mediacleanup \
+  --name mediacurator \
   -p 8080:8080 \
   -e TZ=Europe/Berlin \
   -e SECRET_KEY=your-secure-secret-key \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/logs:/app/logs \
   -v /media:/media:ro \
-  ghcr.io/your-username/media-cleanup:latest
+  ghcr.io/your-username/mediacurator:latest
 ```
 
 ## Configuration
@@ -78,7 +78,7 @@ docker run -d \
 |----------|-------------|---------|
 | `TZ` | Timezone for scheduling | `UTC` |
 | `SECRET_KEY` | JWT signing key (change in production!) | - |
-| `DATABASE_URL` | Database connection string | `sqlite+aiosqlite:///./data/mediacleanup.db` |
+| `DATABASE_URL` | Database connection string | `sqlite+aiosqlite:///./data/mediacurator.db` |
 | `FIRST_USER_IS_ADMIN` | First registered user becomes admin | `true` |
 | `LOG_LEVEL` | Logging verbosity | `INFO` |
 

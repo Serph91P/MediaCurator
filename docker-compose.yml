@@ -2,15 +2,15 @@
 # For development, see docker-compose.dev.yml
 
 services:
-  mediacleanup:
+  mediacurator:
     # Use pre-built image from GitHub Container Registry
-    image: ghcr.io/serph91p/cleanup-app:latest
+    image: ghcr.io/serph91p/mediacurator:latest
     # Or use a specific version tag:
-    # image: ghcr.io/serph91p/cleanup-app:v1.0.0
+    # image: ghcr.io/serph91p/mediacurator:1.0.0
     # Or use develop branch:
-    # image: ghcr.io/serph91p/cleanup-app:develop
+    # image: ghcr.io/serph91p/mediacurator:dev
     
-    container_name: mediacleanup
+    container_name: mediacurator
     restart: unless-stopped
     
     # Run as non-root user (appuser with UID 1000)
@@ -28,7 +28,7 @@ services:
       - SECRET_KEY=${SECRET_KEY:-please-change-this-secret-key-in-production}
       
       # Database
-      - DATABASE_URL=sqlite+aiosqlite:///./data/mediacleanup.db
+      - DATABASE_URL=sqlite+aiosqlite:///./data/mediacurator.db
       
       # First user becomes admin
       - FIRST_USER_IS_ADMIN=true
@@ -74,7 +74,7 @@ services:
 
 # For development with hot reload
 # services:
-#   mediacleanup-dev:
+#   mediacurator-dev:
 #     build:
 #       context: .
 #       dockerfile: Dockerfile.dev
@@ -88,4 +88,4 @@ services:
 #     environment:
 #       - TZ=${TZ:-Europe/Berlin}
 #       - SECRET_KEY=dev-secret-key
-#       - DATABASE_URL=sqlite+aiosqlite:///./data/mediacleanup.db
+#       - DATABASE_URL=sqlite+aiosqlite:///./data/mediacurator.db

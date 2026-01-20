@@ -304,22 +304,18 @@ docker compose -f docker-compose.dev.yml up
 - [ ] Add rate limiting for API endpoints
 - [ ] Implement session management with refresh tokens
 - [ ] Add audit logging for admin actions
-- [ ] Support LDAP/OAuth authentication (optional)
 
 ### 📊 Monitoring & Observability
-- [ ] Add Prometheus metrics endpoint
 - [ ] Implement structured logging with correlation IDs
 - [ ] Add performance monitoring for slow queries
 - [ ] Create admin dashboard with system stats
 
 ### 🚀 Features & Enhancements
-- [ ] Support for Plex media server
 - [ ] Bulk operations for rules (enable/disable multiple)
-- [ ] Export/import rules as JSON
+- [x] Export/import rules as JSON
 - [ ] Advanced scheduling (different schedules per rule)
 - [ ] Dry-run per rule (not just global)
 - [ ] Media tags auto-management based on watch patterns
-- [ ] Integration with Tautulli for Plex watch history
 
 ## Contributing
 

@@ -1,11 +1,13 @@
 """
 Cleanup rules API routes.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 from pydantic import BaseModel
+import json
 
 from ...core.database import get_db
 from ...models import CleanupRule, SeriesEvaluationMode, SeriesDeleteTarget
@@ -298,3 +300,125 @@ async def get_rule_templates(
             "grace_period_days": 7
         }
     ]
+
+
+@router.get("/export/all")
+async def export_rules(
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Export all cleanup rules as JSON for backup or sharing."""
+    result = await db.execute(
+        select(CleanupRule).order_by(CleanupRule.priority.desc())
+    )
+    rules = result.scalars().all()
+    
+    export_data = {
+        "version": "1.0",
+        "rules": [
+            {
+                "name": rule.name,
+                "description": rule.description,
+                "is_enabled": rule.is_enabled,
+                "priority": rule.priority,
+                "media_types": rule.media_types,
+                "library_id": rule.library_id,
+                "conditions": rule.conditions,
+                "action": rule.action,
+                "grace_period_days": rule.grace_period_days
+            }
+            for rule in rules
+        ]
+    }
+    
+    return JSONResponse(
+        content=export_data,
+        headers={
+            "Content-Disposition": "attachment; filename=mediacurator-rules.json"
+        }
+    )
+
+
+class ImportResult(BaseModel):
+    imported: int
+    skipped: int
+    errors: List[str]
+
+
+@router.post("/import", response_model=ImportResult)
+async def import_rules(
+    file: UploadFile = File(...),
+    replace_existing: bool = False,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Import cleanup rules from JSON file."""
+    if not file.filename.endswith('.json'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only JSON files are supported"
+        )
+    
+    try:
+        content = await file.read()
+        data = json.loads(content.decode('utf-8'))
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid JSON: {str(e)}"
+        )
+    
+    if "rules" not in data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid format: 'rules' key not found"
+        )
+    
+    imported = 0
+    skipped = 0
+    errors = []
+    
+    for idx, rule_data in enumerate(data["rules"]):
+        try:
+            # Check if rule with same name exists
+            result = await db.execute(
+                select(CleanupRule).where(CleanupRule.name == rule_data.get("name"))
+            )
+            existing = result.scalar_one_or_none()
+            
+            if existing and not replace_existing:
+                skipped += 1
+                continue
+            
+            if existing and replace_existing:
+                # Update existing rule
+                existing.description = rule_data.get("description")
+                existing.is_enabled = rule_data.get("is_enabled", True)
+                existing.priority = rule_data.get("priority", 0)
+                existing.media_types = rule_data.get("media_types", ["movie"])
+                existing.library_id = rule_data.get("library_id")
+                existing.conditions = rule_data.get("conditions", {})
+                existing.action = rule_data.get("action", "delete")
+                existing.grace_period_days = rule_data.get("grace_period_days", 0)
+            else:
+                # Create new rule
+                rule = CleanupRule(
+                    name=rule_data.get("name", f"Imported Rule {idx + 1}"),
+                    description=rule_data.get("description"),
+                    is_enabled=rule_data.get("is_enabled", True),
+                    priority=rule_data.get("priority", 0),
+                    media_types=rule_data.get("media_types", ["movie"]),
+                    library_id=rule_data.get("library_id"),
+                    conditions=rule_data.get("conditions", {}),
+                    action=rule_data.get("action", "delete"),
+                    grace_period_days=rule_data.get("grace_period_days", 0)
+                )
+                db.add(rule)
+            
+            imported += 1
+        except Exception as e:
+            errors.append(f"Rule {idx + 1}: {str(e)}")
+    
+    await db.commit()
+    
+    return ImportResult(imported=imported, skipped=skipped, errors=errors)

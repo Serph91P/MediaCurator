@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, TrashIcon, ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -22,6 +22,7 @@ export default function Rules() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<RuleTemplate | null>(null)
   const [ruleToDelete, setRuleToDelete] = useState<CleanupRule | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: rules, isLoading } = useQuery({
     queryKey: ['rules'],
@@ -73,6 +74,49 @@ export default function Rules() {
     },
   })
 
+  const handleExport = async () => {
+    try {
+      const res = await api.get('/rules/export/all')
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'mediacurator-rules.json'
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('Rules exported successfully')
+    } catch {
+      toast.error('Failed to export rules')
+    }
+  }
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await api.post('/rules/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      const result = res.data
+      queryClient.invalidateQueries({ queryKey: ['rules'] })
+      toast.success(`Imported ${result.imported} rules (${result.skipped} skipped)`)
+      if (result.errors?.length > 0) {
+        toast.error(`${result.errors.length} errors occurred`)
+      }
+    } catch {
+      toast.error('Failed to import rules')
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -80,10 +124,29 @@ export default function Rules() {
           <h1 className="text-3xl font-bold text-white">Cleanup Rules</h1>
           <p className="text-dark-400 mt-1">Define when and how media should be cleaned up</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2">
-          <PlusIcon className="w-5 h-5" />
-          Add Rule
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 transition-colors"
+            title="Export Rules"
+          >
+            <ArrowDownTrayIcon className="w-5 h-5" />
+          </button>
+          <label className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 transition-colors cursor-pointer" title="Import Rules">
+            <ArrowUpTrayIcon className="w-5 h-5" />
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".json"
+              onChange={handleImport}
+              className="hidden"
+            />
+          </label>
+          <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2">
+            <PlusIcon className="w-5 h-5" />
+            Add Rule
+          </button>
+        </div>
       </div>
 
       {/* Templates */}

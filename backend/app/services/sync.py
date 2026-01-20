@@ -2,12 +2,12 @@
 Sync service for fetching media items from services.
 """
 from typing import Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from loguru import logger
 
-from ..models import ServiceConnection, MediaItem, ServiceType, MediaType
+from ..models import ServiceConnection, MediaItem, ServiceType, MediaType, ImportStats
 from .sonarr import SonarrClient
 from .radarr import RadarrClient
 from .emby import EmbyClient
@@ -20,6 +20,7 @@ async def sync_service_media(
     """Sync media items from a service connection."""
     logger.info(f"Starting sync for service: {service.name}")
     
+    start_time = datetime.now(timezone.utc)
     added = 0
     updated = 0
     errors = []
@@ -41,12 +42,44 @@ async def sync_service_media(
         
         # Update last sync time
         service.last_sync = datetime.utcnow()
+        
+        # Create import stats record
+        end_time = datetime.now(timezone.utc)
+        duration = (end_time - start_time).total_seconds()
+        
+        import_stat = ImportStats(
+            service_connection_id=service.id,
+            items_added=result.get('added', 0),
+            items_updated=result.get('updated', 0),
+            movies_added=result.get('movies_added', 0),
+            series_added=result.get('series_added', 0),
+            episodes_added=result.get('episodes_added', 0),
+            sync_duration_seconds=duration,
+            error_message=result.get('message') if not result.get('success', True) else None
+        )
+        db.add(import_stat)
+        
         await db.commit()
         
         return result
         
     except Exception as e:
         logger.error(f"Sync failed for {service.name}: {e}")
+        
+        # Log failed sync attempt
+        end_time = datetime.now(timezone.utc)
+        duration = (end_time - start_time).total_seconds()
+        
+        import_stat = ImportStats(
+            service_connection_id=service.id,
+            items_added=0,
+            items_updated=0,
+            sync_duration_seconds=duration,
+            error_message=str(e)
+        )
+        db.add(import_stat)
+        await db.commit()
+        
         return {
             "success": False,
             "message": str(e),
@@ -69,6 +102,8 @@ async def _sync_sonarr(
     
     added = 0
     updated = 0
+    series_added = 0
+    episodes_added = 0
     
     try:
         series_list = await client.get_series()

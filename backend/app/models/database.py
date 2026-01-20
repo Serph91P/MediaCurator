@@ -285,3 +285,29 @@ class JobExecutionLog(Base):
     details = Column(JSON, default=dict)  # Job-specific details (items synced, deleted, etc.)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ImportStats(Base):
+    """Track import statistics per service."""
+    __tablename__ = "import_stats"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    service_connection_id = Column(Integer, ForeignKey("service_connections.id"), nullable=False, index=True)
+    
+    # Import counts
+    items_added = Column(Integer, default=0)
+    items_updated = Column(Integer, default=0)
+    
+    # Breakdown by media type
+    movies_added = Column(Integer, default=0)
+    series_added = Column(Integer, default=0)
+    episodes_added = Column(Integer, default=0)
+    
+    # Metadata
+    sync_duration_seconds = Column(Float, nullable=True)
+    error_message = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    # Relationships
+    service_connection = relationship("ServiceConnection", backref="import_stats")

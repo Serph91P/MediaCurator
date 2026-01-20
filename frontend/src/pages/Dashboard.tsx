@@ -101,6 +101,14 @@ export default function Dashboard() {
     },
   })
 
+  const { data: importStats } = useQuery({
+    queryKey: ['importStats'],
+    queryFn: async () => {
+      const res = await api.get('/media/import-stats?days=7')
+      return res.data
+    },
+  })
+
   const isLoading = statsLoading || mediaLoading
 
   return (
@@ -224,6 +232,54 @@ export default function Dashboard() {
                         : 'Never'
                       }
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Import Statistics (Last 7 Days) */}
+      {importStats && importStats.by_service && importStats.by_service.length > 0 && (
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+          <div className="px-6 py-4 border-b border-dark-700">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <PlayIcon className="w-5 h-5" />
+              Import Activity (Last 7 Days)
+            </h2>
+            <p className="text-sm text-dark-400 mt-1">
+              {importStats.total_syncs} syncs • {importStats.total_added} items added • {importStats.total_updated} updated
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-dark-700/50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-dark-300 uppercase tracking-wider">Service</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-dark-300 uppercase tracking-wider">Syncs</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-dark-300 uppercase tracking-wider">Added</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-dark-300 uppercase tracking-wider">Updated</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-dark-300 uppercase tracking-wider">Movies</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-dark-300 uppercase tracking-wider">Series</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-dark-300 uppercase tracking-wider">Episodes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-dark-700">
+                {importStats.by_service.map((service: any) => (
+                  <tr key={service.service_id} className="hover:bg-dark-700/30">
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-white">{service.service_name}</div>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-500/20 text-primary-400 mt-1">
+                        {service.service_type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm text-dark-300">{service.sync_count}</td>
+                    <td className="px-6 py-4 text-right text-sm font-medium text-green-400">+{service.total_added}</td>
+                    <td className="px-6 py-4 text-right text-sm text-dark-400">{service.total_updated}</td>
+                    <td className="px-6 py-4 text-right text-sm text-dark-300">{service.movies_added}</td>
+                    <td className="px-6 py-4 text-right text-sm text-dark-300">{service.series_added}</td>
+                    <td className="px-6 py-4 text-right text-sm text-dark-300">{service.episodes_added}</td>
                   </tr>
                 ))}
               </tbody>

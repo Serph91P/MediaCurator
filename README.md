@@ -82,17 +82,20 @@ docker run -d \
 
 ### Available Docker Tags
 
-Production releases:
+Production releases (main branch):
 - `latest` - Latest stable release from main branch
 - `stable` - Alias for latest
-- `1.2.3` - Specific version (semantic versioning)
+- `0.1.5` - Specific production version (auto-incremented on merge to main)
+- `1.2.3` - Manual tagged releases (when you create a git tag)
+
+Development builds (develop branch):
+- `dev` - Latest development build from develop branch
+- `dev.0.0.27` - Specific development version (auto-incremented on push to develop)
+
+Git tagged releases:
+- `v1.2.3` - Manual version tags
 - `1.2` - Latest patch version of 1.2.x
 - `1` - Latest minor version of 1.x.x
-
-Development builds:
-- `dev` - Latest development build from develop branch
-- `0.0.27` - Specific development version (0.0.COMMIT_COUNT)
-- `sha-abc123` - Build from specific commit
 
 Example pull commands:
 ```bash
@@ -100,14 +103,34 @@ Example pull commands:
 docker pull ghcr.io/serph91p/mediacurator:latest
 
 # Specific production version
-docker pull ghcr.io/serph91p/mediacurator:1.2.3
+docker pull ghcr.io/serph91p/mediacurator:0.1.5
 
 # Latest development build
 docker pull ghcr.io/serph91p/mediacurator:dev
 
 # Specific development version
-docker pull ghcr.io/serph91p/mediacurator:0.0.27
+docker pull ghcr.io/serph91p/mediacurator:dev.0.0.27
 ```
+
+### Semantic Versioning
+
+Das Projekt nutzt [Semantic Versioning](https://semver.org/):
+
+**Format:** `MAJOR.MINOR.PATCH` (z.B. `1.2.3`)
+
+- **MAJOR** (1.x.x): Breaking Changes - Inkompatible API-Änderungen
+- **MINOR** (x.1.x): Neue Features - Rückwärtskompatibel
+- **PATCH** (x.x.1): Bugfixes - Rückwärtskompatibel
+
+**Version 0.x.y:** Entwicklungsphase vor dem ersten stabilen Release
+- Die Zahlen können beliebig hoch gehen (0.0.99, 0.1.234, etc.)
+- Es gibt keine Regel, dass bei 9 umgeschaltet wird
+- Wechsel zu 1.0.0 erfolgt, wenn die Software produktionsreif ist
+
+**Automatisches Versioning:**
+- Develop → main: Automatisch PATCH +1 (0.0.1 → 0.0.2)
+- Für MINOR/MAJOR Bumps: Manuell Git-Tag erstellen (z.B. `v0.1.0`, `v1.0.0`)
+- Development Builds: `dev.0.0.COMMIT_COUNT`
 
 ## Configuration
 

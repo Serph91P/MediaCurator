@@ -34,13 +34,19 @@ jobs:
             VERSION=${GITHUB_REF#refs/tags/v}
             IS_PRERELEASE=false
           elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
-            # Main branch - use latest
-            VERSION="latest"
+            # Main branch - auto-increment patch version
+            # Get the latest tag, increment patch version
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            VERSION=${LATEST_TAG#v}
+            # Increment patch version (0.0.1 -> 0.0.2)
+            IFS='.' read -ra PARTS <<< "$VERSION"
+            PATCH=$((${PARTS[2]} + 1))
+            VERSION="${PARTS[0]}.${PARTS[1]}.${PATCH}"
             IS_PRERELEASE=false
           else
-            # Develop branch - create SemVer dev version (0.0.COMMIT_COUNT)
+            # Develop branch - create dev prerelease version
             COMMIT_COUNT=$(git rev-list --count HEAD)
-            VERSION="0.0.${COMMIT_COUNT}"
+            VERSION="dev.0.0.${COMMIT_COUNT}"
             IS_PRERELEASE=true
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
@@ -60,6 +66,7 @@ jobs:
             # For main branch
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=stable,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref == 'refs/heads/main' }}
             # For develop branch
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
             type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref == 'refs/heads/develop' }}

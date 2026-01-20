@@ -11,7 +11,7 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 
 # Install dependencies with exact versions locked
-RUN npm ci --legacy-peer-deps --prefer-offline --no-audit
+RUN npm ci --prefer-offline --no-audit
 
 # Copy source code
 COPY frontend/ ./

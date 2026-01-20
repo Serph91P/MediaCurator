@@ -121,10 +121,6 @@ async def migrate_database(db: AsyncSession):
         CREATE INDEX IF NOT EXISTS idx_media_items_media_type 
         ON media_items(media_type)
     """))
-    await db.execute(text("""
-        CREATE INDEX IF NOT EXISTS idx_media_items_library 
-        ON media_items(library_id)
-    """))
     
     # Index for libraries queries
     await db.execute(text("""

@@ -8,11 +8,11 @@ Intelligently curate and manage your media library with automated cleanup rules.
 
 ## Features
 
-- 🎬 **Multiple Service Connections**: Connect to multiple Sonarr, Radarr, and Emby instances
-- 📊 **Watch History Integration**: Sync watch history from Emby to make informed cleanup decisions
-- 🔍 **Dry Run Preview**: Preview what would be cleaned up before running actual cleanup
-- 📥 **Import List Exclusions**: Automatically add deleted items to Sonarr/Radarr exclusion lists
-- 🧹 **Customizable Cleanup Rules**: Create rules based on:
+- **Multiple Service Connections**: Connect to multiple Sonarr, Radarr, and Emby instances
+- **Watch History Integration**: Sync watch history from Emby to make informed cleanup decisions
+- **Dry Run Preview**: Preview what would be cleaned up before running actual cleanup
+- **Import List Exclusions**: Automatically add deleted items to Sonarr/Radarr exclusion lists
+- **Customizable Cleanup Rules**: Create rules based on:
   - Days since last watched
   - Disk space thresholds
   - Minimum age requirements
@@ -20,10 +20,10 @@ Intelligently curate and manage your media library with automated cleanup rules.
   - Genre/tag filters
   - Rating thresholds
   - Watch progress
-- 🔔 **Notifications**: Get notified via Discord, Slack, or custom webhooks when media is cleaned up
-- 📅 **Scheduled Cleanups**: Configure automatic cleanup schedules using cron expressions
-- 🔒 **Secure Web Interface**: Modern, responsive UI with JWT authentication
-- 🐳 **Docker Optimized**: Built for containerized deployments with minimal resource usage
+- **Notifications**: Get notified via Discord, Slack, or custom webhooks when media is cleaned up
+- **Scheduled Cleanups**: Configure automatic cleanup schedules using cron expressions
+- **Secure Web Interface**: Modern, responsive UI with JWT authentication
+- **Docker Optimized**: Built for containerized deployments with minimal resource usage
 
 ## Quick Start
 

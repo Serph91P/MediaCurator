@@ -211,7 +211,7 @@ def create_cleanup_notification_message(
     total_size = sum(item.get("size_bytes", 0) for item in items)
     item_count = len(items)
     
-    title = f"🧹 MediaCleaner: {action.title()}"
+    title = f"MediaCurator: {action.title()}"
     
     lines = [
         f"**{item_count}** items {'deleted' if action == 'delete' else 'flagged for cleanup'}",

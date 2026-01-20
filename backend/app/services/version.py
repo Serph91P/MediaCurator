@@ -24,7 +24,7 @@ class VersionService:
             return self._cached_version_info
         
         info = {
-            "version": "0.1.0",  # Base version
+            "version": "unknown",  # Will be determined from git tags
             "branch": "unknown",
             "commit_hash": "unknown",
             "commit_short": "unknown",
@@ -34,13 +34,72 @@ class VersionService:
         }
         
         try:
+            # Configure git to trust the directory (fixes ownership issues in Docker)
+            config_result = subprocess.run(
+                ["git", "config", "--global", "--add", "safe.directory", "/app"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                cwd="/app"
+            )
+            logger.debug(f"Git config result: {config_result.returncode}, stderr: {config_result.stderr}")
+            
+            # Get version from git tags
+            # Strategy: Get latest dev tag from all tags (not just reachable ones)
+            # This shows the "latest available version" even if we're on an older commit
+            result = subprocess.run(
+                ["git", "tag", "--list", "vdev.*", "--sort=-version:refname"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                cwd="/app"
+            )
+            
+            if result.returncode == 0 and result.stdout.strip():
+                tags = result.stdout.strip().split('\n')
+                if tags and tags[0]:
+                    tag = tags[0]  # First tag is the latest
+                    info["version"] = tag[1:] if tag.startswith('v') else tag
+                    logger.debug(f"Latest dev tag: {info['version']}")
+            else:
+                # Fallback: check for main version tags (v0.x.x)
+                result = subprocess.run(
+                    ["git", "tag", "--list", "v[0-9]*", "--sort=-version:refname"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    cwd="/app"
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    tags = result.stdout.strip().split('\n')
+                    if tags and tags[0]:
+                        tag = tags[0]
+                        info["version"] = tag[1:] if tag.startswith('v') else tag
+                        logger.debug(f"Latest main tag: {info['version']}")
+                else:
+                    # Last fallback: use git describe or commit hash
+                    result = subprocess.run(
+                        ["git", "describe", "--tags", "--always"],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                        cwd="/app"
+                    )
+                    if result.returncode == 0:
+                        desc = result.stdout.strip()
+                        info["version"] = desc[1:] if desc.startswith('v') else desc
+                        logger.debug(f"Fallback version: {info['version']}")
+
+            
             # Get current branch
             result = subprocess.run(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
+                cwd="/app"
             )
+            logger.debug(f"Git branch result: {result.returncode}, stdout: {result.stdout}, stderr: {result.stderr}")
             if result.returncode == 0:
                 info["branch"] = result.stdout.strip()
             
@@ -49,7 +108,8 @@ class VersionService:
                 ["git", "rev-parse", "HEAD"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
+                cwd="/app"
             )
             if result.returncode == 0:
                 info["commit_hash"] = result.stdout.strip()
@@ -59,7 +119,8 @@ class VersionService:
                 ["git", "rev-parse", "--short", "HEAD"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
+                cwd="/app"
             )
             if result.returncode == 0:
                 info["commit_short"] = result.stdout.strip()
@@ -69,7 +130,8 @@ class VersionService:
                 ["git", "log", "-1", "--format=%ci"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
+                cwd="/app"
             )
             if result.returncode == 0:
                 info["commit_date"] = result.stdout.strip()
@@ -79,7 +141,8 @@ class VersionService:
                 ["git", "status", "--porcelain"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
+                cwd="/app"
             )
             if result.returncode == 0:
                 info["is_dirty"] = bool(result.stdout.strip())
@@ -89,7 +152,8 @@ class VersionService:
                 ["git", "config", "--get", "remote.origin.url"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
+                cwd="/app"
             )
             if result.returncode == 0:
                 remote_url = result.stdout.strip()
@@ -101,14 +165,14 @@ class VersionService:
                 info["remote_url"] = remote_url
             
             # Build full version string
-            version_parts = [info["version"]]
-            if info["branch"] != "main":
-                version_parts.append(f"{info['branch']}")
-            version_parts.append(info["commit_short"])
+            # Format: version-commit or version-commit-dirty (branch already in version for dev builds)
+            version_parts = [info["version"], info["commit_short"]]
             if info["is_dirty"]:
                 version_parts.append("dirty")
             
             info["full_version"] = "-".join(version_parts)
+            info["base_version"] = info["version"]  # Store base version separately
+            logger.info(f"Version info collected: {info['full_version']}")
             
         except Exception as e:
             logger.warning(f"Failed to get Git info: {e}")

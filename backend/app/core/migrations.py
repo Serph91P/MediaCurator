@@ -104,3 +104,47 @@ async def migrate_database(db: AsyncSession):
         
         await db.commit()
         logger.info("Migration completed: staging columns added")
+    
+    # Add database indexes for performance
+    logger.info("Checking and creating database indexes...")
+    
+    # Index for media_items queries
+    await db.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_media_items_external_id 
+        ON media_items(external_id)
+    """))
+    await db.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_media_items_service_connection 
+        ON media_items(service_connection_id)
+    """))
+    await db.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_media_items_media_type 
+        ON media_items(media_type)
+    """))
+    await db.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_media_items_library 
+        ON media_items(library_id)
+    """))
+    
+    # Index for libraries queries
+    await db.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_libraries_service_external 
+        ON libraries(service_connection_id, external_id)
+    """))
+    
+    # Index for cleanup_logs queries
+    await db.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_cleanup_logs_created_at 
+        ON cleanup_logs(created_at DESC)
+    """))
+    await db.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_cleanup_logs_media_item 
+        ON cleanup_logs(media_item_id)
+    """))
+    await db.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_cleanup_logs_rule 
+        ON cleanup_logs(rule_id)
+    """))
+    
+    await db.commit()
+    logger.info("Database indexes created successfully")

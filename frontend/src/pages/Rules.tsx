@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
+import ConfirmDialog from '../components/ConfirmDialog'
 import type { CleanupRule, CleanupRuleCreate, MediaType, RuleActionType, RuleTemplate, SeriesOptionsResponse } from '../types'
 
 const mediaTypes: { value: MediaType; label: string }[] = [
@@ -20,6 +21,7 @@ export default function Rules() {
   const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<RuleTemplate | null>(null)
+  const [ruleToDelete, setRuleToDelete] = useState<CleanupRule | null>(null)
 
   const { data: rules, isLoading } = useQuery({
     queryKey: ['rules'],
@@ -181,7 +183,7 @@ export default function Rules() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => deleteMutation.mutate(rule.id)}
+                      onClick={() => setRuleToDelete(rule)}
                       className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-red-400 hover:text-red-300"
                     >
                       <TrashIcon className="w-5 h-5" />
@@ -215,6 +217,23 @@ export default function Rules() {
           template={selectedTemplate}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={ruleToDelete !== null}
+        title="Delete Cleanup Rule"
+        message={`Are you sure you want to delete the rule "${ruleToDelete?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          if (ruleToDelete) {
+            deleteMutation.mutate(ruleToDelete.id)
+            setRuleToDelete(null)
+          }
+        }}
+        onCancel={() => setRuleToDelete(null)}
+      />
     </div>
   )
 }

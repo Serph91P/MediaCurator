@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import { ClockIcon, TrashIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import { formatBytes, formatRelativeTime } from '../lib/utils'
+import { useDebounce } from '../hooks/useDebounce'
+import { TableSkeleton } from '../components/Skeleton'
+import ResponsiveTable from '../components/ResponsiveTable'
 import type { CleanupLog } from '../types'
 
 interface AuditLogResponse {
@@ -155,78 +158,74 @@ export default function History() {
 
       {/* Logs Table */}
       {isLoading ? (
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg animate-pulse">
-          <div className="p-6 h-96" />
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg p-6">
+          <TableSkeleton rows={10} columns={6} />
         </div>
       ) : logs && logs.length > 0 ? (
         <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-dark-800/50">
-                <tr>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-dark-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-dark-400 uppercase tracking-wider">
-                    Time
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-dark-400 uppercase tracking-wider">
-                    Action
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-dark-400 uppercase tracking-wider">
-                    Media
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-dark-400 uppercase tracking-wider">
-                    Size
-                  </th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-dark-400 uppercase tracking-wider">
-                    Details
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-dark-700">
-                {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-dark-800/30">
-                    <td className="px-6 py-4">
-                      {getStatusIcon(log.status)}
-                    </td>
-                    <td className="px-6 py-4 text-dark-300 text-sm">
-                      {formatRelativeTime(log.created_at)}
-                    </td>
-                    <td className="px-6 py-4">
-                      {getActionBadge(log.action)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="font-medium text-white">
-                          {log.media_title || 'Unknown'}
-                        </p>
-                        {log.media_path && (
-                          <p className="text-xs text-dark-500 truncate max-w-xs">
-                            {log.media_path}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-dark-300">
-                      {log.media_size_bytes ? formatBytes(log.media_size_bytes) : '-'}
-                    </td>
-                    <td className="px-6 py-4">
-                      {log.error_message ? (
-                        <span className="text-sm text-red-400">{log.error_message}</span>
-                      ) : log.details && Object.keys(log.details).length > 0 ? (
-                        <span className="text-sm text-dark-400">
-                          {JSON.stringify(log.details).substring(0, 50)}...
-                        </span>
-                      ) : (
-                        <span className="text-dark-500">-</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable
+            columns={[
+              {
+                header: 'Status',
+                accessor: 'status',
+                cell: (log) => getStatusIcon(log.status),
+                className: 'w-16',
+              },
+              {
+                header: 'Time',
+                accessor: 'created_at',
+                cell: (log) => formatRelativeTime(log.created_at),
+                mobileLabel: 'Time',
+              },
+              {
+                header: 'Action',
+                accessor: 'action',
+                cell: (log) => getActionBadge(log.action),
+                mobileLabel: 'Action',
+              },
+              {
+                header: 'Media',
+                accessor: 'media_title',
+                cell: (log) => (
+                  <div>
+                    <p className="font-medium text-white">
+                      {log.media_title || 'Unknown'}
+                    </p>
+                    {log.media_path && (
+                      <p className="text-xs text-dark-500 truncate max-w-xs">
+                        {log.media_path}
+                      </p>
+                    )}
+                  </div>
+                ),
+                mobileLabel: 'Media',
+              },
+              {
+                header: 'Size',
+                accessor: 'media_size_bytes',
+                cell: (log) => log.media_size_bytes ? formatBytes(log.media_size_bytes) : '-',
+                mobileLabel: 'Size',
+              },
+              {
+                header: 'Details',
+                accessor: 'details',
+                cell: (log) => 
+                  log.error_message ? (
+                    <span className="text-sm text-red-400">{log.error_message}</span>
+                  ) : log.details && Object.keys(log.details).length > 0 ? (
+                    <span className="text-sm text-dark-400">
+                      {JSON.stringify(log.details).substring(0, 50)}...
+                    </span>
+                  ) : (
+                    <span className="text-dark-500">-</span>
+                  ),
+                mobileLabel: 'Details',
+              },
+            ]}
+            data={logs}
+            keyExtractor={(log) => log.id.toString()}
+            emptyMessage="No logs found"
+          />
           
           {/* Pagination */}
           {pagination && pagination.total > limit && (

@@ -20,12 +20,16 @@ async def migrate_database(db: AsyncSession):
     if not has_media_types:
         logger.info("Migrating cleanup_rules: adding media_types column")
         
-        # Add media_types column
+        # Add media_types column with default empty array
         await db.execute(text("""
             ALTER TABLE cleanup_rules 
             ADD COLUMN media_types TEXT DEFAULT '[]'
         """))
         
+        # Commit the column addition first
+        await db.commit()
+        
+        # Start new transaction for data migration
         # Migrate existing data: convert old media_type to new media_types array
         await db.execute(text("""
             UPDATE cleanup_rules 
@@ -36,7 +40,7 @@ async def migrate_database(db: AsyncSession):
                     WHEN media_type = 'episode' THEN '["episode"]'
                     ELSE '["movie", "series", "episode"]'
                 END
-            WHERE media_types = '[]'
+            WHERE media_types = '[]' OR media_types IS NULL
         """))
         
         await db.commit()

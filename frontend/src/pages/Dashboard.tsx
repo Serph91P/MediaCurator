@@ -117,6 +117,15 @@ export default function Dashboard() {
     },
   })
 
+  const { data: recentActivity } = useQuery({
+    queryKey: ['recentActivity'],
+    queryFn: async () => {
+      const res = await api.get('/media/audit-log?limit=10&offset=0')
+      return res.data
+    },
+    refetchInterval: 30000,
+  })
+
   const isLoading = statsLoading || mediaLoading
 
   return (
@@ -386,6 +395,58 @@ export default function Dashboard() {
               ) : (
                 <p className="text-center text-dark-400 py-4">No recent watches</p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Cleanup Activity */}
+      {recentActivity && recentActivity.logs && recentActivity.logs.length > 0 && (
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+          <div className="px-6 py-4 border-b border-dark-700 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Recent Cleanup Activity</h2>
+            <a href="/history" className="text-sm text-primary-400 hover:text-primary-300">View All →</a>
+          </div>
+          <div className="p-6">
+            <div className="space-y-3">
+              {recentActivity.logs.slice(0, 8).map((log: any) => (
+                <div key={log.id} className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg hover:bg-dark-700 transition-colors">
+                  <div className={`mt-0.5 font-bold ${
+                    log.status === 'success' ? 'text-green-400' :
+                    log.status === 'failed' ? 'text-red-400' :
+                    'text-yellow-400'
+                  }`}>
+                    {log.status === 'success' ? '✓' : log.status === 'failed' ? '✗' : '○'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        log.action === 'delete' ? 'bg-red-500/20 text-red-400' :
+                        log.action === 'unmonitor' ? 'bg-yellow-500/20 text-yellow-400' :
+                        log.action === 'notify_only' ? 'bg-primary-500/20 text-primary-400' :
+                        'bg-dark-600/50 text-dark-300'
+                      }`}>
+                        {log.action}
+                      </span>
+                      <span className="text-xs text-dark-400">
+                        {new Date(log.created_at).toLocaleString('de-DE', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-white mt-1">{log.media_title || 'Unknown item'}</p>
+                    {log.media_size_bytes > 0 && (
+                      <p className="text-xs text-dark-500 mt-0.5">{formatBytes(log.media_size_bytes)} freed</p>
+                    )}
+                    {log.error_message && (
+                      <p className="text-xs text-red-400 mt-1">{log.error_message}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

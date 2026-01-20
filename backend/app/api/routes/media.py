@@ -3,12 +3,13 @@ Media API routes.
 """
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
-from typing import Dict, Any, Optional
+from sqlalchemy import select, func, and_, or_, desc
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 
 from ...core.database import get_db
-from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats
+from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats, CleanupLog
+from ...schemas import CleanupLogResponse
 from ..deps import get_current_user
 
 router = APIRouter(prefix="/media", tags=["Media"])
@@ -302,3 +303,122 @@ async def get_watch_stats(
         "recently_watched": [format_media_item(item) for item in recently_watched],
         "currently_watching": [format_media_item(item) for item in currently_watching]
     }
+
+
+@router.get("/audit-log", response_model=Dict[str, Any])
+async def get_audit_log(
+    action: Optional[str] = Query(None, description="Filter by action type (delete, notify, etc.)"),
+    status: Optional[str] = Query(None, description="Filter by status (success, failed, skipped)"),
+    start_date: Optional[datetime] = Query(None, description="Start date for filtering"),
+    end_date: Optional[datetime] = Query(None, description="End date for filtering"),
+    limit: int = Query(50, le=500, description="Number of records to return"),
+    offset: int = Query(0, ge=0, description="Number of records to skip"),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Get cleanup audit log with filtering and pagination.
+    
+    Returns a paginated list of cleanup actions with full details including:
+    - Action type and status
+    - Associated media item and rule
+    - Timestamps and error messages
+    - Media snapshots at time of action
+    """
+    
+    # Build query with filters
+    conditions = []
+    
+    if action:
+        conditions.append(CleanupLog.action == action)
+    
+    if status:
+        conditions.append(CleanupLog.status == status)
+    
+    if start_date:
+        conditions.append(CleanupLog.created_at >= start_date)
+    
+    if end_date:
+        conditions.append(CleanupLog.created_at <= end_date)
+    
+    # Get total count
+    count_query = select(func.count(CleanupLog.id))
+    if conditions:
+        count_query = count_query.where(and_(*conditions))
+    
+    result = await db.execute(count_query)
+    total = result.scalar() or 0
+    
+    # Get paginated logs
+    logs_query = select(CleanupLog).order_by(desc(CleanupLog.created_at))
+    
+    if conditions:
+        logs_query = logs_query.where(and_(*conditions))
+    
+    logs_query = logs_query.limit(limit).offset(offset)
+    result = await db.execute(logs_query)
+    logs = result.scalars().all()
+    
+    # Format logs with additional context
+    formatted_logs = []
+    for log in logs:
+        log_dict = {
+            "id": log.id,
+            "media_item_id": log.media_item_id,
+            "rule_id": log.rule_id,
+            "action": log.action,
+            "status": log.status,
+            "details": log.details,
+            "error_message": log.error_message,
+            "media_title": log.media_title,
+            "media_path": log.media_path,
+            "media_size_bytes": log.media_size_bytes,
+            "created_at": log.created_at.isoformat() if log.created_at else None
+        }
+        formatted_logs.append(log_dict)
+    
+    # Get summary statistics
+    stats_query = select(
+        func.count(CleanupLog.id).label("total_actions"),
+        func.count(func.distinct(CleanupLog.action)).label("unique_actions"),
+        func.sum(CleanupLog.media_size_bytes).label("total_size_freed")
+    )
+    
+    if conditions:
+        stats_query = stats_query.where(and_(*conditions))
+    
+    result = await db.execute(stats_query)
+    stats = result.first()
+    
+    # Get action breakdown
+    action_breakdown_query = select(
+        CleanupLog.action,
+        CleanupLog.status,
+        func.count(CleanupLog.id).label("count")
+    ).group_by(CleanupLog.action, CleanupLog.status)
+    
+    if conditions:
+        action_breakdown_query = action_breakdown_query.where(and_(*conditions))
+    
+    result = await db.execute(action_breakdown_query)
+    action_breakdown = [
+        {"action": row.action, "status": row.status, "count": row.count}
+        for row in result.all()
+    ]
+    
+    return {
+        "logs": formatted_logs,
+        "pagination": {
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + limit < total
+        },
+        "summary": {
+            "total_actions": stats.total_actions if stats else 0,
+            "unique_actions": stats.unique_actions if stats else 0,
+            "total_size_freed_bytes": float(stats.total_size_freed) if stats and stats.total_size_freed else 0
+        },
+        "action_breakdown": action_breakdown
+    }
+

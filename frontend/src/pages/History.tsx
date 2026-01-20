@@ -5,31 +5,59 @@ import api from '../lib/api'
 import { formatBytes, formatRelativeTime } from '../lib/utils'
 import type { CleanupLog } from '../types'
 
-export default function History() {
-  const [filter, setFilter] = useState<'all' | 'success' | 'error'>('all')
+interface AuditLogResponse {
+  logs: CleanupLog[]
+  pagination: {
+    total: number
+    limit: number
+    offset: number
+    has_more: boolean
+  }
+  summary: {
+    total_actions: number
+    unique_actions: number
+    total_size_freed_bytes: number
+  }
+  action_breakdown: Array<{
+    action: string
+    status: string
+    count: number
+  }>
+}
 
-  const { data: logs, isLoading } = useQuery({
-    queryKey: ['cleanupLogs', filter],
+export default function History() {
+  const [filter, setFilter] = useState<'all' | 'success' | 'failed'>('all')
+  const [offset, setOffset] = useState(0)
+  const limit = 50
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['auditLog', filter, offset],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (filter !== 'all') {
         params.append('status', filter)
       }
-      params.append('skip', '0')
-      params.append('limit', '100')
-      const res = await api.get<CleanupLog[]>(`/system/logs?${params}`)
+      params.append('limit', limit.toString())
+      params.append('offset', offset.toString())
+      const res = await api.get<AuditLogResponse>(`/media/audit-log?${params}`)
       return res.data
     },
   })
+
+  const logs = data?.logs || []
+  const summary = data?.summary
+  const pagination = data?.pagination
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'success':
         return <CheckCircleIcon className="w-5 h-5 text-green-400" />
-      case 'error':
+      case 'failed':
         return <ExclamationTriangleIcon className="w-5 h-5 text-red-400" />
-      default:
+      case 'skipped':
         return <ClockIcon className="w-5 h-5 text-yellow-400" />
+      default:
+        return <ClockIcon className="w-5 h-5 text-dark-400" />
     }
   }
 
@@ -39,22 +67,19 @@ export default function History() {
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400">Deleted</span>
       case 'unmonitor':
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">Unmonitored</span>
-      case 'notify':
+      case 'notify_only':
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">Notified</span>
+      case 'move_to_trash':
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-500/20 text-orange-400">Moved to Trash</span>
       default:
-        return <span className="badge bg-dark-600 text-dark-300">{action}</span>
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-600/50 text-dark-300">{action}</span>
     }
   }
 
-  // Calculate totals
-  const totalDeleted = logs?.filter(l => l.action === 'delete' && l.status === 'success').length || 0
-  const totalErrors = logs?.filter(l => l.status === 'error').length || 0
-  const totalSpaceFreed = logs?.reduce((acc, l) => {
-    if (l.action === 'delete' && l.status === 'success') {
-      return acc + (l.media_size_bytes || 0)
-    }
-    return acc
-  }, 0) || 0
+  // Stats from API summary
+  const totalDeleted = summary?.total_actions || 0
+  const totalErrors = data?.action_breakdown?.filter(b => b.status === 'failed').reduce((sum, b) => sum + b.count, 0) || 0
+  const totalSpaceFreed = summary?.total_size_freed_bytes || 0
 
   return (
     <div className="space-y-6">
@@ -73,7 +98,7 @@ export default function History() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-white">{totalDeleted}</p>
-                <p className="text-sm text-dark-400">Items Deleted</p>
+                <p className="text-sm text-dark-400">Total Actions</p>
               </div>
             </div>
           </div>
@@ -109,20 +134,20 @@ export default function History() {
       {/* Filter */}
       <div className="flex gap-2">
         <button
-          onClick={() => setFilter('all')}
+          onClick={() => { setFilter('all'); setOffset(0); }}
           className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'all' ? 'bg-primary-600 text-white' : ''}`}
         >
           All
         </button>
         <button
-          onClick={() => setFilter('success')}
+          onClick={() => { setFilter('success'); setOffset(0); }}
           className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'success' ? 'bg-green-600 text-white' : ''}`}
         >
           Success
         </button>
         <button
-          onClick={() => setFilter('error')}
-          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'error' ? 'bg-red-600 text-white' : ''}`}
+          onClick={() => { setFilter('failed'); setOffset(0); }}
+          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'failed' ? 'bg-red-600 text-white' : ''}`}
         >
           Errors
         </button>
@@ -202,6 +227,31 @@ export default function History() {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination */}
+          {pagination && pagination.total > limit && (
+            <div className="px-6 py-4 border-t border-dark-700 flex items-center justify-between">
+              <div className="text-sm text-dark-400">
+                Showing {offset + 1} to {Math.min(offset + limit, pagination.total)} of {pagination.total} entries
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setOffset(Math.max(0, offset - limit))}
+                  disabled={offset === 0}
+                  className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setOffset(offset + limit)}
+                  disabled={!pagination.has_more}
+                  className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">

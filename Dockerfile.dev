@@ -3,44 +3,47 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including gosu for safe user switching
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     nodejs \
     npm \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for development
+# Create non-root user for running the application
 RUN groupadd -r -g 1000 appuser && \
     useradd -r -u 1000 -g appuser -m -d /home/appuser -s /bin/bash appuser
 
-# Install Python dependencies
+# Copy and install Python dependencies as root
 COPY backend/requirements.txt ./backend/
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# Install frontend dependencies
+# Copy and install frontend dependencies as root
 COPY frontend/package.json frontend/package-lock.json* ./frontend/
 WORKDIR /app/frontend
 RUN npm ci --legacy-peer-deps
 
 WORKDIR /app
 
-# Set correct permissions for development volumes
-RUN mkdir -p /app/data /app/logs && \
-    chown -R appuser:appuser /app
+# Create volume mount points and set ownership
+# Note: Actual volumes will be mounted here and permissions fixed at runtime
+RUN mkdir -p /app/data /app/logs /data && \
+    chown -R appuser:appuser /app /data
 
 # Environment
 ENV PYTHONUNBUFFERED=1 \
     APP_ENV=development
 
-# Switch to non-root user
-USER appuser
+# Copy entrypoint script and make executable
+COPY docker-entrypoint.dev.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Start as root (entrypoint will fix permissions then switch to appuser)
+# This allows us to fix permissions on mounted volumes before dropping privileges
+USER root
 
 # Expose ports
 EXPOSE 8080 5173
-
-# Development entrypoint
-COPY docker-entrypoint.dev.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
 CMD ["/entrypoint.sh"]

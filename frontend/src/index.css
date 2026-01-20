@@ -50,7 +50,3 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-dark-500);
 }
-  
-  .table tbody tr {
-    @apply border-b border-dark-700/50 hover:bg-dark-800/30 transition-colors;
-  }

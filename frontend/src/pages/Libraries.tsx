@@ -77,7 +77,7 @@ export default function Libraries() {
         <button
           onClick={() => syncMutation.mutate()}
           disabled={syncMutation.isPending || !hasMediaServers}
-          className="btn-primary flex items-center gap-2"
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <ArrowPathIcon className={`w-5 h-5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
           {syncMutation.isPending ? 'Syncing...' : 'Sync Libraries'}
@@ -85,8 +85,8 @@ export default function Libraries() {
       </div>
 
       {!hasMediaServers && (
-        <div className="card bg-amber-500/10 border-amber-500/30">
-          <div className="card-body">
+        <div className="bg-dark-800 rounded-xl border border-amber-500/30 shadow-lg bg-amber-500/10">
+          <div className="p-6">
             <p className="text-amber-400">
               No Emby or Jellyfin services configured. Add a media server in the Services section to sync libraries.
             </p>
@@ -97,16 +97,16 @@ export default function Libraries() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="card animate-pulse">
-              <div className="card-body h-32" />
+            <div key={i} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg animate-pulse">
+              <div className="p-6 h-32" />
             </div>
           ))}
         </div>
       ) : libraries && libraries.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {libraries.map((library) => (
-            <div key={library.id} className="card">
-              <div className="card-body">
+            <div key={library.id} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+              <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
@@ -141,7 +141,11 @@ export default function Libraries() {
 
                 <div className="mt-4 pt-4 border-t border-dark-700">
                   <div className="flex flex-wrap gap-2 text-sm">
-                    <span className={`badge ${library.media_type === 'movie' ? 'badge-info' : 'badge-success'}`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      library.media_type === 'movie' 
+                        ? 'bg-primary-500/20 text-primary-400' 
+                        : 'bg-green-500/20 text-green-400'
+                    }`}>
                       {library.media_type === 'movie' ? 'Movies' : 'Series'}
                     </span>
                     <span className={`flex items-center gap-1 ${library.is_enabled ? 'text-green-400' : 'text-dark-400'}`}>
@@ -174,8 +178,8 @@ export default function Libraries() {
           ))}
         </div>
       ) : (
-        <div className="card">
-          <div className="card-body text-center py-12">
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+          <div className="p-6 text-center py-12">
             <FolderIcon className="w-12 h-12 mx-auto text-dark-500" />
             <p className="text-dark-400 mt-4">No libraries synced yet</p>
             <p className="text-sm text-dark-500 mt-1">
@@ -187,7 +191,7 @@ export default function Libraries() {
               <button
                 onClick={() => syncMutation.mutate()}
                 disabled={syncMutation.isPending}
-                className="btn-primary mt-4"
+                className="inline-flex items-center justify-center px-4 py-2 mt-4 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Sync Libraries
               </button>
@@ -196,8 +200,8 @@ export default function Libraries() {
         </div>
       )}
 
-      <div className="card bg-dark-800/50">
-        <div className="card-body">
+      <div className="bg-dark-800/50 rounded-xl border border-dark-700 shadow-lg">
+        <div className="p-6">
           <h3 className="font-semibold text-white mb-2">How it works</h3>
           <ul className="text-sm text-dark-400 space-y-2">
             <li className="flex items-start gap-2">

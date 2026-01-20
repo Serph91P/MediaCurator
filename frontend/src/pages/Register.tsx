@@ -86,8 +86,8 @@ export default function Register() {
         </div>
 
         {/* Register Form */}
-        <div className="card">
-          <div className="card-body">
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+          <div className="p-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {error && (
                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
@@ -96,7 +96,7 @@ export default function Register() {
               )}
 
               <div>
-                <label htmlFor="username" className="label">Username</label>
+                <label htmlFor="username" className="block text-sm font-medium text-dark-200 mb-1">Username</label>
                 <input
                   id="username"
                   type="text"
@@ -104,7 +104,7 @@ export default function Register() {
                     required: 'Username is required',
                     minLength: { value: 3, message: 'Username must be at least 3 characters' }
                   })}
-                  className="input"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="Choose a username"
                 />
                 {errors.username && (
@@ -113,18 +113,18 @@ export default function Register() {
               </div>
 
               <div>
-                <label htmlFor="email" className="label">Email (optional)</label>
+                <label htmlFor="email" className="block text-sm font-medium text-dark-200 mb-1">Email (optional)</label>
                 <input
                   id="email"
                   type="email"
                   {...register('email')}
-                  className="input"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="your@email.com"
                 />
               </div>
 
               <div>
-                <label htmlFor="password" className="label">Password</label>
+                <label htmlFor="password" className="block text-sm font-medium text-dark-200 mb-1">Password</label>
                 <input
                   id="password"
                   type="password"
@@ -132,7 +132,7 @@ export default function Register() {
                     required: 'Password is required',
                     minLength: { value: 8, message: 'Password must be at least 8 characters' }
                   })}
-                  className="input"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="Create a password"
                 />
                 {errors.password && (
@@ -141,7 +141,7 @@ export default function Register() {
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="label">Confirm Password</label>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-dark-200 mb-1">Confirm Password</label>
                 <input
                   id="confirmPassword"
                   type="password"
@@ -149,7 +149,7 @@ export default function Register() {
                     required: 'Please confirm your password',
                     validate: value => value === password || 'Passwords do not match'
                   })}
-                  className="input"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="Confirm your password"
                 />
                 {errors.confirmPassword && (
@@ -160,7 +160,7 @@ export default function Register() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="btn-primary w-full"
+                className="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isLoading ? 'Creating account...' : isFirstUser ? 'Create Admin Account' : 'Create Account'}
               </button>

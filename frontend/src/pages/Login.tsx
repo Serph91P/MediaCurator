@@ -73,8 +73,8 @@ export default function Login() {
         </div>
 
         {/* Login Form */}
-        <div className="card">
-          <div className="card-body">
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+          <div className="p-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {error && (
                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
@@ -83,12 +83,12 @@ export default function Login() {
               )}
 
               <div>
-                <label htmlFor="username" className="label">Username</label>
+                <label htmlFor="username" className="block text-sm font-medium text-dark-200 mb-1">Username</label>
                 <input
                   id="username"
                   type="text"
                   {...register('username', { required: 'Username is required' })}
-                  className="input"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="Enter your username"
                 />
                 {errors.username && (
@@ -97,12 +97,12 @@ export default function Login() {
               </div>
 
               <div>
-                <label htmlFor="password" className="label">Password</label>
+                <label htmlFor="password" className="block text-sm font-medium text-dark-200 mb-1">Password</label>
                 <input
                   id="password"
                   type="password"
                   {...register('password', { required: 'Password is required' })}
-                  className="input"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="Enter your password"
                 />
                 {errors.password && (
@@ -113,7 +113,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="btn-primary w-full"
+                className="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">

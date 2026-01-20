@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
     
     # Run as non-root user (appuser with UID 1000)
-    # If you get permission errors, run: sudo chown -R 1000:1000 ./data ./logs
+    # Note: Named volumes are managed by Docker, no manual permission fixes needed
     user: "1000:1000"
     
     ports:
@@ -28,12 +28,10 @@ services:
       - SECRET_KEY=${SECRET_KEY:-please-change-this-secret-key-in-production}
       
       # Database
-      - DATABASE_URL=sqlite+aiosqlite:///./data/mediacurator.db
-      
-      # First user becomes admin
-      - FIRST_USER_IS_ADMIN=true
+      - DATABASE_URL=sqlite+aiosqlite:////data/mediacurator.db
       
       # Optional: Pre-create admin user (useful for automated deployments)
+      # If not set, first registered user via web UI becomes admin automatically
       # - INITIAL_ADMIN_USER=${ADMIN_USER:-}
       # - INITIAL_ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       
@@ -41,11 +39,11 @@ services:
       # - DEBUG=false
     
     volumes:
-      # Application data (database, config)
-      - ./data:/data
+      # Application data (database, config) - using named volume
+      - mediacurator_data:/data
       
-      # Application logs
-      - ./logs:/app/logs
+      # Application logs - using named volume
+      - mediacurator_logs:/app/logs
       
       # Media mount - REQUIRED: Point to your actual media location
       # Mount as read-only (:ro) for safety
@@ -72,20 +70,8 @@ services:
           cpus: '0.5'
           memory: 256M
 
-# For development with hot reload
-# services:
-#   mediacurator-dev:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile.dev
-#     volumes:
-#       - ./backend:/app/backend
-#       - ./frontend:/app/frontend
-#       - ./data:/app/data
-#     ports:
-#       - "8080:8080"
-#       - "5173:5173"
-#     environment:
-#       - TZ=${TZ:-Europe/Berlin}
-#       - SECRET_KEY=dev-secret-key
-#       - DATABASE_URL=sqlite+aiosqlite:///./data/mediacurator.db
+volumes:
+  mediacurator_data:
+    driver: local
+  mediacurator_logs:
+    driver: local

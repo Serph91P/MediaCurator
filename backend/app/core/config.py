@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     """Application settings with environment variable support."""
     
     # Application
-    app_name: str = "MediaCleaner"
+    app_name: str = "MediaCurator"
     app_version: str = "0.1.0"
     debug: bool = False
     
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     port: int = 8080
     
     # Database
-    database_url: str = "sqlite+aiosqlite:///./data/mediacleaner.db"
+    database_url: str = "sqlite+aiosqlite:////data/mediacurator.db"
     
     # Security
     secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(32))

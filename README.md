@@ -99,25 +99,30 @@ docker run -d \
 |----------|-------------|---------|
 | `TZ` | Timezone for scheduling | `UTC` |
 | `SECRET_KEY` | JWT signing key (change in production!) | - |
-| `DATABASE_URL` | Database connection string | `sqlite+aiosqlite:///./data/mediacurator.db` |
-| `FIRST_USER_IS_ADMIN` | First registered user becomes admin | `true` |
-| `LOG_LEVEL` | Logging verbosity | `INFO` |
+| `DATABASE_URL` | Database connection string | `sqlite+aiosqlite:////data/mediacurator.db` |
+| `INITIAL_ADMIN_USER` | Pre-create admin user (optional) | - |
+| `INITIAL_ADMIN_PASSWORD` | Password for pre-created admin (optional) | - |
+| `DEBUG` | Enable debug logging | `false` |
 
 ### Volume Mounts
 
-| Path | Description |
-|------|-------------|
-| `/app/data` | Database and persistent data |
-| `/app/logs` | Application logs |
-| `/media` | Media files (read-only recommended) |
+| Path | Description | Type |
+|------|-------------|------|
+| `mediacurator_data` → `/data` | Database and persistent data | Named volume |
+| `mediacurator_logs` → `/app/logs` | Application logs | Named volume |
+| `/media` | Media files (read-only recommended) | Bind mount |
+
+Note: Named volumes are used for application data and logs, managed automatically by Docker. For development, use bind mounts via `docker-compose.dev.yml`.
 
 ## Usage
 
 ### Initial Setup
 
-1. Open the web interface and create your admin account
-2. Add your service connections (Sonarr, Radarr, Emby)
-3. Test connections to verify API access
+1. Start the application with `docker compose up -d`
+2. Open http://localhost:8080 in your browser
+3. You'll be redirected to create your admin account (first user is automatically admin)
+4. Add your service connections (Sonarr, Radarr, Emby)
+5. Test connections to verify API access
 4. Configure libraries from your Emby server
 5. Create cleanup rules or use templates
 6. Set up notification channels (optional)

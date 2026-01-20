@@ -1,0 +1,69 @@
+# Development Docker Compose Configuration
+# For production, see docker-compose.yml
+
+services:
+  mediacurator-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    
+    container_name: mediacurator-dev
+    restart: unless-stopped
+    
+    ports:
+      # Backend API
+      - "8080:8080"
+      # Frontend dev server with HMR
+      - "5173:5173"
+    
+    environment:
+      # Timezone
+      - TZ=${TZ:-Europe/Berlin}
+      
+      # Security (dev key - not for production!)
+      - SECRET_KEY=dev-secret-key-change-for-production
+      
+      # Database
+      - DATABASE_URL=sqlite+aiosqlite:////data/mediacurator.db
+      
+      # Development settings
+      - DEBUG=true
+      
+      # Optional: Pre-create admin user for dev
+      # - INITIAL_ADMIN_USER=admin
+      # - INITIAL_ADMIN_PASSWORD=admin123
+    
+    volumes:
+      # Source code - mounted for hot reload
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+      
+      # Application data - using named volume
+      - mediacurator_dev_data:/data
+      
+      # Application logs - using named volume
+      - mediacurator_dev_logs:/app/logs
+      
+      # Media mount for testing
+      - ${MEDIA_PATH:-/media}:/media:ro
+      
+      # Node modules - prevent overwriting by host
+      - /app/frontend/node_modules
+    
+    # No healthcheck in dev to reduce noise
+    
+    # Increase limits for development builds
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 512M
+
+volumes:
+  mediacurator_dev_data:
+    driver: local
+  mediacurator_dev_logs:
+    driver: local

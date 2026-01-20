@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
     npm \
     gosu \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for running the application

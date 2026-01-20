@@ -38,6 +38,9 @@ services:
       - ./backend:/app/backend
       - ./frontend:/app/frontend
       
+      # Git directory for version info (read-only)
+      - ./.git:/app/.git:ro
+      
       # Application data - using named volume
       - mediacurator_dev_data:/data
       

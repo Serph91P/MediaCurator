@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { PlusIcon, TrashIcon, ArrowPathIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, TrashIcon, ArrowPathIcon, CheckCircleIcon, XCircleIcon, PencilIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 import type { ServiceConnection, ServiceConnectionCreate, ServiceType } from '../types'
@@ -34,9 +34,24 @@ export default function Services() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] })
       setIsModalOpen(false)
+      setEditingService(null)
       toast.success('Service created')
     },
     onError: () => toast.error('Failed to create service'),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: ServiceConnectionCreate }) => {
+      const res = await api.put(`/services/${id}`, data)
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      setIsModalOpen(false)
+      setEditingService(null)
+      toast.success('Service updated')
+    },
+    onError: () => toast.error('Failed to update service'),
   })
 
   const deleteMutation = useMutation({
@@ -124,6 +139,16 @@ export default function Services() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => {
+                      setEditingService(service)
+                      setIsModalOpen(true)
+                    }}
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Edit"
+                  >
+                    <PencilIcon className="w-5 h-5" />
+                  </button>
+                  <button
                     onClick={() => testMutation.mutate(service.id)}
                     disabled={testMutation.isPending}
                     className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -163,15 +188,21 @@ export default function Services() {
         </div>
       )}
 
-      {/* Add Service Modal */}
+      {/* Add/Edit Service Modal */}
       {isModalOpen && (
         <ServiceModal
           onClose={() => {
             setIsModalOpen(false)
             setEditingService(null)
           }}
-          onSubmit={(data) => createMutation.mutate(data)}
-          isLoading={createMutation.isPending}
+          onSubmit={(data) => {
+            if (editingService) {
+              updateMutation.mutate({ id: editingService.id, data })
+            } else {
+              createMutation.mutate(data)
+            }
+          }}
+          isLoading={createMutation.isPending || updateMutation.isPending}
           initialData={editingService}
         />
       )}

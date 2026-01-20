@@ -88,24 +88,23 @@ async def get_system_stats(
     )
     space_freed = space_freed_result.scalar() or 0
     
-    # Disk space
+    # Disk space - only show media path
     disk_info = []
-    for path in [settings.media_path, settings.data_path]:
-        if os.path.exists(path):
-            try:
-                stat = os.statvfs(path)
-                total_bytes = stat.f_blocks * stat.f_frsize
-                free_bytes = stat.f_bavail * stat.f_frsize
-                used_bytes = total_bytes - free_bytes
-                disk_info.append(DiskSpaceInfo(
-                    path=path,
-                    total_bytes=total_bytes,
-                    used_bytes=used_bytes,
-                    free_bytes=free_bytes,
-                    used_percent=(used_bytes / total_bytes) * 100 if total_bytes > 0 else 0
-                ))
-            except Exception:
-                pass
+    if os.path.exists(settings.media_path):
+        try:
+            stat = os.statvfs(settings.media_path)
+            total_bytes = stat.f_blocks * stat.f_frsize
+            free_bytes = stat.f_bavail * stat.f_frsize
+            used_bytes = total_bytes - free_bytes
+            disk_info.append(DiskSpaceInfo(
+                path=settings.media_path,
+                total_bytes=total_bytes,
+                used_bytes=used_bytes,
+                free_bytes=free_bytes,
+                used_percent=(used_bytes / total_bytes) * 100 if total_bytes > 0 else 0
+            ))
+        except Exception:
+            pass
     
     return SystemStats(
         total_media_items=total,

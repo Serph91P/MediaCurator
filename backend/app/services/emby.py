@@ -7,10 +7,59 @@ from sqlalchemy import select
 from .base import BaseServiceClient, ServiceClientError
 from ..models import ServiceConnection
 from loguru import logger
+from datetime import datetime, timedelta
+import hashlib
+import json
+
+
+class SimpleCache:
+    """Simple in-memory cache with TTL."""
+    
+    def __init__(self, default_ttl: int = 300):
+        self._cache: Dict[str, tuple[Any, datetime]] = {}
+        self.default_ttl = default_ttl
+    
+    def get(self, key: str) -> Optional[Any]:
+        """Get value from cache if not expired."""
+        if key in self._cache:
+            value, expiry = self._cache[key]
+            if datetime.utcnow() < expiry:
+                return value
+            else:
+                del self._cache[key]
+        return None
+    
+    def set(self, key: str, value: Any, ttl: Optional[int] = None):
+        """Set value in cache with TTL in seconds."""
+        ttl = ttl or self.default_ttl
+        expiry = datetime.utcnow() + timedelta(seconds=ttl)
+        self._cache[key] = (value, expiry)
+    
+    def clear(self):
+        """Clear all cache."""
+        self._cache.clear()
+    
+    def remove(self, key: str):
+        """Remove specific key from cache."""
+        if key in self._cache:
+            del self._cache[key]
+
+
+# Global cache instance
+_emby_cache = SimpleCache(default_ttl=300)  # 5 minutes default
 
 
 class EmbyClient(BaseServiceClient):
     """Client for Emby API."""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cache = _emby_cache
+    
+    def _make_cache_key(self, endpoint: str, params: Optional[Dict] = None) -> str:
+        """Generate cache key from endpoint and params."""
+        cache_data = f"{self.base_url}:{endpoint}:{json.dumps(params or {}, sort_keys=True)}"
+        return hashlib.md5(cache_data.encode()).hexdigest()
     
     def _get_headers(self) -> Dict[str, str]:
         return {
@@ -39,18 +88,28 @@ class EmbyClient(BaseServiceClient):
         return await self.get("/Users")
     
     async def get_libraries(self) -> List[Dict[str, Any]]:
-        """Get all libraries (views)."""
+        """Get all libraries (views) - cached for 10 minutes."""
+        cache_key = self._make_cache_key("/Library/VirtualFolders")
+        cached = self.cache.get(cache_key)
+        if cached is not None:
+            logger.debug(f"Cache hit for libraries")
+            return cached
+        
         result = await self.get("/Library/VirtualFolders")
-        return result if result else []
+        libraries = result if result else []
+        self.cache.set(cache_key, libraries, ttl=600)  # 10 minutes
+        return libraries
     
     async def get_items(
         self,
         parent_id: Optional[str] = None,
         include_item_types: Optional[List[str]] = None,
         recursive: bool = True,
-        fields: Optional[List[str]] = None
+        fields: Optional[List[str]] = None,
+        use_cache: bool = True,
+        cache_ttl: int = 300
     ) -> List[Dict[str, Any]]:
-        """Get library items."""
+        """Get library items - cached by default for 5 minutes."""
         params = {
             "Recursive": str(recursive).lower(),
         }
@@ -61,8 +120,20 @@ class EmbyClient(BaseServiceClient):
         if fields:
             params["Fields"] = ",".join(fields)
         
+        if use_cache:
+            cache_key = self._make_cache_key("/Items", params)
+            cached = self.cache.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache hit for items (types={include_item_types})")
+                return cached
+        
         result = await self.get("/Items", params=params)
-        return result.get("Items", []) if result else []
+        items = result.get("Items", []) if result else []
+        
+        if use_cache:
+            self.cache.set(cache_key, items, ttl=cache_ttl)
+        
+        return items
     
     async def get_movies(self, fields: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """Get all movies."""
@@ -130,16 +201,26 @@ class EmbyClient(BaseServiceClient):
         return await self.get("/user_usage_stats/PlayActivity", params=params)
     
     async def is_item_being_watched(self, item_id: str) -> bool:
-        """Check if an item is currently being watched."""
+        """Check if an item is currently being watched - cached for 30 seconds."""
+        cache_key = self._make_cache_key("/Sessions", {"check_item": item_id})
+        cached = self.cache.get(cache_key)
+        if cached is not None:
+            return cached
+        
         sessions = await self.get_sessions()
+        is_watching = False
         for session in sessions:
             now_playing = session.get("NowPlayingItem", {})
             if now_playing.get("Id") == item_id:
-                return True
+                is_watching = True
+                break
             # Also check for series/season if episode is playing
             if now_playing.get("SeriesId") == item_id or now_playing.get("SeasonId") == item_id:
-                return True
-        return False
+                is_watching = True
+                break
+        
+        self.cache.set(cache_key, is_watching, ttl=30)  # 30 seconds for active sessions
+        return is_watching
     
     async def get_item_play_history(self, item_id: str) -> List[Dict[str, Any]]:
         """Get play history for an item."""

@@ -43,6 +43,24 @@ export default function Layout() {
     retry: false,
   })
 
+  // Check for updates
+  const { data: updateData } = useQuery({
+    queryKey: ['systemUpdates'],
+    queryFn: async () => {
+      const res = await api.get('/system/check-updates')
+      return res.data as {
+        update_available: boolean
+        latest_commit: string | null
+        commits_behind: number
+        error: string | null
+        current_version: string
+        current_commit: string
+      }
+    },
+    refetchInterval: 300000, // Check every 5 minutes
+    retry: false,
+  })
+
   return (
     <div className="flex h-screen bg-dark-900">
       {/* Sidebar */}
@@ -56,9 +74,17 @@ export default function Layout() {
               </svg>
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">MediaCleaner</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-white">MediaCleaner</h1>
+                {updateData?.update_available && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-dark-400">
-                v{healthData?.version || '0.1.0'}
+                {healthData?.version || 'v0.1.0'}
                 {healthData?.database === 'unhealthy' && (
                   <span className="ml-2 text-red-400" title="Database connection issue">⚠</span>
                 )}
@@ -110,6 +136,43 @@ export default function Layout() {
 
       {/* Main content */}
       <main className="flex-1 overflow-auto">
+        {/* Update Banner */}
+        {updateData?.update_available && (
+          <div className="bg-primary-600 border-b border-primary-500 px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    Update verfügbar! 
+                    {updateData.commits_behind > 0 && (
+                      <span className="ml-2">
+                        {updateData.commits_behind} neue{updateData.commits_behind === 1 ? 'r' : ''} Commit{updateData.commits_behind === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-primary-100">
+                    Aktuelle Version: {updateData.current_commit} → Neueste: {updateData.latest_commit}
+                  </p>
+                </div>
+              </div>
+              <a
+                href={`https://github.com/${healthData?.version?.includes('github.com') ? '' : 'Serph91P/MediaCleanup'}/commits`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white text-primary-600 rounded-lg hover:bg-primary-50 transition-colors"
+              >
+                Changelog ansehen
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            </div>
+          </div>
+        )}
+        
         <div className="p-8">
           <Outlet />
         </div>

@@ -4,7 +4,8 @@ System API routes (health, stats, settings).
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from typing import List
+from typing import List, Dict, Any
+from pydantic import BaseModel
 import os
 from datetime import datetime, timedelta
 
@@ -12,10 +13,55 @@ from ...core.database import get_db
 from ...core.config import get_settings
 from ...models import MediaItem, CleanupLog, SystemSettings, MediaType
 from ...schemas import SystemStats, HealthCheck, DiskSpaceInfo, SystemSettingResponse, SystemSettingUpdate
+from ...services.version import version_service
 from ..deps import get_current_user, get_optional_user
 
 router = APIRouter(prefix="/system", tags=["System"])
 settings = get_settings()
+
+
+class VersionInfo(BaseModel):
+    """Version information response."""
+    version: str
+    base_version: str
+    branch: str
+    commit: str
+    commit_full: str
+    commit_date: str | None
+    is_dirty: bool
+    remote_url: str | None
+
+
+class UpdateInfo(BaseModel):
+    """Update check response."""
+    update_available: bool
+    latest_commit: str | None
+    commits_behind: int
+    error: str | None
+    current_version: str
+    current_commit: str
+
+
+@router.get("/version", response_model=VersionInfo)
+async def get_version_info():
+    """Get detailed version information (no auth required)."""
+    return version_service.get_version_info()
+
+
+@router.get("/check-updates", response_model=UpdateInfo)
+async def check_for_updates():
+    """Check if updates are available on GitHub (no auth required)."""
+    git_info = version_service.get_git_info()
+    update_info = await version_service.check_for_updates()
+    
+    return UpdateInfo(
+        update_available=update_info.get("update_available", False),
+        latest_commit=update_info.get("latest_commit"),
+        commits_behind=update_info.get("commits_behind", 0),
+        error=update_info.get("error"),
+        current_version=git_info.get("full_version", "unknown"),
+        current_commit=git_info.get("commit_short", "unknown")
+    )
 
 
 @router.get("/health", response_model=HealthCheck)
@@ -30,9 +76,12 @@ async def health_check(
     except Exception:
         db_status = "unhealthy"
     
+    # Get version from version service
+    version_info = version_service.get_git_info()
+    
     return HealthCheck(
         status="healthy" if db_status == "healthy" else "degraded",
-        version=settings.app_version,
+        version=version_info.get("full_version", settings.app_version),
         database=db_status,
         scheduler="running"  # Would need actual scheduler check
     )

@@ -196,6 +196,18 @@ export interface MediaStats {
   flagged_items: number
   total_size_bytes: number
   flagged_size_bytes: number
+  service_breakdown: ServiceBreakdown[]
+}
+
+export interface ServiceBreakdown {
+  service_id: number
+  service_name: string
+  service_type: ServiceType
+  total_items: number
+  movies: number
+  series: number
+  episodes: number
+  last_sync: string | null
 }
 
 export interface RuleTemplate {

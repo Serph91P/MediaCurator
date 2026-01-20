@@ -5,7 +5,8 @@ import {
   PlayIcon, 
   ExclamationTriangleIcon,
   TrashIcon,
-  CircleStackIcon
+  CircleStackIcon,
+  ServerStackIcon
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import { formatBytes } from '../lib/utils'
@@ -176,6 +177,60 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Service Breakdown */}
+      {mediaStats?.service_breakdown && mediaStats.service_breakdown.length > 0 && (
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+          <div className="px-6 py-4 border-b border-dark-700">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <ServerStackIcon className="w-5 h-5" />
+              Media by Service
+            </h2>
+            <p className="text-sm text-dark-400 mt-1">
+              Compare media counts across different services
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-dark-700/50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-dark-300 uppercase tracking-wider">Service</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-dark-300 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-dark-300 uppercase tracking-wider">Movies</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-dark-300 uppercase tracking-wider">Series</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-dark-300 uppercase tracking-wider">Episodes</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-dark-300 uppercase tracking-wider">Total</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-dark-300 uppercase tracking-wider">Last Sync</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-dark-700">
+                {mediaStats.service_breakdown.map((service) => (
+                  <tr key={service.service_id} className="hover:bg-dark-700/30">
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-white">{service.service_name}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">
+                        {service.service_type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm text-dark-300">{service.movies.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right text-sm text-dark-300">{service.series.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right text-sm text-dark-300">{service.episodes.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right text-sm font-medium text-white">{service.total_items.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-sm text-dark-400">
+                      {service.last_sync 
+                        ? new Date(service.last_sync).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })
+                        : 'Never'
+                      }
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">

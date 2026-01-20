@@ -689,7 +689,8 @@ function RuleModal({
                 </div>
               </div>
             </div>
-            </div>
+          </div>
+          </div>
           </div>
 
           <div className="px-6 py-4 border-t border-dark-700 flex justify-end gap-3">

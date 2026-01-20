@@ -82,14 +82,32 @@ docker run -d \
 
 ### Available Docker Tags
 
+Production releases:
 - `latest` - Latest stable release from main branch
 - `stable` - Alias for latest
-- `dev` - Latest development build from develop branch
 - `1.2.3` - Specific version (semantic versioning)
 - `1.2` - Latest patch version of 1.2.x
 - `1` - Latest minor version of 1.x.x
-- `dev.123.abc123` - Development build with commit count and SHA
+
+Development builds:
+- `dev` - Latest development build from develop branch
+- `0.0.27` - Specific development version (0.0.COMMIT_COUNT)
 - `sha-abc123` - Build from specific commit
+
+Example pull commands:
+```bash
+# Latest stable release
+docker pull ghcr.io/serph91p/mediacurator:latest
+
+# Specific production version
+docker pull ghcr.io/serph91p/mediacurator:1.2.3
+
+# Latest development build
+docker pull ghcr.io/serph91p/mediacurator:dev
+
+# Specific development version
+docker pull ghcr.io/serph91p/mediacurator:0.0.27
+```
 
 ## Configuration
 

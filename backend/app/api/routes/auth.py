@@ -69,38 +69,23 @@ async def register(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
 ):
-    """Register a new user (first user becomes admin)."""
-    # Check if any users exist
+    """Register the admin user (only allowed if no users exist)."""
+    # Check if any users exist - only allow registration if no users exist
     result = await db.execute(select(User).limit(1))
     existing_user = result.scalar_one_or_none()
     
-    # Check if username is taken
-    result = await db.execute(
-        select(User).where(User.username == user_data.username)
-    )
-    if result.scalar_one_or_none():
+    if existing_user is not None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Registration is disabled. Admin user already exists."
         )
     
-    # Check if email is taken
-    if user_data.email:
-        result = await db.execute(
-            select(User).where(User.email == user_data.email)
-        )
-        if result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
-            )
-    
-    # Create user (first user is admin)
+    # Create the admin user (first and only user)
     user = User(
         username=user_data.username,
         email=user_data.email,
         hashed_password=hash_password(user_data.password),
-        is_admin=existing_user is None,  # First user is admin
+        is_admin=True,
         is_active=True
     )
     
@@ -156,40 +141,3 @@ async def update_current_user(
     
     return current_user
 
-
-@router.get("/users", response_model=List[UserResponse])
-async def list_users(
-    current_user: User = Depends(get_current_active_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """List all users (admin only)."""
-    result = await db.execute(select(User))
-    return result.scalars().all()
-
-
-@router.delete("/users/{user_id}")
-async def delete_user(
-    user_id: int,
-    current_user: User = Depends(get_current_active_admin),
-    db: AsyncSession = Depends(get_db)
-):
-    """Delete a user (admin only)."""
-    if user_id == current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete yourself"
-        )
-    
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    await db.delete(user)
-    await db.commit()
-    
-    return {"message": "User deleted"}

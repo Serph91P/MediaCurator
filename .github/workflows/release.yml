@@ -30,18 +30,17 @@ jobs:
         id: version
         run: |
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            # Tagged release
+            # Tagged release (e.g., v1.2.3 -> 1.2.3)
             VERSION=${GITHUB_REF#refs/tags/v}
             IS_PRERELEASE=false
           elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
-            # Main branch - use latest commit short SHA
+            # Main branch - use latest
             VERSION="latest"
             IS_PRERELEASE=false
           else
-            # Develop branch - create dev version with commit count
+            # Develop branch - create SemVer dev version (0.0.COMMIT_COUNT)
             COMMIT_COUNT=$(git rev-list --count HEAD)
-            SHORT_SHA=$(git rev-parse --short HEAD)
-            VERSION="dev.${COMMIT_COUNT}.${SHORT_SHA}"
+            VERSION="0.0.${COMMIT_COUNT}"
             IS_PRERELEASE=true
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
@@ -197,7 +196,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name != 'develop' && github.ref_name || format('dev-{0}', needs.prepare.outputs.version) }}
+          tag_name: ${{ github.ref_name != 'develop' && github.ref_name || format('v{0}', needs.prepare.outputs.version) }}
           name: ${{ github.ref_name != 'develop' && format('Release {0}', needs.prepare.outputs.version) || format('Development Build {0}', needs.prepare.outputs.version) }}
           body_path: release_notes.md
           draft: false

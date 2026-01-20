@@ -175,7 +175,7 @@ class RuleConditions(BaseModel):
     not_watched_days: Optional[int] = Field(None, ge=0)
     min_age_days: Optional[int] = Field(None, ge=0)
     exclude_favorited: bool = True
-    exclude_currently_watching: bool = True
+    exclude_watched_within_days: Optional[int] = Field(None, ge=0)  # Exclude items watched within last X days
     series_delete_mode: SeriesDeleteMode = SeriesDeleteMode.EPISODE
     min_episodes_watched_percent: Optional[int] = Field(None, ge=0, le=100)
     exclude_genres: List[str] = []
@@ -183,11 +183,10 @@ class RuleConditions(BaseModel):
     include_tags: List[str] = []
     rating_below: Optional[float] = Field(None, ge=0, le=10)
     max_items_per_run: Optional[int] = Field(None, ge=1)
-    # Neue Optionen
-    add_import_exclusion: bool = True  # Zur Import-Exclusion-Liste hinzufügen beim Löschen
-    watched_progress_below: Optional[int] = Field(None, ge=0, le=100)  # Nur löschen wenn Progress unter X%
-    exclude_recently_added_days: Optional[int] = Field(None, ge=0)  # Kürzlich hinzugefügt ausschließen
-    exclude_in_progress: bool = True  # Medien mit Progress > 0 aber nicht fertig ausschließen
+    # Additional options
+    add_import_exclusion: bool = True  # Add to import exclusion list when deleting
+    watched_progress_below: Optional[int] = Field(None, ge=0, le=100)  # Only delete if progress below X%
+    exclude_recently_added_days: Optional[int] = Field(None, ge=0)  # Exclude recently added items
 
 
 class CleanupRuleBase(BaseModel):

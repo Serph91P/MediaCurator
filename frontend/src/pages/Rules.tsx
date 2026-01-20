@@ -234,7 +234,7 @@ function RuleModal({
       not_watched_days: template?.conditions?.not_watched_days || 180,
       min_age_days: template?.conditions?.min_age_days || 30,
       exclude_favorited: template?.conditions?.exclude_favorited ?? true,
-      exclude_currently_watching: template?.conditions?.exclude_currently_watching ?? true,
+      exclude_watched_within_days: template?.conditions?.exclude_watched_within_days || 30,
       series_delete_mode: 'episode',
       exclude_genres: [],
       exclude_tags: [],
@@ -502,30 +502,33 @@ function RuleModal({
                   />
                   <span className="text-sm text-dark-200">Exclude Favorites</span>
                 </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.conditions.exclude_currently_watching}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      conditions: { ...formData.conditions, exclude_currently_watching: e.target.checked }
-                    })}
-                    className="rounded border-dark-600 bg-dark-700 text-primary-500"
-                  />
-                  <span className="text-sm text-dark-200">Exclude Currently Watching</span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-dark-200 mb-1">
+                  Exclude Recently Watched (days)
+                  <span className="text-xs text-dark-400 ml-2">Items watched within last X days won't be deleted</span>
                 </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.conditions.exclude_in_progress ?? true}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      conditions: { ...formData.conditions, exclude_in_progress: e.target.checked }
-                    })}
-                    className="rounded border-dark-600 bg-dark-700 text-primary-500"
-                  />
-                  <span className="text-sm text-dark-200">Exclude In Progress</span>
-                </label>
+                <input
+                  type="number"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                  value={formData.conditions.exclude_watched_within_days || ''}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    conditions: {
+                      ...formData.conditions,
+                      exclude_watched_within_days: e.target.value ? parseInt(e.target.value) : null
+                    }
+                  })}
+                  placeholder="30"
+                  min={0}
+                />
+                <p className="text-xs text-dark-500 mt-1">
+                  Leave empty to disable. Common values: 7, 14, 30, 90 days
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"

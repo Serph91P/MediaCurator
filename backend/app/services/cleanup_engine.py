@@ -72,16 +72,14 @@ class CleanupEngine:
             if item.media_type != rule.media_type:
                 continue
             
-            # Skip if item is currently being watched (aktive Session)
-            if conditions.exclude_currently_watching and item.is_currently_watching:
-                logger.debug(f"Skipping {item.title} - currently being watched")
-                continue
-            
-            # Skip items in progress (angefangen aber nicht fertig)
-            if conditions.exclude_in_progress:
-                if item.progress_percent and 0 < item.progress_percent < 90:
-                    logger.debug(f"Skipping {item.title} - in progress ({item.progress_percent:.0f}%)")
-                    continue
+            # Skip items watched recently (within last X days)
+            if conditions.exclude_watched_within_days is not None:
+                if item.last_watched:
+                    from datetime import datetime, timedelta, timezone
+                    cutoff_date = datetime.now(timezone.utc) - timedelta(days=conditions.exclude_watched_within_days)
+                    if item.last_watched >= cutoff_date:
+                        logger.debug(f"Skipping {item.title} - watched within last {conditions.exclude_watched_within_days} days")
+                        continue
             
             # Check watched progress threshold
             if conditions.watched_progress_below is not None:
@@ -493,18 +491,17 @@ class CleanupEngine:
                     f"Disk usage ({disk_info['used_percent']:.1f}%) exceeds threshold ({conditions.disk_space_threshold_percent}%)"
                 )
         
-        # Check if currently being watched
-        if conditions.exclude_currently_watching and getattr(item, 'is_currently_watching', False):
-            result["would_delete"] = False
-            result["skip_reasons"].append("Currently being watched in active session")
-            return result
-        
-        # Check if in progress
-        if getattr(conditions, 'exclude_in_progress', True):
-            if item.progress_percent and 0 < item.progress_percent < 90:
-                result["would_delete"] = False
-                result["skip_reasons"].append(f"In progress ({item.progress_percent:.0f}% watched)")
-                return result
+        # Check if watched recently (within last X days)
+        if conditions.exclude_watched_within_days is not None:
+            if item.last_watched:
+                from datetime import datetime, timedelta, timezone
+                cutoff_date = datetime.now(timezone.utc) - timedelta(days=conditions.exclude_watched_within_days)
+                if item.last_watched >= cutoff_date:
+                    result["would_delete"] = False
+                    result["skip_reasons"].append(
+                        f"Watched within last {conditions.exclude_watched_within_days} days (last watched: {item.last_watched.strftime('%Y-%m-%d')})"
+                    )
+                    return result
         
         # Check watched progress threshold
         if conditions.watched_progress_below is not None:

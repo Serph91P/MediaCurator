@@ -274,6 +274,31 @@ docker compose -f docker-compose.dev.yml up
 
 ### ⚡ Performance & Optimization
 - [x] Implement in-memory caching for Emby API calls (library items, watch status)
+- [x] Optimize TanStack Query staleTime/gcTime (5-10 minutes for rarely-changed data)
+- [ ] Add SQLAlchemy eager loading where appropriate (reduce N+1 queries)
+- [ ] Implement pagination for large result sets (rules, media items, logs)
+- [ ] Add database indexes on frequently queried columns (external_id, service_connection_id)
+- [ ] Implement debouncing for search/filter inputs
+- [ ] Optional: Collapsible sidebar to maximize content area
+
+### 🎨 UI/UX Improvements
+- [x] Redesign sidebar with proper icon positioning and hover states
+- [x] Mobile-responsive layout with hamburger menu
+- [x] Create ResponsiveTable component for mobile-friendly data display
+- [x] Add series evaluation mode and delete target options (9 granular options)
+- [x] Improve conditions form spacing and grouping for better readability
+- [ ] Convert existing table pages to use ResponsiveTable component (Media, History, Services)
+- [ ] Add loading skeletons for better perceived performance
+- [ ] Implement toast notifications for all user actions
+- [ ] Add confirmation dialogs for destructive actions
+- [ ] Dark/Light theme toggle (currently dark-only)
+
+### 🔔 Notifications & Integration
+- [x] Migrate to Apprise URL-schema for 90+ notification services
+- [ ] Add notification preview/test button
+- [ ] Implement notification templates (customize message format)
+- [ ] Add webhook retry logic with exponential backoff
+- [ ] Support multiple notification channels per event type
 - [x] Increase TanStack Query cache times for rarely-changed data (5-10min)
 - [ ] Add debouncing for search/filter operations
 - [ ] Optimize SQLAlchemy queries with eager loading (reduce N+1 queries)

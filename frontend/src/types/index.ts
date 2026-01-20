@@ -20,6 +20,8 @@ export type MediaType = 'movie' | 'series' | 'episode' | 'season'
 export type RuleActionType = 'delete' | 'notify_only' | 'move_to_trash' | 'unmonitor'
 export type NotificationType = 'webhook' | 'discord' | 'slack' | 'email' | 'apprise'
 export type SeriesDeleteMode = 'episode' | 'season' | 'series'
+export type SeriesEvaluationMode = 'whole_series' | 'season' | 'episode'
+export type SeriesDeleteTarget = 'whole_series' | 'matched_season' | 'matched_episode' | 'previous_seasons' | 'following_seasons' | 'previous_episodes' | 'following_episodes' | 'unwatched_episodes_in_season' | 'unwatched_seasons'
 
 export interface ServiceConnection {
   id: number
@@ -64,7 +66,9 @@ export interface RuleConditions {
   min_age_days?: number | null
   exclude_favorited: boolean
   exclude_watched_within_days?: number | null  // Exclude items watched within last X days
-  series_delete_mode: SeriesDeleteMode
+  series_delete_mode?: SeriesDeleteMode  // Legacy field
+  series_evaluation_mode?: SeriesEvaluationMode  // How to evaluate series
+  series_delete_target?: SeriesDeleteTarget  // What to delete when matched
   min_episodes_watched_percent?: number | null
   exclude_genres: string[]
   exclude_tags: string[]
@@ -236,4 +240,15 @@ export interface SystemSettingsUpdate {
   dry_run_mode?: boolean
   default_grace_period_days?: number
   max_deletions_per_run?: number
+}
+
+export interface SeriesOption {
+  value: string
+  label: string
+  description: string
+}
+
+export interface SeriesOptionsResponse {
+  evaluation_modes: SeriesOption[]
+  delete_targets: SeriesOption[]
 }

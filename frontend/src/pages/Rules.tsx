@@ -3,30 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
-import type { CleanupRule, CleanupRuleCreate, MediaType, RuleActionType, RuleTemplate } from '../types'
+import type { CleanupRule, CleanupRuleCreate, MediaType, RuleActionType, RuleTemplate, SeriesOptionsResponse } from '../types'
 
 const mediaTypes: { value: MediaType; label: string }[] = [
   { value: 'movie', label: 'Movies' },
   { value: 'series', label: 'Series' },
-  { value: 'episode', label: 'Episodes' },
-]
-
-const seriesDeleteModes: { value: 'episode' | 'season' | 'series'; label: string; description: string }[] = [
-  { 
-    value: 'episode', 
-    label: 'Episode Level (Most Aggressive)', 
-    description: 'Only watched episodes are kept, rest is deleted'
-  },
-  { 
-    value: 'season', 
-    label: 'Season Level (Moderate)', 
-    description: 'If any episode in a season is watched, entire season is kept'
-  },
-  { 
-    value: 'series', 
-    label: 'Series Level (Most Conservative)', 
-    description: 'If any episode is watched, entire series is kept'
-  },
 ]
 
 const actionTypes: { value: RuleActionType; label: string }[] = [
@@ -249,6 +230,15 @@ function RuleModal({
   isLoading: boolean
   template?: RuleTemplate | null
 }) {
+  // Fetch series options from API
+  const { data: seriesOptions } = useQuery({
+    queryKey: ['seriesOptions'],
+    queryFn: async () => {
+      const res = await api.get<SeriesOptionsResponse>('/rules/series-options')
+      return res.data
+    },
+  })
+
   const [formData, setFormData] = useState<CleanupRuleCreate>({
     name: template?.name || '',
     description: template?.description || '',
@@ -261,7 +251,8 @@ function RuleModal({
       min_age_days: template?.conditions?.min_age_days || 30,
       exclude_favorited: template?.conditions?.exclude_favorited ?? true,
       exclude_watched_within_days: template?.conditions?.exclude_watched_within_days || 30,
-      series_delete_mode: 'episode',
+      series_evaluation_mode: template?.conditions?.series_evaluation_mode || 'episode',
+      series_delete_target: template?.conditions?.series_delete_target || 'matched_episode',
       exclude_genres: [],
       exclude_tags: [],
       include_tags: [],
@@ -341,38 +332,75 @@ function RuleModal({
                 </div>
               </div>
 
-              {/* Series Delete Mode - nur anzeigen wenn series oder episode ausgewählt */}
-              {(formData.media_types.includes('series') || formData.media_types.includes('episode')) && (
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-dark-200 mb-2">
-                    Series Handling Mode
-                    <span className="text-xs text-dark-400 ml-2">How to handle watched episodes in a series</span>
-                  </label>
-                  <div className="space-y-2">
-                    {seriesDeleteModes.map((mode) => (
-                      <label key={mode.value} className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg hover:bg-dark-700 cursor-pointer transition-colors">
-                        <input
-                          type="radio"
-                          name="series_delete_mode"
-                          value={mode.value}
-                          checked={formData.conditions.series_delete_mode === mode.value}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            conditions: { ...formData.conditions, series_delete_mode: e.target.value as 'episode' | 'season' | 'series' }
-                          })}
-                          className="mt-0.5 border-dark-600 bg-dark-700 text-primary-500"
-                        />
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-dark-100">{mode.label}</div>
-                          <div className="text-xs text-dark-400 mt-0.5">{mode.description}</div>
-                        </div>
-                      </label>
-                    ))}
+              {/* Series Configuration - only show when 'series' is selected */}
+              {formData.media_types.includes('series') && seriesOptions && (
+                <div className="col-span-2 space-y-6 border-t border-dark-700 pt-6 mt-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-white mb-3">Series Cleanup Configuration</h4>
+                    <p className="text-xs text-dark-400 mb-4">Configure how series should be evaluated and what should be deleted when rules match</p>
+                  </div>
+
+                  {/* Series Evaluation Mode */}
+                  <div>
+                    <label className="block text-sm font-medium text-dark-200 mb-3">
+                      Evaluation Mode
+                      <span className="text-xs text-dark-400 ml-2 font-normal">How to evaluate series for cleanup</span>
+                    </label>
+                    <div className="space-y-3">
+                      {seriesOptions.evaluation_modes.map((mode) => (
+                        <label key={mode.value} className="flex items-start gap-3 p-4 bg-dark-700/30 rounded-lg hover:bg-dark-700/50 cursor-pointer transition-colors border border-dark-600/50">
+                          <input
+                            type="radio"
+                            name="series_evaluation_mode"
+                            value={mode.value}
+                            checked={formData.conditions.series_evaluation_mode === mode.value}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              conditions: { ...formData.conditions, series_evaluation_mode: e.target.value as any }
+                            })}
+                            className="mt-0.5 border-dark-600 bg-dark-700 text-primary-500 focus:ring-2 focus:ring-primary-500"
+                          />
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-dark-100">{mode.label}</div>
+                            <div className="text-xs text-dark-400 mt-1">{mode.description}</div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Series Delete Target */}
+                  <div>
+                    <label className="block text-sm font-medium text-dark-200 mb-3">
+                      Delete Target
+                      <span className="text-xs text-dark-400 ml-2 font-normal">What to delete when rule matches</span>
+                    </label>
+                    <div className="space-y-3">
+                      {seriesOptions.delete_targets.map((target) => (
+                        <label key={target.value} className="flex items-start gap-3 p-4 bg-dark-700/30 rounded-lg hover:bg-dark-700/50 cursor-pointer transition-colors border border-dark-600/50">
+                          <input
+                            type="radio"
+                            name="series_delete_target"
+                            value={target.value}
+                            checked={formData.conditions.series_delete_target === target.value}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              conditions: { ...formData.conditions, series_delete_target: e.target.value as any }
+                            })}
+                            className="mt-0.5 border-dark-600 bg-dark-700 text-primary-500 focus:ring-2 focus:ring-primary-500"
+                          />
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-dark-100">{target.label}</div>
+                            <div className="text-xs text-dark-400 mt-1">{target.description}</div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
 
-              <div>
+              <div className="col-span-2 border-t border-dark-700 pt-6 mt-4">
                 <label className="block text-sm font-medium text-dark-200 mb-1">Action</label>
                 <select
                   className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -388,10 +416,13 @@ function RuleModal({
 
             {/* Conditions */}
             <div className="border-t border-dark-700 pt-6">
-              <h3 className="font-medium text-white mb-4">Conditions</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-1">Not Watched (days)</label>
+              <h3 className="font-medium text-white mb-5">Cleanup Conditions</h3>
+              
+              {/* Time-based Conditions */}
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-dark-200 mb-2">Not Watched (days)</label>
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -407,7 +438,7 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-1">Disk Space Threshold (%)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">Disk Space Threshold (%)</label>
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -423,7 +454,7 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-1">Minimum Age (days)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">Minimum Age (days)</label>
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -439,7 +470,7 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-1">Grace Period (days)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">Grace Period (days)</label>
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -451,8 +482,14 @@ function RuleModal({
                     placeholder="7"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-1">Rating Below (delete if below)</label>
+              </div>
+
+              {/* Rating & Progress Conditions */}
+              <div className="border-t border-dark-700 pt-5 mt-5">
+                <h4 className="text-sm font-semibold text-white mb-4">Rating & Progress Filters</h4>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-dark-200 mb-2">Rating Below (delete if below)</label>
                   <input
                     type="number"
                     step="0.1"
@@ -469,7 +506,7 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-1">Watch Progress Below (%)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">Watch Progress Below (%)</label>
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -485,7 +522,7 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-1">Exclude Recently Added (days)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">Exclude Recently Added (days)</label>
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -501,7 +538,7 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-1">Max Items Per Run</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">Max Items Per Run</label>
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -516,8 +553,15 @@ function RuleModal({
                     placeholder="Unlimited"
                   />
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-dark-200 mb-1">Exclude Genres (comma separated)</label>
+              </div>
+            </div>
+
+              {/* Genre & Tag Filters */}
+              <div className="border-t border-dark-700 pt-5 mt-5">
+                <h4 className="text-sm font-semibold text-white mb-4">Genre & Tag Filters</h4>
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-dark-200 mb-2">Exclude Genres (comma separated)</label>
                   <input
                     type="text"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -532,8 +576,8 @@ function RuleModal({
                     placeholder="Documentary, Animation"
                   />
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-dark-200 mb-1">Exclude Tags (comma separated)</label>
+                <div>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">Exclude Tags (comma separated)</label>
                   <input
                     type="text"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -548,8 +592,8 @@ function RuleModal({
                     placeholder="keep, important"
                   />
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-dark-200 mb-1">Include Only Tags (comma separated, leave empty for all)</label>
+                <div>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">Include Only Tags (comma separated, leave empty for all)</label>
                   <input
                     type="text"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -565,57 +609,65 @@ function RuleModal({
                   />
                 </div>
               </div>
-              <div className="flex flex-wrap gap-4 mt-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.conditions.exclude_favorited}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      conditions: { ...formData.conditions, exclude_favorited: e.target.checked }
-                    })}
-                    className="rounded border-dark-600 bg-dark-700 text-primary-500"
-                  />
-                  <span className="text-sm text-dark-200">Exclude Favorites</span>
-                </label>
-              </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-1">
-                  Exclude Recently Watched (days)
-                  <span className="text-xs text-dark-400 ml-2">Items watched within last X days won't be deleted</span>
-                </label>
+            {/* Exclusion Options */}
+            <div className="border-t border-dark-700 pt-5">
+              <h4 className="text-sm font-semibold text-white mb-4">Exclusion Options</h4>
+              <div className="space-y-5">
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.conditions.exclude_favorited}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: { ...formData.conditions, exclude_favorited: e.target.checked }
+                      })}
+                      className="rounded border-dark-600 bg-dark-700 text-primary-500"
+                    />
+                    <span className="text-sm text-dark-200">Exclude Favorites</span>
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">
+                    Exclude Recently Watched (days)
+                    <span className="text-xs text-dark-400 ml-2 font-normal">Items watched within last X days won't be deleted</span>
+                  </label>
                 <input
                   type="number"
-                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
-                  value={formData.conditions.exclude_watched_within_days || ''}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    conditions: {
-                      ...formData.conditions,
-                      exclude_watched_within_days: e.target.value ? parseInt(e.target.value) : null
-                    }
-                  })}
-                  placeholder="30"
-                  min={0}
-                />
-                <p className="text-xs text-dark-500 mt-1">
-                  Leave empty to disable. Common values: 7, 14, 30, 90 days
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2">
                   <input
-                    type="checkbox"
-                    checked={formData.conditions.add_import_exclusion ?? true}
+                    type="number"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                    value={formData.conditions.exclude_watched_within_days || ''}
                     onChange={(e) => setFormData({
                       ...formData,
-                      conditions: { ...formData.conditions, add_import_exclusion: e.target.checked }
+                      conditions: {
+                        ...formData.conditions,
+                        exclude_watched_within_days: e.target.value ? parseInt(e.target.value) : null
+                      }
                     })}
-                    className="rounded border-dark-600 bg-dark-700 text-primary-500"
+                    placeholder="30"
+                    min={0}
                   />
-                  <span className="text-sm text-dark-200">Add to Import Exclusion on Delete</span>
+                  <p className="text-xs text-dark-500 mt-1">
+                    Leave empty to disable. Common values: 7, 14, 30, 90 days
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.conditions.add_import_exclusion ?? true}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: { ...formData.conditions, add_import_exclusion: e.target.checked }
+                      })}
+                      className="rounded border-dark-600 bg-dark-700 text-primary-500"
+                    />
+                    <span className="text-sm text-dark-200">Add to Import Exclusion on Delete</span>
                 </label>
               </div>
             </div>

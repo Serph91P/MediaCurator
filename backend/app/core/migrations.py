@@ -9,42 +9,62 @@ from loguru import logger
 async def migrate_database(db: AsyncSession):
     """Run all necessary database migrations."""
     
-    # Check if media_types column exists in cleanup_rules
+    # Check if old media_type column exists (needs migration)
     result = await db.execute(text("""
         SELECT COUNT(*) as count 
         FROM pragma_table_info('cleanup_rules') 
-        WHERE name='media_types'
+        WHERE name='media_type'
     """))
-    has_media_types = result.scalar() > 0
+    has_old_media_type = result.scalar() > 0
     
-    if not has_media_types:
-        logger.info("Migrating cleanup_rules: adding media_types column")
+    if has_old_media_type:
+        logger.info("Migrating cleanup_rules: removing old media_type column and adding media_types")
         
-        # Add media_types column with default empty array
+        # SQLite doesn't support DROP COLUMN directly, so we need to recreate the table
+        # Step 1: Create new table with correct schema
         await db.execute(text("""
-            ALTER TABLE cleanup_rules 
-            ADD COLUMN media_types TEXT DEFAULT '[]'
+            CREATE TABLE cleanup_rules_new (
+                id INTEGER PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                description TEXT,
+                is_enabled BOOLEAN DEFAULT 1,
+                priority INTEGER DEFAULT 0,
+                media_types TEXT NOT NULL DEFAULT '[]',
+                library_id INTEGER,
+                conditions TEXT NOT NULL DEFAULT '{}',
+                action VARCHAR(50) DEFAULT 'DELETE',
+                grace_period_days INTEGER DEFAULT 7,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP,
+                FOREIGN KEY (library_id) REFERENCES libraries(id)
+            )
         """))
         
-        # Commit the column addition first
-        await db.commit()
-        
-        # Start new transaction for data migration
-        # Migrate existing data: convert old media_type to new media_types array
+        # Step 2: Copy data from old table, converting media_type to media_types
         await db.execute(text("""
-            UPDATE cleanup_rules 
-            SET media_types = 
+            INSERT INTO cleanup_rules_new 
+                (id, name, description, is_enabled, priority, media_types, library_id, 
+                 conditions, action, grace_period_days, created_at, updated_at)
+            SELECT 
+                id, name, description, is_enabled, priority,
                 CASE 
                     WHEN media_type = 'movie' THEN '["movie"]'
                     WHEN media_type = 'series' THEN '["series"]'
                     WHEN media_type = 'episode' THEN '["episode"]'
-                    ELSE '["movie", "series", "episode"]'
-                END
-            WHERE media_types = '[]' OR media_types IS NULL
+                    ELSE '["movie"]'
+                END as media_types,
+                library_id, conditions, action, grace_period_days, created_at, updated_at
+            FROM cleanup_rules
         """))
         
+        # Step 3: Drop old table
+        await db.execute(text("DROP TABLE cleanup_rules"))
+        
+        # Step 4: Rename new table
+        await db.execute(text("ALTER TABLE cleanup_rules_new RENAME TO cleanup_rules"))
+        
         await db.commit()
-        logger.info("Migration completed: media_types column added")
+        logger.info("Migration completed: media_type column removed, media_types added")
     
     # Check if staging columns exist in media_items
     result = await db.execute(text("""

@@ -79,7 +79,7 @@ export default function Rules() {
           <h1 className="text-3xl font-bold text-white">Cleanup Rules</h1>
           <p className="text-dark-400 mt-1">Define when and how media should be cleaned up</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="btn-primary flex items-center gap-2">
+        <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />
           Add Rule
         </button>
@@ -87,11 +87,11 @@ export default function Rules() {
 
       {/* Templates */}
       {templates && templates.length > 0 && (
-        <div className="card">
-          <div className="card-header">
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+          <div className="px-6 py-4 border-b border-dark-700">
             <h2 className="text-lg font-semibold text-white">Quick Start Templates</h2>
           </div>
-          <div className="card-body">
+          <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {templates.map((template, i) => (
                 <button
@@ -105,8 +105,8 @@ export default function Rules() {
                   <h3 className="font-medium text-white">{template.name}</h3>
                   <p className="text-sm text-dark-400 mt-1">{template.description}</p>
                   <div className="flex gap-2 mt-2">
-                    <span className="badge-info">{template.media_type}</span>
-                    <span className="badge-warning">{template.action}</span>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">{template.media_type}</span>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">{template.action}</span>
                   </div>
                 </button>
               ))}
@@ -127,8 +127,8 @@ export default function Rules() {
       ) : rules && rules.length > 0 ? (
         <div className="space-y-4">
           {rules.map((rule) => (
-            <div key={rule.id} className="card">
-              <div className="card-body">
+            <div key={rule.id} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+              <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
@@ -150,8 +150,8 @@ export default function Rules() {
                       <p className="text-sm text-dark-400 mt-2">{rule.description}</p>
                     )}
                     <div className="flex flex-wrap gap-2 mt-3">
-                      <span className="badge-info">{rule.media_type}</span>
-                      <span className="badge-warning">{rule.action}</span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">{rule.media_type}</span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">{rule.action}</span>
                       <span className="badge bg-dark-600 text-dark-300">
                         Priority: {rule.priority}
                       </span>
@@ -175,7 +175,7 @@ export default function Rules() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => deleteMutation.mutate(rule.id)}
-                      className="btn-ghost text-red-400 hover:text-red-300"
+                      className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-red-400 hover:text-red-300"
                     >
                       <TrashIcon className="w-5 h-5" />
                     </button>
@@ -186,7 +186,7 @@ export default function Rules() {
           ))}
         </div>
       ) : (
-        <div className="card">
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
           <div className="card-body text-center py-12">
             <p className="text-dark-400">No cleanup rules configured</p>
             <p className="text-sm text-dark-500 mt-1">
@@ -254,7 +254,7 @@ function RuleModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
       <div className="card w-full max-w-2xl mx-4 my-8">
-        <div className="card-header">
+        <div className="px-6 py-4 border-b border-dark-700">
           <h2 className="text-lg font-semibold text-white">
             {template ? `Create Rule from Template` : 'Create Cleanup Rule'}
           </h2>
@@ -264,10 +264,10 @@ function RuleModal({
             {/* Basic Info */}
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <label className="label">Rule Name</label>
+                <label className="block text-sm font-medium text-dark-200 mb-1">Rule Name</label>
                 <input
                   type="text"
-                  className="input"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g., Delete old unwatched movies"
@@ -275,9 +275,9 @@ function RuleModal({
                 />
               </div>
               <div className="col-span-2">
-                <label className="label">Description</label>
+                <label className="block text-sm font-medium text-dark-200 mb-1">Description</label>
                 <textarea
-                  className="input"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   value={formData.description || ''}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Describe what this rule does..."
@@ -285,9 +285,9 @@ function RuleModal({
                 />
               </div>
               <div>
-                <label className="label">Media Type</label>
+                <label className="block text-sm font-medium text-dark-200 mb-1">Media Type</label>
                 <select
-                  className="input"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   value={formData.media_type}
                   onChange={(e) => setFormData({ ...formData, media_type: e.target.value as MediaType })}
                 >
@@ -297,9 +297,9 @@ function RuleModal({
                 </select>
               </div>
               <div>
-                <label className="label">Action</label>
+                <label className="block text-sm font-medium text-dark-200 mb-1">Action</label>
                 <select
-                  className="input"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   value={formData.action}
                   onChange={(e) => setFormData({ ...formData, action: e.target.value as RuleActionType })}
                 >
@@ -315,10 +315,10 @@ function RuleModal({
               <h3 className="font-medium text-white mb-4">Conditions</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="label">Not Watched (days)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Not Watched (days)</label>
                   <input
                     type="number"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.conditions.not_watched_days || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -331,10 +331,10 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="label">Disk Space Threshold (%)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Disk Space Threshold (%)</label>
                   <input
                     type="number"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.conditions.disk_space_threshold_percent || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -347,10 +347,10 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="label">Minimum Age (days)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Minimum Age (days)</label>
                   <input
                     type="number"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.conditions.min_age_days || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -363,10 +363,10 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="label">Grace Period (days)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Grace Period (days)</label>
                   <input
                     type="number"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.grace_period_days}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -376,11 +376,11 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="label">Rating Below (delete if below)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Rating Below (delete if below)</label>
                   <input
                     type="number"
                     step="0.1"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.conditions.rating_below || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -393,10 +393,10 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="label">Watch Progress Below (%)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Watch Progress Below (%)</label>
                   <input
                     type="number"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.conditions.watched_progress_below || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -409,10 +409,10 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="label">Exclude Recently Added (days)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Exclude Recently Added (days)</label>
                   <input
                     type="number"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.conditions.exclude_recently_added_days || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -425,10 +425,10 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="label">Max Items Per Run</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Max Items Per Run</label>
                   <input
                     type="number"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.conditions.max_items_per_run || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -441,10 +441,10 @@ function RuleModal({
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="label">Exclude Genres (comma separated)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Exclude Genres (comma separated)</label>
                   <input
                     type="text"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={(formData.conditions.exclude_genres || []).join(', ')}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -457,10 +457,10 @@ function RuleModal({
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="label">Exclude Tags (comma separated)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Exclude Tags (comma separated)</label>
                   <input
                     type="text"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={(formData.conditions.exclude_tags || []).join(', ')}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -473,10 +473,10 @@ function RuleModal({
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="label">Include Only Tags (comma separated, leave empty for all)</label>
+                  <label className="block text-sm font-medium text-dark-200 mb-1">Include Only Tags (comma separated, leave empty for all)</label>
                   <input
                     type="text"
-                    className="input"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={(formData.conditions.include_tags || []).join(', ')}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -543,10 +543,10 @@ function RuleModal({
           </div>
 
           <div className="px-6 py-4 border-t border-dark-700 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="btn-secondary">
+            <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={isLoading} className="btn-primary">
+            <button type="submit" disabled={isLoading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {isLoading ? 'Creating...' : 'Create Rule'}
             </button>
           </div>

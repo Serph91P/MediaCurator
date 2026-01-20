@@ -92,7 +92,7 @@ export default function Notifications() {
             setEditingChannel(null)
             setIsModalOpen(true)
           }}
-          className="btn-primary flex items-center gap-2"
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
         >
           <PlusIcon className="w-5 h-5" />
           Add Channel
@@ -110,7 +110,7 @@ export default function Notifications() {
             }}
             className="card text-left hover:border-primary-500/50 transition-colors"
           >
-            <div className="card-body">
+            <div className="p-6">
               <div className="flex items-center gap-2">
                 <BellIcon className="w-5 h-5 text-primary-400" />
                 <h3 className="font-medium text-white">{type.label}</h3>
@@ -133,8 +133,8 @@ export default function Notifications() {
       ) : channels && channels.length > 0 ? (
         <div className="space-y-4">
           {channels.map((channel) => (
-            <div key={channel.id} className="card">
-              <div className="card-body">
+            <div key={channel.id} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+              <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
@@ -189,7 +189,7 @@ export default function Notifications() {
                   <button
                     onClick={() => testMutation.mutate(channel.id)}
                     disabled={testMutation.isPending}
-                    className="btn-secondary flex items-center gap-2"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
                     <CheckCircleIcon className="w-4 h-4" />
                     Test
@@ -199,13 +199,13 @@ export default function Notifications() {
                       setEditingChannel(channel)
                       setIsModalOpen(true)
                     }}
-                    className="btn-ghost text-dark-400 hover:text-white"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-dark-400 hover:text-white"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => deleteMutation.mutate(channel.id)}
-                    className="btn-ghost text-red-400 hover:text-red-300"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-red-400 hover:text-red-300"
                   >
                     <TrashIcon className="w-5 h-5" />
                   </button>
@@ -215,7 +215,7 @@ export default function Notifications() {
           ))}
         </div>
       ) : (
-        <div className="card">
+        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
           <div className="card-body text-center py-12">
             <BellIcon className="w-12 h-12 mx-auto text-dark-500" />
             <p className="text-dark-400 mt-4">No notification channels configured</p>
@@ -290,7 +290,7 @@ function NotificationModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="card w-full max-w-md mx-4">
-        <div className="card-header">
+        <div className="px-6 py-4 border-b border-dark-700">
           <h2 className="text-lg font-semibold text-white">
             {channel ? 'Edit Notification Channel' : 'Add Notification Channel'}
           </h2>
@@ -298,10 +298,10 @@ function NotificationModal({
         <form onSubmit={handleSubmit}>
           <div className="card-body space-y-4">
             <div>
-              <label className="label">Name</label>
+              <label className="block text-sm font-medium text-dark-200 mb-1">Name</label>
               <input
                 type="text"
-                className="input"
+                className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="e.g., Discord Notifications"
@@ -310,9 +310,9 @@ function NotificationModal({
             </div>
 
             <div>
-              <label className="label">Type</label>
+              <label className="block text-sm font-medium text-dark-200 mb-1">Type</label>
               <select
-                className="input"
+                className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                 value={formData.notification_type}
                 onChange={(e) => setFormData({
                   ...formData,
@@ -326,10 +326,10 @@ function NotificationModal({
             </div>
 
             <div>
-              <label className="label">Webhook URL</label>
+              <label className="block text-sm font-medium text-dark-200 mb-1">Webhook URL</label>
               <input
                 type="url"
-                className="input"
+                className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                 value={formData.webhook_url || ''}
                 onChange={(e) => setFormData({ ...formData, webhook_url: e.target.value })}
                 placeholder={getPlaceholder()}
@@ -338,7 +338,7 @@ function NotificationModal({
             </div>
 
             <div className="pt-4 border-t border-dark-700">
-              <label className="label">Events</label>
+              <label className="block text-sm font-medium text-dark-200 mb-1">Events</label>
               <div className="space-y-2">
                 <label className="flex items-center gap-2">
                   <input
@@ -372,10 +372,10 @@ function NotificationModal({
           </div>
 
           <div className="px-6 py-4 border-t border-dark-700 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="btn-secondary">
+            <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={isLoading} className="btn-primary">
+            <button type="submit" disabled={isLoading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {isLoading ? 'Saving...' : channel ? 'Update' : 'Create'}
             </button>
           </div>

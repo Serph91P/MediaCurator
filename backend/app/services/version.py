@@ -112,6 +112,8 @@ class VersionService:
             
         except Exception as e:
             logger.warning(f"Failed to get Git info: {e}")
+            # Set fallback full_version
+            info["full_version"] = f"{info['version']}-{info['commit_short']}"
         
         self._cached_version_info = info
         return info

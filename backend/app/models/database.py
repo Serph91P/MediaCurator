@@ -46,6 +46,26 @@ class NotificationType(str, Enum):
     APPRISE = "apprise"
 
 
+class SeriesEvaluationMode(str, Enum):
+    """How to evaluate series for cleanup rules."""
+    WHOLE_SERIES = "whole_series"  # Evaluate the entire series as one unit
+    SEASON = "season"  # Evaluate each season independently
+    EPISODE = "episode"  # Evaluate each episode independently
+
+
+class SeriesDeleteTarget(str, Enum):
+    """What to delete when a series rule matches."""
+    WHOLE_SERIES = "whole_series"  # Delete entire series
+    MATCHED_SEASON = "matched_season"  # Delete only the season that matched
+    MATCHED_EPISODE = "matched_episode"  # Delete only the episode that matched
+    PREVIOUS_SEASONS = "previous_seasons"  # Delete all seasons before the current watched one
+    FOLLOWING_SEASONS = "following_seasons"  # Delete all seasons after the current watched one
+    PREVIOUS_EPISODES = "previous_episodes"  # Delete all episodes before current in season
+    FOLLOWING_EPISODES = "following_episodes"  # Delete all episodes after current in season
+    UNWATCHED_EPISODES_IN_SEASON = "unwatched_episodes_in_season"  # Delete unwatched episodes in the matched season
+    UNWATCHED_SEASONS = "unwatched_seasons"  # Delete all unwatched seasons
+
+
 class User(Base):
     """User model for authentication."""
     __tablename__ = "users"
@@ -134,7 +154,13 @@ class CleanupRule(Base):
         "min_age_days": 30,
         "exclude_favorited": true,
         "exclude_currently_watching": true,
-        "series_delete_mode": "episode" | "season" | "series",
+        
+        # Series-specific settings
+        "series_evaluation_mode": "whole_series" | "season" | "episode",  # How to evaluate
+        "series_delete_target": "whole_series" | "matched_season" | "matched_episode" | 
+                               "previous_seasons" | "following_seasons" | "previous_episodes" | 
+                               "following_episodes" | "unwatched_episodes_in_season" | "unwatched_seasons",
+        
         "min_episodes_watched_percent": 0,
         "exclude_genres": ["Documentary"],
         "exclude_tags": ["keep"],

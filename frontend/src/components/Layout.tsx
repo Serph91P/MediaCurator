@@ -44,7 +44,7 @@ export default function Layout() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-white">MediaCleaner</h1>
-              <p className="text-xs text-dark-400">v0.1.0</p>
+              <p className="text-xs text-dark-400">v0.0.40</p>
             </div>
           </div>
         </div>

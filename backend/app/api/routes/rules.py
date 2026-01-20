@@ -5,13 +5,91 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
+from pydantic import BaseModel
 
 from ...core.database import get_db
-from ...models import CleanupRule
+from ...models import CleanupRule, SeriesEvaluationMode, SeriesDeleteTarget
 from ...schemas import CleanupRuleCreate, CleanupRuleUpdate, CleanupRuleResponse
 from ..deps import get_current_user
 
 router = APIRouter(prefix="/rules", tags=["Cleanup Rules"])
+
+
+class SeriesOptionsResponse(BaseModel):
+    """Available options for series cleanup rules."""
+    evaluation_modes: List[dict]
+    delete_targets: List[dict]
+
+
+@router.get("/series-options", response_model=SeriesOptionsResponse)
+async def get_series_options(current_user = Depends(get_current_user)):
+    """Get available series evaluation and delete options."""
+    return SeriesOptionsResponse(
+        evaluation_modes=[
+            {
+                "value": SeriesEvaluationMode.WHOLE_SERIES,
+                "label": "Whole Series",
+                "description": "Evaluate the entire series as one unit"
+            },
+            {
+                "value": SeriesEvaluationMode.SEASON,
+                "label": "Season",
+                "description": "Evaluate each season independently"
+            },
+            {
+                "value": SeriesEvaluationMode.EPISODE,
+                "label": "Episode",
+                "description": "Evaluate each episode independently"
+            }
+        ],
+        delete_targets=[
+            {
+                "value": SeriesDeleteTarget.WHOLE_SERIES,
+                "label": "Whole Series",
+                "description": "Delete entire series"
+            },
+            {
+                "value": SeriesDeleteTarget.MATCHED_SEASON,
+                "label": "Matched Season Only",
+                "description": "Delete only the season that matched the rule"
+            },
+            {
+                "value": SeriesDeleteTarget.MATCHED_EPISODE,
+                "label": "Matched Episode Only",
+                "description": "Delete only the episode that matched"
+            },
+            {
+                "value": SeriesDeleteTarget.PREVIOUS_SEASONS,
+                "label": "Previous Seasons",
+                "description": "Delete all seasons before the currently watched one (keep current and future)"
+            },
+            {
+                "value": SeriesDeleteTarget.FOLLOWING_SEASONS,
+                "label": "Following Seasons",
+                "description": "Delete all seasons after the currently watched one (keep current and previous)"
+            },
+            {
+                "value": SeriesDeleteTarget.PREVIOUS_EPISODES,
+                "label": "Previous Episodes in Season",
+                "description": "Delete all episodes before current in the same season"
+            },
+            {
+                "value": SeriesDeleteTarget.FOLLOWING_EPISODES,
+                "label": "Following Episodes in Season",
+                "description": "Delete all episodes after current in the same season"
+            },
+            {
+                "value": SeriesDeleteTarget.UNWATCHED_EPISODES_IN_SEASON,
+                "label": "Unwatched Episodes in Season",
+                "description": "Delete all unwatched episodes in the matched season"
+            },
+            {
+                "value": SeriesDeleteTarget.UNWATCHED_SEASONS,
+                "label": "All Unwatched Seasons",
+                "description": "Delete all seasons that are completely unwatched"
+            }
+        ]
+    )
 
 
 @router.get("/", response_model=List[CleanupRuleResponse])

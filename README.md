@@ -270,7 +270,7 @@ docker compose -f docker-compose.dev.yml up
 - [ ] Extend `release.yml` for automatic Docker image builds
 - [x] Push Docker images to GitHub Container Registry (ghcr.io)
 - [x] Create production-optimized Docker image (multi-stage build)
-- [ ] Add health checks and monitoring endpoints
+- [x] Add health checks and monitoring endpoints
 
 ### ⚡ Performance & Optimization
 - [x] Implement in-memory caching for Emby API calls (library items, watch status)
@@ -289,7 +289,7 @@ docker compose -f docker-compose.dev.yml up
 - [x] Improve conditions form spacing and grouping for better readability
 - [x] Convert existing table pages to use ResponsiveTable component (History)
 - [x] Add loading skeletons for better perceived performance
-- [ ] Implement toast notifications for all user actions
+- [x] Implement toast notifications for all user actions
 - [x] Add confirmation dialogs for destructive actions
 - [ ] Dark/Light theme toggle (currently dark-only)
 

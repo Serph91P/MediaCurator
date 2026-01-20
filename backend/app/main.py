@@ -93,6 +93,43 @@ async def health():
     return {"status": "healthy"}
 
 
+@app.get("/api/health/detailed")
+async def health_detailed():
+    """Detailed health check with component status."""
+    from .core.database import async_session_maker
+    from sqlalchemy import text
+    import time
+    
+    health_status = {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "version": settings.app_version,
+        "components": {}
+    }
+    
+    # Check database
+    try:
+        async with async_session_maker() as db:
+            await db.execute(text("SELECT 1"))
+        health_status["components"]["database"] = {"status": "healthy"}
+    except Exception as e:
+        health_status["components"]["database"] = {"status": "unhealthy", "error": str(e)}
+        health_status["status"] = "degraded"
+    
+    # Check scheduler
+    try:
+        from .scheduler import scheduler
+        if scheduler.running:
+            health_status["components"]["scheduler"] = {"status": "healthy", "jobs": len(scheduler.get_jobs())}
+        else:
+            health_status["components"]["scheduler"] = {"status": "stopped"}
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["components"]["scheduler"] = {"status": "unknown", "error": str(e)}
+    
+    return health_status
+
+
 # Mount static files for frontend assets (JS, CSS, etc.)
 if STATIC_DIR.exists():
     app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")

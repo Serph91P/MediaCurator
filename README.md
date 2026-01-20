@@ -299,31 +299,6 @@ docker compose -f docker-compose.dev.yml up
 - [ ] Implement notification templates (customize message format)
 - [ ] Add webhook retry logic with exponential backoff
 - [ ] Support multiple notification channels per event type
-- [x] Increase TanStack Query cache times for rarely-changed data (5-10min)
-- [ ] Add debouncing for search/filter operations
-- [ ] Optimize SQLAlchemy queries with eager loading (reduce N+1 queries)
-- [ ] Add pagination for large data lists
-- [ ] Create database indexes on frequently filtered columns (service_id, media_type, created_at)
-
-### 🎨 UI/UX Improvements
-- [x] **Sidebar Redesign**: Fix icon positioning (icons left of text, not above)
-- [x] Improve spacing between icons and labels
-- [x] Add better hover and active states for navigation
-- [ ] Optional: Implement collapsible sidebar with icon-only mode
-- [x] **Mobile Optimization**: 
-  - [x] Add responsive breakpoints for tablets and phones
-  - [x] Implement bottom navigation for mobile devices (hamburger menu)
-  - [x] Ensure touch-friendly button sizes (min 44x44px)
-  - [x] Created ResponsiveTable component for mobile card view
-  - [ ] Convert all existing tables to use ResponsiveTable
-  - [ ] Use bottom sheets instead of modals on mobile
-
-### 🔔 Notification System Enhancement
-- [x] Refactor notifications to use Apprise URL-schema
-- [x] Replace fixed service types with flexible URL-based configuration
-- [x] Add UI for URL input with link to Apprise documentation
-- [x] Support 90+ notification services via Apprise (ntfy, Telegram, Matrix, etc.)
-- [x] Update notification service to call Apprise directly with URLs
 
 ## Contributing
 

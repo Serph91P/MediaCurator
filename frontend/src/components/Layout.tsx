@@ -2,7 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/auth'
 import api from '../lib/api'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   HomeIcon,
   ServerStackIcon,
@@ -17,6 +17,8 @@ import {
   ArchiveBoxIcon,
   Bars3Icon,
   XMarkIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon,
 } from '@heroicons/react/24/outline'
 
 const navigation = [
@@ -35,6 +37,14 @@ const navigation = [
 export default function Layout() {
   const { user, logout } = useAuthStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const stored = localStorage.getItem('sidebarCollapsed')
+    return stored === 'true'
+  })
+
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed))
+  }, [sidebarCollapsed])
 
   // Fetch system health/version info
   const { data: healthData } = useQuery({
@@ -76,34 +86,36 @@ export default function Layout() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-dark-800 border-r border-dark-700 flex flex-col transform transition-transform duration-300 lg:translate-x-0 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 ${sidebarCollapsed ? 'lg:w-16' : 'w-64'} bg-dark-800 border-r border-dark-700 flex flex-col transform transition-all duration-300 lg:translate-x-0 ${
+        sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full'
       }`}>
         {/* Logo */}
         <div className="p-6 border-b border-dark-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
               <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-white">MediaCleaner</h1>
-                {updateData?.update_available && (
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
-                  </span>
-                )}
+            {(!sidebarCollapsed || sidebarOpen) && (
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-bold text-white">MediaCleaner</h1>
+                  {updateData?.update_available && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-dark-400">
+                  {healthData?.version || 'v0.1.0'}
+                  {healthData?.database === 'unhealthy' && (
+                    <span className="ml-2 text-red-400" title="Database connection issue">⚠</span>
+                  )}
+                </p>
               </div>
-              <p className="text-xs text-dark-400">
-                {healthData?.version || 'v0.1.0'}
-                {healthData?.database === 'unhealthy' && (
-                  <span className="ml-2 text-red-400" title="Database connection issue">⚠</span>
-                )}
-              </p>
-            </div>
+            )}
           </div>
         </div>
 
@@ -114,8 +126,11 @@ export default function Layout() {
               key={item.name}
               to={item.href}
               onClick={() => setSidebarOpen(false)}
+              title={sidebarCollapsed && !sidebarOpen ? item.name : undefined}
               className={({ isActive }) =>
                 `group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  sidebarCollapsed && !sidebarOpen ? 'justify-center' : ''
+                } ${
                   isActive
                     ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/50'
                     : 'text-dark-300 hover:text-white hover:bg-dark-700'
@@ -123,32 +138,56 @@ export default function Layout() {
               }
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
-              <span>{item.name}</span>
+              {(!sidebarCollapsed || sidebarOpen) && <span>{item.name}</span>}
             </NavLink>
           ))}
         </nav>
 
+        {/* Collapse Button (Desktop only) */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="hidden lg:flex items-center justify-center p-3 mx-3 mb-2 text-dark-400 hover:text-white hover:bg-dark-700 rounded-lg transition-colors"
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {sidebarCollapsed ? (
+            <ChevronDoubleRightIcon className="w-5 h-5" />
+          ) : (
+            <>
+              <ChevronDoubleLeftIcon className="w-5 h-5" />
+              <span className="ml-2 text-sm">Collapse</span>
+            </>
+          )}
+        </button>
+
         {/* User section */}
-        <div className="p-4 border-t border-dark-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
+        <div className={`${sidebarCollapsed && !sidebarOpen ? 'p-2' : 'p-4'} border-t border-dark-700`}>
+          <div className={`flex items-center ${sidebarCollapsed && !sidebarOpen ? 'flex-col gap-2' : 'justify-between'}`}>
+            <div className={`flex items-center ${sidebarCollapsed && !sidebarOpen ? '' : 'gap-3'}`}>
+              <button
+                onClick={logout}
+                className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center flex-shrink-0 hover:bg-primary-700 transition-colors"
+                title={sidebarCollapsed && !sidebarOpen ? 'Logout' : undefined}
+              >
                 <span className="text-sm font-medium text-white">
                   {user?.username?.charAt(0).toUpperCase() || 'U'}
                 </span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-dark-100">{user?.username || 'User'}</p>
-                <p className="text-xs text-dark-400">{user?.is_admin ? 'Admin' : 'User'}</p>
-              </div>
+              </button>
+              {(!sidebarCollapsed || sidebarOpen) && (
+                <div>
+                  <p className="text-sm font-medium text-dark-100">{user?.username || 'User'}</p>
+                  <p className="text-xs text-dark-400">{user?.is_admin ? 'Admin' : 'User'}</p>
+                </div>
+              )}
             </div>
-            <button
-              onClick={logout}
-              className="p-2 text-dark-400 hover:text-dark-100 hover:bg-dark-700 rounded-lg transition-colors"
-              title="Logout"
-            >
-              <ArrowRightOnRectangleIcon className="w-5 h-5" />
-            </button>
+            {(!sidebarCollapsed || sidebarOpen) && (
+              <button
+                onClick={logout}
+                className="p-2 text-dark-400 hover:text-dark-100 hover:bg-dark-700 rounded-lg transition-colors"
+                title="Logout"
+              >
+                <ArrowRightOnRectangleIcon className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
       </aside>

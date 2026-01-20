@@ -279,7 +279,7 @@ docker compose -f docker-compose.dev.yml up
 - [x] Implement pagination for large result sets (rules, media items, logs)
 - [x] Add database indexes on frequently queried columns (external_id, service_connection_id)
 - [x] Implement debouncing for search/filter inputs
-- [ ] Collapsible sidebar to maximize content area
+- [x] Collapsible sidebar to maximize content area
 
 ### 🎨 UI/UX Improvements
 - [x] Redesign sidebar with proper icon positioning and hover states
@@ -292,6 +292,9 @@ docker compose -f docker-compose.dev.yml up
 - [x] Implement toast notifications for all user actions
 - [x] Add confirmation dialogs for destructive actions
 - [ ] Dark/Light theme toggle (currently dark-only)
+- [ ] Mobile First Design
+- [ ] PWA
+- [ ] Notification via PWA
 
 ### 🔔 Notifications & Integration
 - [x] Migrate to Apprise URL-schema for 90+ notification services

@@ -226,6 +226,65 @@ async def toggle_rule(
     return {"is_enabled": rule.is_enabled}
 
 
+class BulkActionRequest(BaseModel):
+    """Request for bulk operations on rules."""
+    rule_ids: List[int]
+    action: str  # "enable", "disable", "delete"
+
+
+class BulkActionResult(BaseModel):
+    """Result of bulk operation."""
+    success_count: int
+    failed_count: int
+    failed_ids: List[int]
+
+
+@router.post("/bulk-action", response_model=BulkActionResult)
+async def bulk_action(
+    request: BulkActionRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Perform bulk operations on multiple rules."""
+    if request.action not in ["enable", "disable", "delete"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid action: {request.action}. Must be one of: enable, disable, delete"
+        )
+    
+    success_count = 0
+    failed_ids = []
+    
+    for rule_id in request.rule_ids:
+        result = await db.execute(
+            select(CleanupRule).where(CleanupRule.id == rule_id)
+        )
+        rule = result.scalar_one_or_none()
+        
+        if not rule:
+            failed_ids.append(rule_id)
+            continue
+        
+        try:
+            if request.action == "enable":
+                rule.is_enabled = True
+            elif request.action == "disable":
+                rule.is_enabled = False
+            elif request.action == "delete":
+                await db.delete(rule)
+            success_count += 1
+        except Exception:
+            failed_ids.append(rule_id)
+    
+    await db.commit()
+    
+    return BulkActionResult(
+        success_count=success_count,
+        failed_count=len(failed_ids),
+        failed_ids=failed_ids
+    )
+
+
 @router.get("/templates/default")
 async def get_rule_templates(
     current_user = Depends(get_current_user)

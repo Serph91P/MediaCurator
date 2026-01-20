@@ -22,6 +22,7 @@ export default function Rules() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<RuleTemplate | null>(null)
   const [ruleToDelete, setRuleToDelete] = useState<CleanupRule | null>(null)
+  const [selectedRules, setSelectedRules] = useState<Set<number>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: rules, isLoading } = useQuery({
@@ -73,6 +74,48 @@ export default function Rules() {
       queryClient.invalidateQueries({ queryKey: ['rules'] })
     },
   })
+
+  const bulkMutation = useMutation({
+    mutationFn: async ({ action, ruleIds }: { action: 'enable' | 'disable' | 'delete'; ruleIds: number[] }) => {
+      const res = await api.post('/rules/bulk-action', {
+        rule_ids: ruleIds,
+        action
+      })
+      return res.data
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] })
+      setSelectedRules(new Set())
+      const actionLabel = variables.action === 'delete' ? 'deleted' : 
+                         variables.action === 'enable' ? 'enabled' : 'disabled'
+      toast.success(`${data.success_count} rules ${actionLabel}`)
+      if (data.failed_count > 0) {
+        toast.error(`${data.failed_count} rules failed`)
+      }
+    },
+    onError: () => toast.error('Bulk operation failed'),
+  })
+
+  const toggleSelectRule = (id: number) => {
+    setSelectedRules(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (!rules) return
+    if (selectedRules.size === rules.length) {
+      setSelectedRules(new Set())
+    } else {
+      setSelectedRules(new Set(rules.map(r => r.id)))
+    }
+  }
 
   const handleExport = async () => {
     try {
@@ -194,12 +237,61 @@ export default function Rules() {
         </div>
       ) : rules && rules.length > 0 ? (
         <div className="space-y-4">
+          {/* Bulk Actions Bar */}
+          <div className="flex items-center gap-4 bg-dark-800 rounded-xl border border-dark-700 p-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rules.length > 0 && selectedRules.size === rules.length}
+                onChange={toggleSelectAll}
+                className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-dark-300">Select All</span>
+            </label>
+            {selectedRules.size > 0 && (
+              <>
+                <span className="text-sm text-dark-400">
+                  {selectedRules.size} selected
+                </span>
+                <div className="flex gap-2 ml-auto">
+                  <button
+                    onClick={() => bulkMutation.mutate({ action: 'enable', ruleIds: Array.from(selectedRules) })}
+                    disabled={bulkMutation.isPending}
+                    className="px-3 py-1.5 text-sm font-medium bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-colors disabled:opacity-50"
+                  >
+                    Enable
+                  </button>
+                  <button
+                    onClick={() => bulkMutation.mutate({ action: 'disable', ruleIds: Array.from(selectedRules) })}
+                    disabled={bulkMutation.isPending}
+                    className="px-3 py-1.5 text-sm font-medium bg-yellow-600/20 text-yellow-400 rounded-lg hover:bg-yellow-600/30 transition-colors disabled:opacity-50"
+                  >
+                    Disable
+                  </button>
+                  <button
+                    onClick={() => bulkMutation.mutate({ action: 'delete', ruleIds: Array.from(selectedRules) })}
+                    disabled={bulkMutation.isPending}
+                    className="px-3 py-1.5 text-sm font-medium bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30 transition-colors disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           {rules.map((rule) => (
             <div key={rule.id} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
               <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedRules.has(rule.id)}
+                        onChange={() => toggleSelectRule(rule.id)}
+                        className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-600 focus:ring-primary-500"
+                      />
                       <button
                         onClick={() => toggleMutation.mutate(rule.id)}
                         className={`w-12 h-6 rounded-full transition-colors ${

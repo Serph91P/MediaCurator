@@ -235,8 +235,8 @@ The API documentation is available at `/api/docs` when running the application.
 
 ### Prerequisites
 
-- Python 3.12+
-- Node.js 20+
+- Python 3.114+
+- Node.js 24+
 - Docker (optional)
 
 ### Local Development
@@ -311,7 +311,7 @@ docker compose -f docker-compose.dev.yml up
 - [ ] Create admin dashboard with system stats
 
 ### 🚀 Features & Enhancements
-- [ ] Bulk operations for rules (enable/disable multiple)
+- [x] Bulk operations for rules (enable/disable multiple)
 - [x] Export/import rules as JSON
 - [ ] Advanced scheduling (different schedules per rule)
 - [ ] Dry-run per rule (not just global)

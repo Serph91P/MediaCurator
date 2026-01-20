@@ -138,7 +138,7 @@ export default function Preview() {
             <div className="flex-1 min-w-[200px]">
               <label className="block text-sm font-medium text-dark-200 mb-1">Rule to Preview</label>
               <select
-                className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                 value={selectedRuleId ?? ''}
                 onChange={(e) => setSelectedRuleId(e.target.value ? parseInt(e.target.value) : null)}
               >
@@ -281,11 +281,11 @@ export default function Preview() {
                             {item.would_delete ? `Would ${item.action}` : 'Would keep'}
                           </span>
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">{item.media_type}</span>
-                          <span className="badge bg-dark-600 text-dark-300">
+                          <span className="badge bg-gray-200 dark:bg-dark-600 text-dark-300">
                             Rule: {item.rule_name}
                           </span>
                           {item.size_bytes && (
-                            <span className="badge bg-dark-600 text-dark-300">
+                            <span className="badge bg-gray-200 dark:bg-dark-600 text-dark-300">
                               {formatBytes(item.size_bytes)}
                             </span>
                           )}

@@ -91,7 +91,7 @@ export default function Layout() {
   })
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-dark-900">
+    <div className="flex h-screen bg-gray-100 dark:bg-gray-50 dark:bg-dark-900">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -158,36 +158,41 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Theme Toggle */}
-        <button
-          onClick={cycleTheme}
-          className={`flex items-center gap-3 px-3 py-2.5 mx-3 mb-1 rounded-lg text-sm font-medium text-dark-300 hover:text-white hover:bg-dark-700 dark:text-dark-300 dark:hover:text-white dark:hover:bg-dark-700 transition-colors ${
-            sidebarCollapsed && !sidebarOpen ? 'justify-center' : ''
-          }`}
-          title={`Theme: ${themeLabel}`}
-        >
-          <ThemeIcon className="w-5 h-5 flex-shrink-0" />
-          {(!sidebarCollapsed || sidebarOpen) && <span>{themeLabel}</span>}
-        </button>
+        {/* Theme Toggle & Collapse - grouped at bottom */}
+        <div className="mt-auto px-3 py-2 space-y-1">
+          {/* Theme Toggle */}
+          <button
+            onClick={cycleTheme}
+            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-dark-300 dark:hover:text-white dark:hover:bg-dark-700 transition-colors ${
+              sidebarCollapsed && !sidebarOpen ? 'justify-center' : ''
+            }`}
+            title={`Theme: ${themeLabel}`}
+          >
+            <ThemeIcon className="w-5 h-5 flex-shrink-0" />
+            {(!sidebarCollapsed || sidebarOpen) && <span>{themeLabel}</span>}
+          </button>
 
-        {/* Collapse Button (Desktop only) */}
-        <button
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="hidden lg:flex items-center justify-center p-3 mx-3 mb-2 text-dark-400 hover:text-white hover:bg-dark-700 dark:text-dark-400 dark:hover:text-white dark:hover:bg-dark-700 rounded-lg transition-colors"
-          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {sidebarCollapsed ? (
-            <ChevronDoubleRightIcon className="w-5 h-5" />
-          ) : (
-            <>
-              <ChevronDoubleLeftIcon className="w-5 h-5" />
-              <span className="ml-2 text-sm">Collapse</span>
-            </>
-          )}
-        </button>
+          {/* Collapse Button (Desktop only) */}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className={`hidden lg:flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-dark-400 dark:hover:text-white dark:hover:bg-dark-700 transition-colors ${
+              sidebarCollapsed && !sidebarOpen ? 'justify-center' : ''
+            }`}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? (
+              <ChevronDoubleRightIcon className="w-5 h-5" />
+            ) : (
+              <>
+                <ChevronDoubleLeftIcon className="w-5 h-5" />
+                <span className="ml-2">Collapse</span>
+              </>
+            )}
+          </button>
+        </div>
 
         {/* User section */}
-        <div className={`${sidebarCollapsed && !sidebarOpen ? 'p-2' : 'p-4'} border-t border-dark-700 dark:border-dark-700`}>
+        <div className={`${sidebarCollapsed && !sidebarOpen ? 'p-2' : 'p-4'} border-t border-gray-200 dark:border-dark-700`}>
           <div className={`flex items-center ${sidebarCollapsed && !sidebarOpen ? 'flex-col gap-2' : 'justify-between'}`}>
             <div className={`flex items-center ${sidebarCollapsed && !sidebarOpen ? '' : 'gap-3'}`}>
               <button
@@ -201,7 +206,7 @@ export default function Layout() {
               </button>
               {(!sidebarCollapsed || sidebarOpen) && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-dark-100">{user?.username || 'User'}</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-800 dark:text-dark-100">{user?.username || 'User'}</p>
                   <p className="text-xs text-gray-500 dark:text-dark-400">{user?.is_admin ? 'Admin' : 'User'}</p>
                 </div>
               )}
@@ -209,7 +214,7 @@ export default function Layout() {
             {(!sidebarCollapsed || sidebarOpen) && (
               <button
                 onClick={logout}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-dark-400 dark:hover:text-dark-100 dark:hover:bg-dark-700 rounded-lg transition-colors"
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-dark-400 dark:hover:text-gray-800 dark:text-dark-100 dark:hover:bg-dark-700 rounded-lg transition-colors"
                 title="Logout"
               >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />

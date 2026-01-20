@@ -110,7 +110,7 @@ export default function Libraries() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      library.is_enabled ? 'bg-primary-600/20' : 'bg-dark-600'
+                      library.is_enabled ? 'bg-primary-600/20' : 'bg-gray-200 dark:bg-dark-600'
                     }`}>
                       <FolderIcon className={`w-5 h-5 ${
                         library.is_enabled ? 'text-primary-400' : 'text-dark-400'
@@ -127,7 +127,7 @@ export default function Libraries() {
                     onClick={() => toggleMutation.mutate(library.id)}
                     disabled={toggleMutation.isPending}
                     className={`w-12 h-6 rounded-full transition-colors ${
-                      library.is_enabled ? 'bg-primary-600' : 'bg-dark-600'
+                      library.is_enabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
                     }`}
                     title={library.is_enabled ? 'Click to disable' : 'Click to enable'}
                   >

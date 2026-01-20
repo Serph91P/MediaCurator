@@ -85,7 +85,7 @@ export default function ResponsiveTable({
                   <span className="text-sm font-medium text-dark-400 flex-shrink-0">
                     {mobileLabel}
                   </span>
-                  <div className="text-sm text-dark-100 text-right">{displayValue}</div>
+                  <div className="text-sm text-gray-800 dark:text-dark-100 text-right">{displayValue}</div>
                 </div>
               )
             })}

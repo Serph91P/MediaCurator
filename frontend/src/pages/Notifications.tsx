@@ -184,7 +184,7 @@ export default function Notifications() {
                     <button
                       onClick={() => toggleMutation.mutate(channel.id)}
                       className={`w-12 h-6 rounded-full transition-colors ${
-                        channel.is_enabled ? 'bg-primary-600' : 'bg-dark-600'
+                        channel.is_enabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
                       }`}
                     >
                       <div
@@ -200,7 +200,7 @@ export default function Notifications() {
                   <button
                     onClick={() => testMutation.mutate(channel.id)}
                     disabled={testMutation.isPending}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
                     <CheckCircleIcon className="w-4 h-4" />
                     Test
@@ -210,13 +210,13 @@ export default function Notifications() {
                       setEditingChannel(channel)
                       setIsModalOpen(true)
                     }}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-dark-400 hover:text-white"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-gray-800 dark:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-dark-400 hover:text-white"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => deleteMutation.mutate(channel.id)}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-red-400 hover:text-red-300"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-gray-800 dark:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-red-400 hover:text-red-300"
                   >
                     <TrashIcon className="w-5 h-5" />
                   </button>
@@ -320,7 +320,7 @@ function NotificationModal({
               <label className="block text-sm font-medium text-dark-200 mb-1">Name</label>
               <input
                 type="text"
-                className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="e.g., Discord Alerts"
@@ -351,7 +351,7 @@ function NotificationModal({
                   <div key={index} className="flex gap-2">
                     <input
                       type="text"
-                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors font-mono text-sm"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors font-mono text-sm"
                       value={url}
                       onChange={(e) => updateUrl(index, e.target.value)}
                       placeholder="discord://webhook_id/webhook_token"
@@ -422,7 +422,7 @@ function NotificationModal({
           </div>
 
           <div className="px-6 py-4 border-t border-dark-700 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               Cancel
             </button>
             <button type="submit" disabled={isLoading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">

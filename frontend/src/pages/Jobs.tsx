@@ -174,7 +174,7 @@ export default function Jobs() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setSelectedJobId(job.id)}
-                        className="px-3 py-1.5 text-sm bg-dark-600 text-dark-200 rounded-lg hover:bg-dark-500 transition-colors"
+                        className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-dark-600 text-dark-200 rounded-lg hover:bg-dark-500 transition-colors"
                       >
                         View History
                       </button>

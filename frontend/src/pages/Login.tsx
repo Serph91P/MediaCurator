@@ -49,7 +49,7 @@ export default function Login() {
 
   if (checkingSetup) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-dark-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark-900">
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
           <p className="text-dark-400 mt-4">Loading...</p>
@@ -59,7 +59,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark-900 p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -88,7 +88,7 @@ export default function Login() {
                   id="username"
                   type="text"
                   {...register('username', { required: 'Username is required' })}
-                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="Enter your username"
                 />
                 {errors.username && (
@@ -102,7 +102,7 @@ export default function Login() {
                   id="password"
                   type="password"
                   {...register('password', { required: 'Password is required' })}
-                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="Enter your password"
                 />
                 {errors.password && (

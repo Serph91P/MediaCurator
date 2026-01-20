@@ -57,7 +57,7 @@ export default function Register() {
 
   if (checkingSetup) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-dark-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark-900">
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
           <p className="text-dark-400 mt-4">Loading...</p>
@@ -67,7 +67,7 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark-900 p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -104,7 +104,7 @@ export default function Register() {
                     required: 'Username is required',
                     minLength: { value: 3, message: 'Username must be at least 3 characters' }
                   })}
-                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="Choose a username"
                 />
                 {errors.username && (
@@ -118,7 +118,7 @@ export default function Register() {
                   id="email"
                   type="email"
                   {...register('email')}
-                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="your@email.com"
                 />
               </div>
@@ -132,7 +132,7 @@ export default function Register() {
                     required: 'Password is required',
                     minLength: { value: 8, message: 'Password must be at least 8 characters' }
                   })}
-                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="Create a password"
                 />
                 {errors.password && (
@@ -149,7 +149,7 @@ export default function Register() {
                     required: 'Please confirm your password',
                     validate: value => value === password || 'Passwords do not match'
                   })}
-                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                  className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   placeholder="Confirm your password"
                 />
                 {errors.confirmPassword && (

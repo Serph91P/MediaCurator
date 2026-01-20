@@ -118,7 +118,7 @@ export default function Settings() {
                   type="button"
                   onClick={() => setFormData({ ...formData, cleanup_enabled: !formData.cleanup_enabled })}
                   className={`w-14 h-7 rounded-full transition-colors ${
-                    formData.cleanup_enabled ? 'bg-primary-600' : 'bg-dark-600'
+                    formData.cleanup_enabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
                   }`}
                 >
                   <div
@@ -141,7 +141,7 @@ export default function Settings() {
                   type="button"
                   onClick={() => setFormData({ ...formData, dry_run_mode: !formData.dry_run_mode })}
                   className={`w-14 h-7 rounded-full transition-colors ${
-                    formData.dry_run_mode ? 'bg-yellow-600' : 'bg-dark-600'
+                    formData.dry_run_mode ? 'bg-yellow-600' : 'bg-gray-200 dark:bg-dark-600'
                   }`}
                 >
                   <div
@@ -160,7 +160,7 @@ export default function Settings() {
                   </label>
                   <input
                     type="text"
-                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors font-mono"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors font-mono"
                     value={formData.cleanup_schedule || ''}
                     onChange={(e) => setFormData({ ...formData, cleanup_schedule: e.target.value })}
                     placeholder="0 3 * * *"
@@ -174,7 +174,7 @@ export default function Settings() {
                   </label>
                   <input
                     type="text"
-                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors font-mono"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors font-mono"
                     value={formData.sync_schedule || ''}
                     onChange={(e) => setFormData({ ...formData, sync_schedule: e.target.value })}
                     placeholder="0 * * * *"
@@ -185,7 +185,7 @@ export default function Settings() {
                   <label className="block text-sm font-medium text-dark-200 mb-1">Default Grace Period (days)</label>
                   <input
                     type="number"
-                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.default_grace_period_days || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -198,7 +198,7 @@ export default function Settings() {
                   <label className="block text-sm font-medium text-dark-200 mb-1">Max Deletions Per Run</label>
                   <input
                     type="number"
-                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.max_deletions_per_run || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -233,7 +233,7 @@ export default function Settings() {
                     <label className="block text-sm font-medium text-dark-200 mb-1">Current Password</label>
                     <input
                       type="password"
-                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                       value={passwords.current}
                       onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
                       required
@@ -243,7 +243,7 @@ export default function Settings() {
                     <label className="block text-sm font-medium text-dark-200 mb-1">New Password</label>
                     <input
                       type="password"
-                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                       value={passwords.new}
                       onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
                       required
@@ -254,7 +254,7 @@ export default function Settings() {
                     <label className="block text-sm font-medium text-dark-200 mb-1">Confirm New Password</label>
                     <input
                       type="password"
-                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                       value={passwords.confirm}
                       onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
                       required
@@ -272,7 +272,7 @@ export default function Settings() {
                     <button
                       type="button"
                       onClick={() => setShowPasswordChange(false)}
-                      className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Cancel
                     </button>
@@ -281,7 +281,7 @@ export default function Settings() {
               ) : (
                 <button
                   onClick={() => setShowPasswordChange(true)}
-                  className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Change Password
                 </button>
@@ -304,7 +304,7 @@ export default function Settings() {
                 <button
                   onClick={() => clearCacheMutation.mutate()}
                   disabled={clearCacheMutation.isPending}
-                  className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {clearCacheMutation.isPending ? 'Clearing...' : 'Clear Cache'}
                 </button>

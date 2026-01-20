@@ -165,7 +165,7 @@ export default function Staging() {
             setSettingsForm(settings)
             setShowSettings(true)
           }}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600"
         >
           <Cog6ToothIcon className="w-4 h-4" />
           Settings
@@ -245,7 +245,7 @@ export default function Staging() {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-dark-700">
-              <thead className="bg-dark-900/50">
+              <thead className="bg-gray-50 dark:bg-dark-900/50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
                     Media
@@ -413,7 +413,7 @@ export default function Staging() {
                   setShowSettings(false)
                   setSettingsForm({})
                 }}
-                className="px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600"
+                className="px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600"
               >
                 Cancel
               </button>

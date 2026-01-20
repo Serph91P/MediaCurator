@@ -75,7 +75,7 @@ export default function History() {
       case 'move_to_trash':
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-500/20 text-orange-400">Moved to Trash</span>
       default:
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-600/50 text-dark-300">{action}</span>
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 dark:bg-dark-600/50 text-dark-300">{action}</span>
     }
   }
 
@@ -138,19 +138,19 @@ export default function History() {
       <div className="flex gap-2">
         <button
           onClick={() => { setFilter('all'); setOffset(0); }}
-          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'all' ? 'bg-primary-600 text-white' : ''}`}
+          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'all' ? 'bg-primary-600 text-white' : ''}`}
         >
           All
         </button>
         <button
           onClick={() => { setFilter('success'); setOffset(0); }}
-          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'success' ? 'bg-green-600 text-white' : ''}`}
+          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'success' ? 'bg-green-600 text-white' : ''}`}
         >
           Success
         </button>
         <button
           onClick={() => { setFilter('failed'); setOffset(0); }}
-          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'failed' ? 'bg-red-600 text-white' : ''}`}
+          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'failed' ? 'bg-red-600 text-white' : ''}`}
         >
           Errors
         </button>
@@ -237,14 +237,14 @@ export default function History() {
                 <button
                   onClick={() => setOffset(Math.max(0, offset - limit))}
                   disabled={offset === 0}
-                  className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setOffset(offset + limit)}
                   disabled={!pagination.has_more}
-                  className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium bg-dark-700 text-dark-100 rounded-lg hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Next
                 </button>

@@ -442,23 +442,23 @@ function RuleModal({
                 <div className="grid grid-cols-2 gap-x-4 gap-y-5">
                   <div>
                     <label className="block text-sm font-medium text-dark-200 mb-2">Not Watched (days)</label>
-                  <input
-                    type="number"
-                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
-                    value={formData.conditions.not_watched_days || ''}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      conditions: {
-                        ...formData.conditions,
-                        not_watched_days: e.target.value ? parseInt(e.target.value) : null
-                      }
-                    })}
-                    placeholder="180"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">Disk Space Threshold (%)</label>
-                  <input
+                    <input
+                      type="number"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                      value={formData.conditions.not_watched_days || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: {
+                          ...formData.conditions,
+                          not_watched_days: e.target.value ? parseInt(e.target.value) : null
+                        }
+                      })}
+                      placeholder="180"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-dark-200 mb-2">Disk Space Threshold (%)</label>
+                    <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.conditions.disk_space_threshold_percent || ''}
@@ -509,24 +509,24 @@ function RuleModal({
                 <div className="grid grid-cols-2 gap-x-4 gap-y-5">
                   <div>
                     <label className="block text-sm font-medium text-dark-200 mb-2">Rating Below (delete if below)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
-                    value={formData.conditions.rating_below || ''}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      conditions: {
-                        ...formData.conditions,
-                        rating_below: e.target.value ? parseFloat(e.target.value) : null
-                      }
-                    })}
-                    placeholder="5.0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">Watch Progress Below (%)</label>
-                  <input
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                      value={formData.conditions.rating_below || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: {
+                          ...formData.conditions,
+                          rating_below: e.target.value ? parseFloat(e.target.value) : null
+                        }
+                      })}
+                      placeholder="5.0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-dark-200 mb-2">Watch Progress Below (%)</label>
+                    <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                     value={formData.conditions.watched_progress_below || ''}
@@ -581,54 +581,54 @@ function RuleModal({
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-dark-200 mb-2">Exclude Genres (comma separated)</label>
-                  <input
-                    type="text"
-                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
-                    value={(formData.conditions.exclude_genres || []).join(', ')}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      conditions: {
-                        ...formData.conditions,
-                        exclude_genres: e.target.value ? e.target.value.split(',').map(g => g.trim()).filter(Boolean) : []
-                      }
-                    })}
-                    placeholder="Documentary, Animation"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">Exclude Tags (comma separated)</label>
-                  <input
-                    type="text"
-                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
-                    value={(formData.conditions.exclude_tags || []).join(', ')}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      conditions: {
-                        ...formData.conditions,
-                        exclude_tags: e.target.value ? e.target.value.split(',').map(t => t.trim()).filter(Boolean) : []
-                      }
-                    })}
-                    placeholder="keep, important"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">Include Only Tags (comma separated, leave empty for all)</label>
-                  <input
-                    type="text"
-                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
-                    value={(formData.conditions.include_tags || []).join(', ')}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      conditions: {
-                        ...formData.conditions,
-                        include_tags: e.target.value ? e.target.value.split(',').map(t => t.trim()).filter(Boolean) : []
-                      }
-                    })}
-                    placeholder="cleanup-eligible"
-                  />
+                    <input
+                      type="text"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                      value={(formData.conditions.exclude_genres || []).join(', ')}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: {
+                          ...formData.conditions,
+                          exclude_genres: e.target.value ? e.target.value.split(',').map(g => g.trim()).filter(Boolean) : []
+                        }
+                      })}
+                      placeholder="Documentary, Animation"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-dark-200 mb-2">Exclude Tags (comma separated)</label>
+                    <input
+                      type="text"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                      value={(formData.conditions.exclude_tags || []).join(', ')}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: {
+                          ...formData.conditions,
+                          exclude_tags: e.target.value ? e.target.value.split(',').map(t => t.trim()).filter(Boolean) : []
+                        }
+                      })}
+                      placeholder="keep, important"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-dark-200 mb-2">Include Only Tags (comma separated, leave empty for all)</label>
+                    <input
+                      type="text"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                      value={(formData.conditions.include_tags || []).join(', ')}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: {
+                          ...formData.conditions,
+                          include_tags: e.target.value ? e.target.value.split(',').map(t => t.trim()).filter(Boolean) : []
+                        }
+                      })}
+                      placeholder="cleanup-eligible"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
             {/* Exclusion Options */}
             <div className="border-t border-dark-700 pt-5">
@@ -688,6 +688,7 @@ function RuleModal({
                   </label>
                 </div>
               </div>
+            </div>
             </div>
           </div>
 

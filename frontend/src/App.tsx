@@ -12,6 +12,7 @@ import Notifications from './pages/Notifications'
 import Settings from './pages/Settings'
 import History from './pages/History'
 import Preview from './pages/Preview'
+import Jobs from './pages/Jobs'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -54,6 +55,7 @@ function App() {
         <Route path="services" element={<Services />} />
         <Route path="rules" element={<Rules />} />
         <Route path="libraries" element={<Libraries />} />
+        <Route path="jobs" element={<Jobs />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="settings" element={<Settings />} />
         <Route path="history" element={<History />} />

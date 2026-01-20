@@ -266,3 +266,22 @@ class SystemSettings(Base):
     value = Column(JSON, nullable=True)
     description = Column(Text, nullable=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class JobExecutionLog(Base):
+    """Log of scheduled job executions."""
+    __tablename__ = "job_execution_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(String(100), nullable=False, index=True)  # e.g., "sync_job", "cleanup_job"
+    job_name = Column(String(200), nullable=False)
+    
+    status = Column(String(50), nullable=False)  # running, success, error
+    started_at = Column(DateTime(timezone=True), nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    duration_seconds = Column(Float, nullable=True)
+    
+    error_message = Column(Text, nullable=True)
+    details = Column(JSON, default=dict)  # Job-specific details (items synced, deleted, etc.)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

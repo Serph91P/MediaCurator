@@ -10,6 +10,7 @@ import {
   ClockIcon,
   ArrowRightOnRectangleIcon,
   EyeIcon,
+  CpuChipIcon,
 } from '@heroicons/react/24/outline'
 
 const navigation = [
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Rules', href: '/rules', icon: ClipboardDocumentListIcon },
   { name: 'Libraries', href: '/libraries', icon: FolderIcon },
   { name: 'Preview', href: '/preview', icon: EyeIcon },
+  { name: 'Jobs', href: '/jobs', icon: CpuChipIcon },
   { name: 'Notifications', href: '/notifications', icon: BellIcon },
   { name: 'History', href: '/history', icon: ClockIcon },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },

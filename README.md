@@ -268,8 +268,8 @@ docker compose -f docker-compose.dev.yml up
 - [ ] Add pytest unit tests for backend services
 - [ ] Add Vitest tests for frontend components
 - [ ] Extend `release.yml` for automatic Docker image builds
-- [ ] Push Docker images to GitHub Container Registry (ghcr.io)
-- [ ] Create production-optimized Docker image (multi-stage build)
+- [x] Push Docker images to GitHub Container Registry (ghcr.io)
+- [x] Create production-optimized Docker image (multi-stage build)
 - [ ] Add health checks and monitoring endpoints
 
 ### ⚡ Performance & Optimization
@@ -279,7 +279,7 @@ docker compose -f docker-compose.dev.yml up
 - [x] Implement pagination for large result sets (rules, media items, logs)
 - [x] Add database indexes on frequently queried columns (external_id, service_connection_id)
 - [x] Implement debouncing for search/filter inputs
-- [ ] Optional: Collapsible sidebar to maximize content area
+- [ ] Collapsible sidebar to maximize content area
 
 ### 🎨 UI/UX Improvements
 - [x] Redesign sidebar with proper icon positioning and hover states
@@ -299,6 +299,27 @@ docker compose -f docker-compose.dev.yml up
 - [ ] Implement notification templates (customize message format)
 - [ ] Add webhook retry logic with exponential backoff
 - [ ] Support multiple notification channels per event type
+
+### 🔒 Security & Auth
+- [ ] Add rate limiting for API endpoints
+- [ ] Implement session management with refresh tokens
+- [ ] Add audit logging for admin actions
+- [ ] Support LDAP/OAuth authentication (optional)
+
+### 📊 Monitoring & Observability
+- [ ] Add Prometheus metrics endpoint
+- [ ] Implement structured logging with correlation IDs
+- [ ] Add performance monitoring for slow queries
+- [ ] Create admin dashboard with system stats
+
+### 🚀 Features & Enhancements
+- [ ] Support for Plex media server
+- [ ] Bulk operations for rules (enable/disable multiple)
+- [ ] Export/import rules as JSON
+- [ ] Advanced scheduling (different schedules per rule)
+- [ ] Dry-run per rule (not just global)
+- [ ] Media tags auto-management based on watch patterns
+- [ ] Integration with Tautulli for Plex watch history
 
 ## Contributing
 

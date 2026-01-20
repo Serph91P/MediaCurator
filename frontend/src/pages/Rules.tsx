@@ -654,8 +654,6 @@ function RuleModal({
                     Exclude Recently Watched (days)
                     <span className="text-xs text-dark-400 ml-2 font-normal">Items watched within last X days won't be deleted</span>
                   </label>
-                <input
-                  type="number"
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -687,7 +685,8 @@ function RuleModal({
                       className="rounded border-dark-600 bg-dark-700 text-primary-500"
                     />
                     <span className="text-sm text-dark-200">Add to Import Exclusion on Delete</span>
-                </label>
+                  </label>
+                </div>
               </div>
             </div>
           </div>

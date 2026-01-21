@@ -105,9 +105,9 @@ export default function Layout() {
         sidebarOpen ? 'translate-x-0 w-64 sm:w-72' : '-translate-x-full'
       }`}>
         {/* Logo */}
-        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-dark-700">
+        <div className={`p-4 sm:p-6 border-b border-gray-200 dark:border-dark-700 ${sidebarCollapsed && !sidebarOpen ? 'flex justify-center' : ''}`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 min-w-[2.5rem] bg-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
               <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>

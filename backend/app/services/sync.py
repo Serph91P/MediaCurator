@@ -5,6 +5,7 @@ from typing import Dict, Any
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 from loguru import logger
 
 from ..models import ServiceConnection, MediaItem, ServiceType, MediaType, ImportStats

@@ -493,13 +493,13 @@ class CleanupEngine:
         
         # Check if watched recently (within last X days)
         if conditions.exclude_watched_within_days is not None:
-            if item.last_watched:
+            if item.last_watched_at:
                 from datetime import datetime, timedelta, timezone
                 cutoff_date = datetime.now(timezone.utc) - timedelta(days=conditions.exclude_watched_within_days)
-                if item.last_watched >= cutoff_date:
+                if item.last_watched_at_at >= cutoff_date:
                     result["would_delete"] = False
                     result["skip_reasons"].append(
-                        f"Watched within last {conditions.exclude_watched_within_days} days (last watched: {item.last_watched.strftime('%Y-%m-%d')})"
+                        f"Watched within last {conditions.exclude_watched_within_days} days (last watched: {item.last_watched_at.strftime('%Y-%m-%d')})"
                     )
                     return result
         

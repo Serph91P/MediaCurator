@@ -2,6 +2,7 @@
 Version management and update checking.
 """
 import subprocess
+import os
 import aiohttp
 import asyncio
 from typing import Optional, Dict, Any
@@ -23,15 +24,27 @@ class VersionService:
         if self._cached_version_info:
             return self._cached_version_info
         
+        # Check for VERSION environment variable first (set during Docker build)
+        env_version = os.environ.get("VERSION", "")
+        env_commit = os.environ.get("COMMIT_SHA", "")[:7] if os.environ.get("COMMIT_SHA") else ""
+        
         info = {
-            "version": "unknown",  # Will be determined from git tags
-            "branch": "unknown",
-            "commit_hash": "unknown",
-            "commit_short": "unknown",
+            "version": env_version or "unknown",  # Will be determined from git tags or env
+            "branch": os.environ.get("BRANCH", "unknown"),
+            "commit_hash": os.environ.get("COMMIT_SHA", "unknown"),
+            "commit_short": env_commit or "unknown",
             "commit_date": None,
             "is_dirty": False,
-            "remote_url": None,
+            "remote_url": "https://github.com/Serph91P/MediaCleanup",
         }
+        
+        # If we have env version, use it and skip git commands
+        if env_version and env_version != "unknown":
+            info["full_version"] = f"{env_version}-{env_commit}" if env_commit else env_version
+            info["base_version"] = env_version
+            logger.info(f"Using version from environment: {info['full_version']}")
+            self._cached_version_info = info
+            return info
         
         try:
             # Configure git to trust the directory (fixes ownership issues in Docker)

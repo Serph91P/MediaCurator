@@ -55,13 +55,19 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # ================================
 FROM python:3.14-slim
 
+# Build arguments for version info
+ARG VERSION=dev
+ARG COMMIT_SHA=unknown
+ARG BRANCH=unknown
+
 # Metadata labels
 LABEL org.opencontainers.image.title="MediaCleaner" \
       org.opencontainers.image.description="Automated media library cleanup and management" \
       org.opencontainers.image.source="https://github.com/Serph91P/cleanup-app" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.vendor="MediaCleaner" \
-      org.opencontainers.image.documentation="https://github.com/Serph91P/cleanup-app#readme"
+      org.opencontainers.image.documentation="https://github.com/Serph91P/cleanup-app#readme" \
+      org.opencontainers.image.version="${VERSION}"
 
 # Install only runtime dependencies
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -112,7 +118,10 @@ ENV APP_ENV=production \
     MEDIA_PATH=/media \
     DATABASE_URL=sqlite+aiosqlite:///./data/mediacleanup.db \
     TZ=UTC \
-    WORKERS=1
+    WORKERS=1 \
+    VERSION=${VERSION} \
+    COMMIT_SHA=${COMMIT_SHA} \
+    BRANCH=${BRANCH}
 
 # Security: Run as non-root user by default
 # Note: entrypoint will handle permission fixes if needed

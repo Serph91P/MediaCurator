@@ -110,6 +110,21 @@ async def run_cleanup_job():
             )
             rules = result.scalars().all()
             
+            # Skip if no enabled rules
+            if not rules:
+                end_time = datetime.now(timezone.utc)
+                execution_log.status = "skipped"
+                execution_log.completed_at = end_time
+                execution_log.duration_seconds = (end_time - start_time).total_seconds()
+                execution_log.details = {
+                    "rules_evaluated": 0,
+                    "items_flagged": 0,
+                    "message": "No enabled cleanup rules"
+                }
+                await db.commit()
+                logger.info("Cleanup job skipped - no enabled rules")
+                return
+            
             from .models import MediaItem
             items_result = await db.execute(select(MediaItem))
             all_items = items_result.scalars().all()

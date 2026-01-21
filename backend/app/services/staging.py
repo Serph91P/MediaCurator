@@ -446,8 +446,11 @@ class StagingService:
         """
         settings = await self.get_settings()
         
-        if not settings['enabled'] or not settings['auto_restore_on_watch']:
-            return {"success": False, "error": "Auto-restore is not enabled"}
+        if not settings['enabled']:
+            return {"success": False, "error": "Staging system is not enabled"}
+        
+        if not settings['auto_restore_on_watch']:
+            return {"success": False, "error": "Auto-restore on watch is not enabled"}
         
         # Find all staged items
         result = await self.db.execute(

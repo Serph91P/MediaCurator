@@ -126,13 +126,13 @@ export default function Libraries() {
                   <button
                     onClick={() => toggleMutation.mutate(library.id)}
                     disabled={toggleMutation.isPending}
-                    className={`w-12 h-6 rounded-full transition-colors ${
-                      library.is_enabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                    className={`relative w-12 h-6 rounded-full transition-colors ${
+                      library.is_enabled ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-600'
                     }`}
                     title={library.is_enabled ? 'Click to disable' : 'Click to enable'}
                   >
                     <div
-                      className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                      className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
                         library.is_enabled ? 'translate-x-6' : 'translate-x-0.5'
                       }`}
                     />

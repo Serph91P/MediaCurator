@@ -186,3 +186,28 @@ async def migrate_database(db: AsyncSession):
         
         await db.commit()
         logger.info("Migration completed: refresh_tokens table created")
+
+    # Check if library_id column exists in media_items
+    result = await db.execute(text("""
+        SELECT COUNT(*) as count 
+        FROM pragma_table_info('media_items') 
+        WHERE name='library_id'
+    """))
+    has_library_id = result.scalar() > 0
+    
+    if not has_library_id:
+        logger.info("Migrating media_items: adding library_id column")
+        
+        await db.execute(text("""
+            ALTER TABLE media_items 
+            ADD COLUMN library_id INTEGER REFERENCES libraries(id)
+        """))
+        
+        # Create index for library_id
+        await db.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_media_items_library 
+            ON media_items(library_id)
+        """))
+        
+        await db.commit()
+        logger.info("Migration completed: library_id column added to media_items")

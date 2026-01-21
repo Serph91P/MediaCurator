@@ -104,6 +104,8 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             VERSION=${{ needs.prepare.outputs.version }}
+            COMMIT_SHA=${{ github.sha }}
+            BRANCH=${{ github.ref_name }}
 
   create-release:
     needs: [prepare, build-and-push]

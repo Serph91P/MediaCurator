@@ -124,6 +124,103 @@ export default function Staging() {
     return mediaType.charAt(0).toUpperCase() + mediaType.slice(1)
   }
 
+  // Settings Modal - render outside of conditional content so it shows when disabled too
+  const settingsModal = showSettings && settings && (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg max-w-lg w-full">
+        <div className="p-6 border-b border-gray-200 dark:border-dark-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Staging Settings</h2>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
+              Enable Staging System
+            </label>
+            <input
+              type="checkbox"
+              checked={settingsForm.enabled ?? settings.enabled}
+              onChange={(e) => setSettingsForm({ ...settingsForm, enabled: e.target.checked })}
+              className="rounded border-dark-600 text-primary-600 focus:ring-primary-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
+              Staging Path
+            </label>
+            <input
+              type="text"
+              value={settingsForm.staging_path ?? settings.staging_path}
+              onChange={(e) => setSettingsForm({ ...settingsForm, staging_path: e.target.value })}
+              className="w-full px-3 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="/media/staging"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
+              Grace Period (days)
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="365"
+              value={settingsForm.grace_period_days ?? settings.grace_period_days}
+              onChange={(e) => setSettingsForm({ ...settingsForm, grace_period_days: parseInt(e.target.value) })}
+              className="w-full px-3 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
+              Emby Library Name
+            </label>
+            <input
+              type="text"
+              value={settingsForm.library_name ?? settings.library_name}
+              onChange={(e) => setSettingsForm({ ...settingsForm, library_name: e.target.value })}
+              className="w-full px-3 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="MediaCleanup - Scheduled for Deletion"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
+              Auto-restore on Watch
+            </label>
+            <input
+              type="checkbox"
+              checked={settingsForm.auto_restore_on_watch ?? settings.auto_restore_on_watch}
+              onChange={(e) => setSettingsForm({ ...settingsForm, auto_restore_on_watch: e.target.checked })}
+              className="rounded border-dark-600 text-primary-600 focus:ring-primary-500"
+            />
+            <p className="text-xs text-gray-500 dark:text-dark-400 mt-1">
+              Automatically restore items to original location if watched in Emby
+            </p>
+          </div>
+        </div>
+        <div className="p-6 border-t border-gray-200 dark:border-dark-700 flex justify-end gap-3">
+          <button
+            onClick={() => {
+              setShowSettings(false)
+              setSettingsForm({})
+            }}
+            className="px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSaveSettings}
+            disabled={settingsMutation.isPending}
+            className="px-4 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+          >
+            {settingsMutation.isPending ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   if (!settings?.enabled) {
     return (
       <div className="space-y-6">
@@ -142,13 +239,18 @@ export default function Staging() {
             Users can still watch staged items in Emby, and they will be auto-restored if watched.
           </p>
           <button
-            onClick={() => setShowSettings(true)}
+            onClick={() => {
+              setSettingsForm({ enabled: true })
+              setShowSettings(true)
+            }}
             className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700"
           >
             <Cog6ToothIcon className="w-4 h-4" />
             Enable & Configure
           </button>
         </div>
+        
+        {settingsModal}
       </div>
     )
   }
@@ -332,102 +434,7 @@ export default function Staging() {
         )}
       </div>
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg max-w-lg w-full">
-            <div className="p-6 border-b border-gray-200 dark:border-dark-700">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Staging Settings</h2>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
-                  Enable Staging System
-                </label>
-                <input
-                  type="checkbox"
-                  checked={settingsForm.enabled ?? settings.enabled}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, enabled: e.target.checked })}
-                  className="rounded border-dark-600 text-primary-600 focus:ring-primary-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
-                  Staging Path
-                </label>
-                <input
-                  type="text"
-                  value={settingsForm.staging_path ?? settings.staging_path}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, staging_path: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="/media/staging"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
-                  Grace Period (days)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={settingsForm.grace_period_days ?? settings.grace_period_days}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, grace_period_days: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
-                  Emby Library Name
-                </label>
-                <input
-                  type="text"
-                  value={settingsForm.library_name ?? settings.library_name}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, library_name: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="MediaCleanup - Scheduled for Deletion"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
-                  Auto-restore on Watch
-                </label>
-                <input
-                  type="checkbox"
-                  checked={settingsForm.auto_restore_on_watch ?? settings.auto_restore_on_watch}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, auto_restore_on_watch: e.target.checked })}
-                  className="rounded border-dark-600 text-primary-600 focus:ring-primary-500"
-                />
-                <p className="text-xs text-gray-500 dark:text-dark-400 mt-1">
-                  Automatically restore items to original location if watched in Emby
-                </p>
-              </div>
-            </div>
-            <div className="p-6 border-t border-gray-200 dark:border-dark-700 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowSettings(false)
-                  setSettingsForm({})
-                }}
-                className="px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveSettings}
-                disabled={settingsMutation.isPending}
-                className="px-4 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-              >
-                {settingsMutation.isPending ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {settingsModal}
     </div>
   )
 }

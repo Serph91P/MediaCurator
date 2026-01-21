@@ -48,6 +48,15 @@ class NotificationType(str, Enum):
 
 class NotificationEventType(str, Enum):
     """Event types that can trigger notifications."""
+    MEDIA_FLAGGED = "media_flagged"
+    MEDIA_DELETED = "media_deleted"
+    MEDIA_STAGED = "media_staged"
+    MEDIA_RESTORED = "media_restored"
+    CLEANUP_STARTED = "cleanup_started"
+    CLEANUP_COMPLETED = "cleanup_completed"
+    SYNC_COMPLETED = "sync_completed"
+    ERROR = "error"
+    TEST = "test"
 
 
 class AuditActionType(str, Enum):
@@ -201,6 +210,7 @@ class ServiceConnection(Base):
     
     # Relationships
     libraries = relationship("Library", back_populates="service_connection")
+    media_items = relationship("MediaItem", back_populates="service_connection")
 
 
 class Library(Base):
@@ -228,6 +238,7 @@ class Library(Base):
     # Relationships
     service_connection = relationship("ServiceConnection", back_populates="libraries")
     cleanup_rules = relationship("CleanupRule", back_populates="library")
+    media_items = relationship("MediaItem", back_populates="library")
 
 
 class CleanupRule(Base):
@@ -292,6 +303,7 @@ class MediaItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     external_id = Column(String(100), nullable=False)  # ID from source service
     service_connection_id = Column(Integer, ForeignKey("service_connections.id"), nullable=False)
+    library_id = Column(Integer, ForeignKey("libraries.id"), nullable=True)
     
     # Media info
     title = Column(String(500), nullable=False)
@@ -337,6 +349,10 @@ class MediaItem(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    service_connection = relationship("ServiceConnection", back_populates="media_items")
+    library = relationship("Library", back_populates="media_items")
     
     __table_args__ = (
         UniqueConstraint('external_id', 'service_connection_id', name='uq_media_external_service'),

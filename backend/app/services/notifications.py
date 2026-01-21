@@ -17,6 +17,7 @@ class NotificationType(str, Enum):
     WEBHOOK = "webhook"
     DISCORD = "discord"
     SLACK = "slack"
+    EMAIL = "email"
     APPRISE = "apprise"
 
 

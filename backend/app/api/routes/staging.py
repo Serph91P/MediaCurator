@@ -298,8 +298,19 @@ async def update_staging_settings(
     """Update staging system settings."""
     updates = update.model_dump(exclude_unset=True)
     
-    for key, value in updates.items():
-        setting_key = f"staging_{key}"
+    # Map API field names to database keys
+    key_mapping = {
+        'enabled': 'staging_enabled',
+        'staging_path': 'staging_path',
+        'grace_period_days': 'staging_grace_period_days',
+        'library_name': 'staging_library_name',
+        'auto_restore_on_watch': 'staging_auto_restore'
+    }
+    
+    for field_name, value in updates.items():
+        setting_key = key_mapping.get(field_name)
+        if not setting_key:
+            continue
         
         result = await db.execute(
             select(SystemSettings).where(SystemSettings.key == setting_key)

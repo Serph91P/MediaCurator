@@ -250,11 +250,16 @@ async def run_auto_restore_job():
             
             # Update execution log
             end_time = datetime.now(timezone.utc)
-            execution_log.status = "success" if result.get('success') else "error"
+            # If staging is not enabled, mark as skipped (not error)
+            if not result.get('success') and 'not enabled' in result.get('error', '').lower():
+                execution_log.status = "skipped"
+            else:
+                execution_log.status = "success" if result.get('success') else "error"
             execution_log.completed_at = end_time
             execution_log.duration_seconds = (end_time - start_time).total_seconds()
             execution_log.details = {
-                "restored": result.get('restored', 0)
+                "restored": result.get('restored', 0),
+                "message": result.get('error') if not result.get('success') else None
             }
             await db.commit()
             

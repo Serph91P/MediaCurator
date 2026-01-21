@@ -47,12 +47,32 @@ export function formatRelativeTime(date: string | Date | null | undefined): stri
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '-'
   
-  return new Date(date).toLocaleDateString('en-US', {
+  // Ensure the date is treated as UTC if no timezone indicator
+  const dateStr = typeof date === 'string' ? date : date.toISOString()
+  const isoDate = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+  
+  return new Date(isoDate).toLocaleDateString('de-DE', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+  })
+}
+
+/**
+ * Format datetime to localized string with time
+ */
+export function formatDateTime(date: string | Date | null | undefined): string {
+  if (!date) return '-'
+  
+  // Ensure the date is treated as UTC if no timezone indicator
+  const dateStr = typeof date === 'string' ? date : date.toISOString()
+  const isoDate = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+  
+  return new Date(isoDate).toLocaleString('de-DE', {
+    dateStyle: 'short',
+    timeStyle: 'short',
   })
 }
 

@@ -9,7 +9,7 @@ import {
   ServerStackIcon
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
-import { formatBytes } from '../lib/utils'
+import { formatBytes, formatDateTime } from '../lib/utils'
 import type { SystemStats, MediaStats } from '../types'
 
 function StatCard({ 
@@ -245,7 +245,7 @@ export default function Dashboard() {
                     <td className="px-6 py-4 text-right text-sm font-medium text-gray-900 dark:text-white">{service.total_items.toLocaleString()}</td>
                     <td className="px-6 py-4 text-sm text-gray-500 dark:text-dark-400">
                       {service.last_sync 
-                        ? new Date(service.last_sync).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })
+                        ? formatDateTime(service.last_sync)
                         : 'Never'
                       }
                     </td>
@@ -429,12 +429,7 @@ export default function Dashboard() {
                         {log.action}
                       </span>
                       <span className="text-xs text-gray-500 dark:text-dark-400">
-                        {new Date(log.created_at).toLocaleString('de-DE', { 
-                          month: 'short', 
-                          day: 'numeric', 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
+                        {formatDateTime(log.created_at)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-900 dark:text-white mt-1">{log.media_title || 'Unknown item'}</p>

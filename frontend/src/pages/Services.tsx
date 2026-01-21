@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PlusIcon, TrashIcon, ArrowPathIcon, CheckCircleIcon, XCircleIcon, PencilIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
+import { formatDateTime } from '../lib/utils'
 import type { ServiceConnection, ServiceConnectionCreate, ServiceType } from '../types'
 
 const serviceTypes: { value: ServiceType; label: string; category: string }[] = [
@@ -152,7 +153,7 @@ export default function Services() {
                             </p>
                             {service.last_sync && (
                               <p className="text-xs text-dark-500">
-                                Last sync: {new Date(service.last_sync).toLocaleString()}
+                                Last sync: {formatDateTime(service.last_sync)}
                               </p>
                             )}
                           </div>

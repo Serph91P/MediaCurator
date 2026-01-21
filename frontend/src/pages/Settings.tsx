@@ -1,9 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Cog6ToothIcon, KeyIcon, ClockIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { Cog6ToothIcon, KeyIcon, ClockIcon, TrashIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 import type { SystemSettings, SystemSettingsUpdate } from '../types'
+
+interface StagingSettings {
+  enabled: boolean
+  staging_path: string
+  grace_period_days: number
+  library_name: string
+  auto_restore_on_watch: boolean
+}
 
 export default function Settings() {
   const queryClient = useQueryClient()
@@ -17,6 +25,23 @@ export default function Settings() {
       return res.data
     },
   })
+
+  const { data: stagingSettings } = useQuery({
+    queryKey: ['staging-settings'],
+    queryFn: async () => {
+      const res = await api.get<StagingSettings>('/staging/settings')
+      return res.data
+    },
+  })
+
+  const [stagingFormData, setStagingFormData] = useState<Partial<StagingSettings>>({})
+
+  // Update staging form when data loads
+  useEffect(() => {
+    if (stagingSettings) {
+      setStagingFormData(stagingSettings)
+    }
+  }, [stagingSettings])
 
   const [formData, setFormData] = useState<SystemSettingsUpdate>({
     cleanup_enabled: settings?.cleanup_enabled ?? true,
@@ -37,6 +62,18 @@ export default function Settings() {
       toast.success('Settings updated')
     },
     onError: () => toast.error('Failed to update settings'),
+  })
+
+  const updateStagingMutation = useMutation({
+    mutationFn: async (data: Partial<StagingSettings>) => {
+      const res = await api.put('/staging/settings', data)
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staging-settings'] })
+      toast.success('Staging settings updated')
+    },
+    onError: () => toast.error('Failed to update staging settings'),
   })
 
   const changePasswordMutation = useMutation({
@@ -62,6 +99,11 @@ export default function Settings() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     updateMutation.mutate(formData)
+  }
+
+  const handleStagingSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    updateStagingMutation.mutate(stagingFormData)
   }
 
   const handlePasswordChange = (e: React.FormEvent) => {
@@ -216,6 +258,114 @@ export default function Settings() {
                 className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
+              </button>
+            </div>
+          </form>
+
+          {/* Staging System (Soft-Delete) */}
+          <form onSubmit={handleStagingSubmit} className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700 flex items-center gap-2">
+              <ArchiveBoxIcon className="w-5 h-5 text-primary-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Staging System (Soft-Delete)</h2>
+            </div>
+            <div className="p-6 space-y-6">
+              <p className="text-sm text-gray-600 dark:text-dark-300">
+                Instead of immediately deleting files, move them to a staging area first. 
+                Files in staging can be restored if watched again during the grace period.
+              </p>
+              
+              {/* Enable Staging */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium text-gray-900 dark:text-white">Enable Staging</h3>
+                  <p className="text-sm text-gray-500 dark:text-dark-400">Move files to staging instead of deleting them immediately</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStagingFormData({ ...stagingFormData, enabled: !stagingFormData.enabled })}
+                  className={`w-14 h-7 rounded-full transition-colors ${
+                    stagingFormData.enabled ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-600'
+                  }`}
+                >
+                  <div
+                    className={`w-6 h-6 bg-white rounded-full transition-transform ${
+                      stagingFormData.enabled ? 'translate-x-7' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Auto-Restore on Watch */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium text-gray-900 dark:text-white">Auto-Restore on Watch</h3>
+                  <p className="text-sm text-gray-500 dark:text-dark-400">Automatically restore files if they are watched while in staging</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStagingFormData({ ...stagingFormData, auto_restore_on_watch: !stagingFormData.auto_restore_on_watch })}
+                  className={`w-14 h-7 rounded-full transition-colors ${
+                    stagingFormData.auto_restore_on_watch ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-600'
+                  }`}
+                >
+                  <div
+                    className={`w-6 h-6 bg-white rounded-full transition-transform ${
+                      stagingFormData.auto_restore_on_watch ? 'translate-x-7' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">
+                    Staging Path
+                  </label>
+                  <input
+                    type="text"
+                    className="block w-full px-3 py-2 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-gray-400 dark:placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                    value={stagingFormData.staging_path || ''}
+                    onChange={(e) => setStagingFormData({ ...stagingFormData, staging_path: e.target.value })}
+                    placeholder="/path/to/staging"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-dark-500 mt-1">Directory where staged files will be moved</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">
+                    Library Name (for Emby)
+                  </label>
+                  <input
+                    type="text"
+                    className="block w-full px-3 py-2 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-gray-400 dark:placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                    value={stagingFormData.library_name || ''}
+                    onChange={(e) => setStagingFormData({ ...stagingFormData, library_name: e.target.value })}
+                    placeholder="Staging"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-dark-500 mt-1">Emby library name for staged content</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">
+                    Grace Period (days)
+                  </label>
+                  <input
+                    type="number"
+                    className="block w-full px-3 py-2 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-gray-400 dark:placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                    value={stagingFormData.grace_period_days || ''}
+                    onChange={(e) => setStagingFormData({ ...stagingFormData, grace_period_days: parseInt(e.target.value) || 7 })}
+                    min={1}
+                    max={365}
+                  />
+                  <p className="text-xs text-gray-500 dark:text-dark-500 mt-1">Days before staged files are permanently deleted</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-dark-700 flex justify-end">
+              <button
+                type="submit"
+                disabled={updateStagingMutation.isPending}
+                className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {updateStagingMutation.isPending ? 'Saving...' : 'Save Staging Settings'}
               </button>
             </div>
           </form>

@@ -102,12 +102,9 @@ class AuditActionType(str, Enum):
     # Sessions
     SESSION_REVOKED = "session_revoked"
     ALL_SESSIONS_REVOKED = "all_sessions_revoked"
+    
+    # Additional actions
     MEDIA_FLAGGED = "media_flagged"
-    MEDIA_DELETED = "media_deleted"
-    MEDIA_STAGED = "media_staged"
-    MEDIA_RESTORED = "media_restored"
-    CLEANUP_STARTED = "cleanup_started"
-    CLEANUP_COMPLETED = "cleanup_completed"
     SYNC_COMPLETED = "sync_completed"
     ERROR = "error"
     TEST = "test"

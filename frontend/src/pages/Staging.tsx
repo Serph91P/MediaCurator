@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ClockIcon, TrashIcon, ArrowPathIcon, Cog6ToothIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
+import { ClockIcon, TrashIcon, ArrowPathIcon, Cog6ToothIcon, CheckCircleIcon, FolderIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import { formatBytes, formatRelativeTime } from '../lib/utils'
 
@@ -33,6 +33,20 @@ interface StagingSettings {
   auto_restore_on_watch: boolean
 }
 
+interface LibraryStagingSettings {
+  library_id: number
+  library_name: string
+  staging_enabled: boolean | null
+  staging_path: string | null
+  staging_grace_period_days: number | null
+  staging_auto_restore: boolean | null
+  uses_custom_settings: boolean
+  effective_enabled: boolean
+  effective_path: string
+  effective_grace_period_days: number
+  effective_auto_restore: boolean
+}
+
 export default function Staging() {
   const queryClient = useQueryClient()
   const [showSettings, setShowSettings] = useState(false)
@@ -60,6 +74,14 @@ export default function Staging() {
     queryKey: ['stagingSettings'],
     queryFn: async () => {
       const res = await api.get('/staging/settings')
+      return res.data
+    },
+  })
+
+  const { data: libraryStagingSettings } = useQuery<LibraryStagingSettings[]>({
+    queryKey: ['libraryStagingSettings'],
+    queryFn: async () => {
+      const res = await api.get('/staging/libraries')
       return res.data
     },
   })
@@ -329,6 +351,54 @@ export default function Staging() {
           </div>
         </div>
       </div>
+
+      {/* Library Staging Overview */}
+      {libraryStagingSettings && libraryStagingSettings.length > 0 && (
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
+          <div className="p-6">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <FolderIcon className="w-5 h-5" />
+              Library Staging Status
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {libraryStagingSettings.map((lib) => (
+                <div 
+                  key={lib.library_id}
+                  className={`p-3 rounded-lg border ${
+                    lib.effective_enabled 
+                      ? 'border-green-500/30 bg-green-500/10' 
+                      : 'border-gray-300 dark:border-dark-600 bg-gray-100 dark:bg-dark-700/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-900 dark:text-white">{lib.library_name}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      lib.effective_enabled 
+                        ? 'bg-green-500/20 text-green-400' 
+                        : 'bg-gray-200 dark:bg-dark-600 text-gray-500 dark:text-dark-400'
+                    }`}>
+                      {lib.effective_enabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-dark-400 mt-1">
+                    {lib.uses_custom_settings ? (
+                      <span className="text-primary-400">Custom settings</span>
+                    ) : (
+                      <span>Using global settings</span>
+                    )}
+                    {lib.effective_enabled && (
+                      <span className="ml-2">• {lib.effective_grace_period_days}d grace</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-dark-400 mt-3">
+              Configure per-library staging in the Libraries page
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Staged Items List */}
       <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">

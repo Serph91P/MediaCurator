@@ -211,3 +211,34 @@ async def migrate_database(db: AsyncSession):
         
         await db.commit()
         logger.info("Migration completed: library_id column added to media_items")
+
+    # Check if staging columns exist in libraries table
+    result = await db.execute(text("""
+        SELECT COUNT(*) as count 
+        FROM pragma_table_info('libraries') 
+        WHERE name='staging_enabled'
+    """))
+    has_library_staging = result.scalar() > 0
+    
+    if not has_library_staging:
+        logger.info("Migrating libraries: adding per-library staging columns")
+        
+        await db.execute(text("""
+            ALTER TABLE libraries 
+            ADD COLUMN staging_enabled BOOLEAN DEFAULT NULL
+        """))
+        await db.execute(text("""
+            ALTER TABLE libraries 
+            ADD COLUMN staging_path VARCHAR(500)
+        """))
+        await db.execute(text("""
+            ALTER TABLE libraries 
+            ADD COLUMN staging_grace_period_days INTEGER
+        """))
+        await db.execute(text("""
+            ALTER TABLE libraries 
+            ADD COLUMN staging_auto_restore BOOLEAN DEFAULT NULL
+        """))
+        
+        await db.commit()
+        logger.info("Migration completed: per-library staging columns added")

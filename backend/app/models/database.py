@@ -228,6 +228,12 @@ class Library(Base):
     service_connection_id = Column(Integer, ForeignKey("service_connections.id"), nullable=False)
     is_enabled = Column(Boolean, default=True)  # Whether to include in cleanup processing
     
+    # Per-library staging settings (NULL = use global settings)
+    staging_enabled = Column(Boolean, nullable=True, default=None)
+    staging_path = Column(String(500), nullable=True)
+    staging_grace_period_days = Column(Integer, nullable=True)
+    staging_auto_restore = Column(Boolean, nullable=True, default=None)
+    
     # Sync tracking
     last_synced_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

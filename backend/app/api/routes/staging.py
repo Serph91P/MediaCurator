@@ -50,6 +50,27 @@ class StagingSettingsResponse(BaseModel):
     auto_restore_on_watch: bool
 
 
+class LibraryStagingSettingsResponse(BaseModel):
+    library_id: int
+    library_name: str
+    staging_enabled: Optional[bool] = None  # None = use global
+    staging_path: Optional[str] = None
+    staging_grace_period_days: Optional[int] = None
+    staging_auto_restore: Optional[bool] = None
+    uses_custom_settings: bool
+    effective_enabled: bool  # Calculated: library setting or global fallback
+    effective_path: str
+    effective_grace_period_days: int
+    effective_auto_restore: bool
+
+
+class LibraryStagingSettingsUpdate(BaseModel):
+    staging_enabled: Optional[bool] = None
+    staging_path: Optional[str] = None
+    staging_grace_period_days: Optional[int] = Field(None, ge=1, le=365)
+    staging_auto_restore: Optional[bool] = None
+
+
 class StagingSettingsUpdate(BaseModel):
     enabled: Optional[bool] = None
     staging_path: Optional[str] = None
@@ -276,9 +297,9 @@ async def get_staging_settings(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get staging system settings."""
+    """Get global staging system settings."""
     staging_service = StagingService(db)
-    settings = await staging_service.get_settings()
+    settings = await staging_service.get_global_settings()
     
     return StagingSettingsResponse(
         enabled=settings['enabled'],
@@ -327,7 +348,7 @@ async def update_staging_settings(
     
     # Return updated settings
     staging_service = StagingService(db)
-    settings = await staging_service.get_settings()
+    settings = await staging_service.get_global_settings()
     
     return StagingSettingsResponse(
         enabled=settings['enabled'],
@@ -336,3 +357,156 @@ async def update_staging_settings(
         library_name=settings['library_name'],
         auto_restore_on_watch=settings['auto_restore_on_watch']
     )
+
+
+@router.get("/libraries", response_model=List[LibraryStagingSettingsResponse])
+async def get_library_staging_settings(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get staging settings for all libraries."""
+    from ...models import Library
+    
+    staging_service = StagingService(db)
+    
+    result = await db.execute(select(Library).where(Library.is_enabled == True))
+    libraries = result.scalars().all()
+    
+    library_settings = []
+    for lib in libraries:
+        effective_settings = await staging_service.get_settings(lib)
+        uses_custom = (
+            lib.staging_enabled is not None or 
+            lib.staging_path is not None or
+            lib.staging_grace_period_days is not None or
+            lib.staging_auto_restore is not None
+        )
+        
+        library_settings.append(LibraryStagingSettingsResponse(
+            library_id=lib.id,
+            library_name=lib.name,
+            staging_enabled=lib.staging_enabled,
+            staging_path=lib.staging_path,
+            staging_grace_period_days=lib.staging_grace_period_days,
+            staging_auto_restore=lib.staging_auto_restore,
+            uses_custom_settings=uses_custom,
+            effective_enabled=effective_settings['enabled'],
+            effective_path=effective_settings['staging_path'],
+            effective_grace_period_days=effective_settings['grace_period_days'],
+            effective_auto_restore=effective_settings['auto_restore_on_watch']
+        ))
+    
+    return library_settings
+
+
+@router.get("/libraries/{library_id}", response_model=LibraryStagingSettingsResponse)
+async def get_library_staging_setting(
+    library_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get staging settings for a specific library."""
+    from ...models import Library
+    
+    result = await db.execute(select(Library).where(Library.id == library_id))
+    library = result.scalar_one_or_none()
+    
+    if not library:
+        raise HTTPException(status_code=404, detail="Library not found")
+    
+    staging_service = StagingService(db)
+    effective_settings = await staging_service.get_settings(library)
+    uses_custom = (
+        library.staging_enabled is not None or 
+        library.staging_path is not None or
+        library.staging_grace_period_days is not None or
+        library.staging_auto_restore is not None
+    )
+    
+    return LibraryStagingSettingsResponse(
+        library_id=library.id,
+        library_name=library.name,
+        staging_enabled=library.staging_enabled,
+        staging_path=library.staging_path,
+        staging_grace_period_days=library.staging_grace_period_days,
+        staging_auto_restore=library.staging_auto_restore,
+        uses_custom_settings=uses_custom,
+        effective_enabled=effective_settings['enabled'],
+        effective_path=effective_settings['staging_path'],
+        effective_grace_period_days=effective_settings['grace_period_days'],
+        effective_auto_restore=effective_settings['auto_restore_on_watch']
+    )
+
+
+@router.put("/libraries/{library_id}", response_model=LibraryStagingSettingsResponse)
+async def update_library_staging_settings(
+    library_id: int,
+    update: LibraryStagingSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update staging settings for a specific library."""
+    from ...models import Library
+    
+    result = await db.execute(select(Library).where(Library.id == library_id))
+    library = result.scalar_one_or_none()
+    
+    if not library:
+        raise HTTPException(status_code=404, detail="Library not found")
+    
+    # Update library staging settings
+    updates = update.model_dump(exclude_unset=True)
+    for key, value in updates.items():
+        setattr(library, key, value)
+    
+    await db.commit()
+    await db.refresh(library)
+    
+    staging_service = StagingService(db)
+    effective_settings = await staging_service.get_settings(library)
+    uses_custom = (
+        library.staging_enabled is not None or 
+        library.staging_path is not None or
+        library.staging_grace_period_days is not None or
+        library.staging_auto_restore is not None
+    )
+    
+    return LibraryStagingSettingsResponse(
+        library_id=library.id,
+        library_name=library.name,
+        staging_enabled=library.staging_enabled,
+        staging_path=library.staging_path,
+        staging_grace_period_days=library.staging_grace_period_days,
+        staging_auto_restore=library.staging_auto_restore,
+        uses_custom_settings=uses_custom,
+        effective_enabled=effective_settings['enabled'],
+        effective_path=effective_settings['staging_path'],
+        effective_grace_period_days=effective_settings['grace_period_days'],
+        effective_auto_restore=effective_settings['auto_restore_on_watch']
+    )
+
+
+@router.delete("/libraries/{library_id}/settings")
+async def reset_library_staging_settings(
+    library_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Reset library staging settings to use global defaults."""
+    from ...models import Library
+    
+    result = await db.execute(select(Library).where(Library.id == library_id))
+    library = result.scalar_one_or_none()
+    
+    if not library:
+        raise HTTPException(status_code=404, detail="Library not found")
+    
+    # Reset all staging settings to NULL (use global)
+    library.staging_enabled = None
+    library.staging_path = None
+    library.staging_grace_period_days = None
+    library.staging_auto_restore = None
+    
+    await db.commit()
+    
+    return {"success": True, "message": f"Staging settings for {library.name} reset to global defaults"}

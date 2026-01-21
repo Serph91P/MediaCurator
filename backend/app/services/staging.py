@@ -8,11 +8,11 @@ import os
 import shutil
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from ..models import MediaItem, CleanupLog, SystemSettings
+from ..models import MediaItem, CleanupLog, SystemSettings, Library
 from .emby import EmbyService
 from loguru import logger
 
@@ -23,8 +23,8 @@ class StagingService:
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def get_settings(self) -> Dict[str, Any]:
-        """Get staging configuration from system settings."""
+    async def get_global_settings(self) -> Dict[str, Any]:
+        """Get global staging configuration from system settings."""
         settings = {
             "enabled": False,
             "staging_path": "/media/staging",
@@ -58,6 +58,82 @@ class StagingService:
         
         return settings
     
+    async def get_settings(self, library: Optional[Library] = None) -> Dict[str, Any]:
+        """
+        Get staging configuration, with per-library overrides if available.
+        
+        Args:
+            library: Optional Library to get per-library settings for
+            
+        Returns:
+            Dict with merged settings (library settings override global)
+        """
+        # Get global settings first
+        settings = await self.get_global_settings()
+        
+        # If library provided, override with library-specific settings
+        if library:
+            if library.staging_enabled is not None:
+                settings['enabled'] = library.staging_enabled
+            if library.staging_path:
+                settings['staging_path'] = library.staging_path
+            if library.staging_grace_period_days is not None:
+                settings['grace_period_days'] = library.staging_grace_period_days
+            if library.staging_auto_restore is not None:
+                settings['auto_restore_on_watch'] = library.staging_auto_restore
+            # Add library info to settings
+            settings['library_id'] = library.id
+            settings['library_name_source'] = library.name
+        
+        return settings
+    
+    async def get_settings_for_media(self, media_item: MediaItem) -> Dict[str, Any]:
+        """
+        Get staging settings for a specific media item based on its library.
+        
+        Args:
+            media_item: MediaItem to get settings for
+            
+        Returns:
+            Dict with appropriate staging settings
+        """
+        library = None
+        if media_item.library_id:
+            result = await self.db.execute(
+                select(Library).where(Library.id == media_item.library_id)
+            )
+            library = result.scalar_one_or_none()
+        
+        return await self.get_settings(library)
+    
+    async def get_enabled_libraries(self) -> List[Dict[str, Any]]:
+        """
+        Get all libraries with staging enabled (either explicitly or via global).
+        
+        Returns:
+            List of library info dicts with their staging settings
+        """
+        global_settings = await self.get_global_settings()
+        
+        result = await self.db.execute(select(Library).where(Library.is_enabled == True))
+        libraries = result.scalars().all()
+        
+        enabled_libraries = []
+        for lib in libraries:
+            settings = await self.get_settings(lib)
+            if settings['enabled']:
+                enabled_libraries.append({
+                    'library_id': lib.id,
+                    'library_name': lib.name,
+                    'staging_enabled': settings['enabled'],
+                    'staging_path': settings['staging_path'],
+                    'grace_period_days': settings['grace_period_days'],
+                    'auto_restore_on_watch': settings['auto_restore_on_watch'],
+                    'uses_custom_settings': lib.staging_enabled is not None or lib.staging_path is not None
+                })
+        
+        return enabled_libraries
+    
     async def ensure_staging_directory(self, staging_path: str) -> bool:
         """Ensure staging directory exists and is writable."""
         try:
@@ -89,10 +165,11 @@ class StagingService:
         Returns:
             Dict with success status and details
         """
-        settings = await self.get_settings()
+        # Get per-library settings if available
+        settings = await self.get_settings_for_media(media_item)
         
         if not settings['enabled']:
-            return {"success": False, "error": "Staging is not enabled"}
+            return {"success": False, "error": "Staging is not enabled for this library"}
         
         if not media_item.path:
             return {"success": False, "error": "Media item has no path"}
@@ -437,6 +514,7 @@ class StagingService:
     ) -> Dict[str, Any]:
         """
         Check staged items for watch activity and auto-restore if watched.
+        Uses per-library settings to determine if auto-restore is enabled.
         
         Args:
             emby_service: EmbyService to check watch status
@@ -444,23 +522,36 @@ class StagingService:
         Returns:
             Dict with statistics
         """
-        settings = await self.get_settings()
+        global_settings = await self.get_global_settings()
         
-        if not settings['enabled']:
-            return {"success": False, "error": "Staging system is not enabled"}
-        
-        if not settings['auto_restore_on_watch']:
-            return {"success": False, "error": "Auto-restore on watch is not enabled"}
-        
-        # Find all staged items
+        # Find all staged items with their library info
+        from sqlalchemy.orm import joinedload
         result = await self.db.execute(
-            select(MediaItem).where(MediaItem.is_staged == True)
+            select(MediaItem)
+            .options(joinedload(MediaItem.library))
+            .where(MediaItem.is_staged == True)
         )
         staged_items = result.scalars().all()
         
+        if not staged_items:
+            return {"success": True, "restored": 0, "message": "No staged items to check"}
+        
         restored_count = 0
+        skipped_count = 0
         
         for item in staged_items:
+            # Get per-library settings for this item
+            settings = await self.get_settings(item.library)
+            
+            # Check if staging and auto-restore are enabled for this item's library
+            if not settings['enabled']:
+                skipped_count += 1
+                continue
+            
+            if not settings['auto_restore_on_watch']:
+                skipped_count += 1
+                continue
+            
             # Check if item was watched recently (after staging)
             if item.last_watched_at and item.staged_at:
                 if item.last_watched_at > item.staged_at:
@@ -469,9 +560,10 @@ class StagingService:
                     if result['success']:
                         restored_count += 1
         
-        logger.info(f"Auto-restored {restored_count} watched items from staging")
+        logger.info(f"Auto-restore: restored {restored_count}, skipped {skipped_count} items")
         
         return {
             "success": True,
-            "restored": restored_count
+            "restored": restored_count,
+            "skipped": skipped_count
         }

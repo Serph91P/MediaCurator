@@ -1,13 +1,14 @@
 """
 Notification channels API routes.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
 from pydantic import BaseModel
 
 from ...core.database import get_db
+from ...core.rate_limit import limiter, RateLimits
 from ...models import NotificationChannel
 from ...models.database import NotificationEventType
 from ...schemas import (
@@ -42,7 +43,9 @@ class TemplatePreviewResponse(BaseModel):
 
 
 @router.get("/event-types", response_model=EventTypesResponse)
+@limiter.limit(RateLimits.API_READ)
 async def list_event_types(
+    request: Request,
     current_user = Depends(get_current_user)
 ):
     """List all available notification event types with their default templates."""
@@ -59,8 +62,10 @@ async def list_event_types(
 
 
 @router.post("/preview-template", response_model=TemplatePreviewResponse)
+@limiter.limit(RateLimits.API_READ)
 async def preview_template(
-    request: TemplatePreviewRequest,
+    request: Request,
+    template_request: TemplatePreviewRequest,
     current_user = Depends(get_current_user)
 ):
     """Preview rendered notification templates with sample data."""
@@ -77,15 +82,15 @@ async def preview_template(
     
     # Get event type for defaults
     try:
-        event_type = ServiceEventType(request.event_type)
+        event_type = ServiceEventType(template_request.event_type)
     except ValueError:
         event_type = ServiceEventType.TEST
     
     default_template = DEFAULT_TEMPLATES.get(event_type, {})
     
     # Render templates
-    title_template = request.title_template or default_template.get("title", "Notification")
-    message_template = request.message_template or default_template.get("message", "")
+    title_template = template_request.title_template or default_template.get("title", "Notification")
+    message_template = template_request.message_template or default_template.get("message", "")
     
     rendered_title = TemplateRenderer.render(title_template, sample_context)
     rendered_message = TemplateRenderer.render(message_template, sample_context)
@@ -97,7 +102,9 @@ async def preview_template(
 
 
 @router.get("/", response_model=List[NotificationChannelResponse])
+@limiter.limit(RateLimits.API_READ)
 async def list_notification_channels(
+    request: Request,
     event_type: Optional[str] = Query(None, description="Filter by event type"),
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -123,7 +130,9 @@ async def list_notification_channels(
 
 
 @router.post("/", response_model=NotificationChannelResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(RateLimits.API_WRITE)
 async def create_notification_channel(
+    request: Request,
     channel_data: NotificationChannelCreate,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -137,7 +146,9 @@ async def create_notification_channel(
 
 
 @router.get("/{channel_id}", response_model=NotificationChannelResponse)
+@limiter.limit(RateLimits.API_READ)
 async def get_notification_channel(
+    request: Request,
     channel_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -156,7 +167,9 @@ async def get_notification_channel(
 
 
 @router.put("/{channel_id}", response_model=NotificationChannelResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_notification_channel(
+    request: Request,
     channel_id: int,
     channel_data: NotificationChannelUpdate,
     db: AsyncSession = Depends(get_db),
@@ -183,7 +196,9 @@ async def update_notification_channel(
 
 
 @router.delete("/{channel_id}")
+@limiter.limit(RateLimits.API_WRITE)
 async def delete_notification_channel(
+    request: Request,
     channel_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -205,7 +220,9 @@ async def delete_notification_channel(
 
 
 @router.post("/{channel_id}/test")
+@limiter.limit(RateLimits.TEST_OPERATION)
 async def test_notification_channel(
+    request: Request,
     channel_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)

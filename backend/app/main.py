@@ -12,6 +12,7 @@ import sys
 
 from .core.config import get_settings
 from .core.database import init_db, close_db
+from .core.rate_limit import setup_rate_limiting, limiter, RateLimits
 from .api.routes import auth, services, rules, libraries, notifications, system, jobs, media, staging
 
 settings = get_settings()
@@ -75,6 +76,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Setup rate limiting
+setup_rate_limiting(app)
+
 # Include routers
 app.include_router(auth.router, prefix="/api")
 app.include_router(services.router, prefix="/api")
@@ -88,13 +92,15 @@ app.include_router(staging.router, prefix="/api/staging", tags=["staging"])
 
 
 @app.get("/api/health")
-async def health():
+@limiter.limit(RateLimits.HEALTH_CHECK)
+async def health(request: Request):
     """Simple health check endpoint for Docker healthcheck."""
     return {"status": "healthy"}
 
 
 @app.get("/api/health/detailed")
-async def health_detailed():
+@limiter.limit(RateLimits.HEALTH_CHECK)
+async def health_detailed(request: Request):
     """Detailed health check with component status."""
     from .core.database import async_session_maker
     from sqlalchemy import text

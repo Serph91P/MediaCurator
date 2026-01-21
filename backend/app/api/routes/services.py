@@ -1,13 +1,14 @@
 """
 Service connections API routes (Sonarr, Radarr, Emby, etc.).
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 from datetime import datetime
 
 from ...core.database import get_db
+from ...core.rate_limit import limiter, RateLimits
 from ...models import ServiceConnection, ServiceType
 from ...schemas import (
     ServiceConnectionCreate, ServiceConnectionUpdate, 
@@ -50,7 +51,9 @@ async def get_service_client(connection: ServiceConnection):
 
 
 @router.get("/", response_model=List[ServiceConnectionResponse])
+@limiter.limit(RateLimits.API_READ)
 async def list_services(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -60,7 +63,9 @@ async def list_services(
 
 
 @router.post("/", response_model=ServiceConnectionResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(RateLimits.API_WRITE)
 async def create_service(
+    request: Request,
     service_data: ServiceConnectionCreate,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -74,7 +79,9 @@ async def create_service(
 
 
 @router.get("/{service_id}", response_model=ServiceConnectionResponse)
+@limiter.limit(RateLimits.API_READ)
 async def get_service(
+    request: Request,
     service_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -93,7 +100,9 @@ async def get_service(
 
 
 @router.put("/{service_id}", response_model=ServiceConnectionResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_service(
+    request: Request,
     service_id: int,
     service_data: ServiceConnectionUpdate,
     db: AsyncSession = Depends(get_db),
@@ -120,7 +129,9 @@ async def update_service(
 
 
 @router.delete("/{service_id}")
+@limiter.limit(RateLimits.API_WRITE)
 async def delete_service(
+    request: Request,
     service_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -142,7 +153,9 @@ async def delete_service(
 
 
 @router.post("/{service_id}/test", response_model=ServiceConnectionTest)
+@limiter.limit(RateLimits.TEST_OPERATION)
 async def test_service(
+    request: Request,
     service_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)

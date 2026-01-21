@@ -302,7 +302,7 @@ docker compose -f docker-compose.dev.yml up
 - [x] Support multiple notification channels per event type
 
 ### 🔒 Security & Auth
-- [ ] Add rate limiting for API endpoints
+- [x] Add rate limiting for API endpoints
 - [ ] Implement session management with refresh tokens
 - [ ] Add audit logging for admin actions
 

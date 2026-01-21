@@ -1,7 +1,7 @@
 """
 Authentication API routes.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -11,6 +11,7 @@ from typing import List
 from ...core.database import get_db
 from ...core.security import hash_password, verify_password, create_access_token
 from ...core.config import get_settings
+from ...core.rate_limit import limiter, RateLimits
 from ...models import User
 from ...schemas import Token, UserCreate, UserResponse, UserUpdate
 from ..deps import get_current_user, get_current_active_admin
@@ -20,7 +21,9 @@ settings = get_settings()
 
 
 @router.get("/setup-required")
+@limiter.limit(RateLimits.API_READ)
 async def check_setup_required(
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     """Check if initial setup is required (no users exist)."""
@@ -30,7 +33,9 @@ async def check_setup_required(
 
 
 @router.post("/login", response_model=Token)
+@limiter.limit(RateLimits.AUTH_LOGIN)
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
@@ -65,7 +70,9 @@ async def login(
 
 
 @router.post("/register", response_model=UserResponse)
+@limiter.limit(RateLimits.AUTH_REGISTER)
 async def register(
+    request: Request,
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
 ):
@@ -97,7 +104,9 @@ async def register(
 
 
 @router.get("/me", response_model=UserResponse)
+@limiter.limit(RateLimits.API_READ)
 async def get_current_user_info(
+    request: Request,
     current_user: User = Depends(get_current_user)
 ):
     """Get current user information."""
@@ -105,7 +114,9 @@ async def get_current_user_info(
 
 
 @router.put("/me", response_model=UserResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_current_user(
+    request: Request,
     user_data: UserUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)

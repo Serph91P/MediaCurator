@@ -1,13 +1,14 @@
 """
 Scheduled jobs API routes.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from typing import List
 from datetime import datetime
 
 from ...core.database import get_db
+from ...core.rate_limit import limiter, RateLimits
 from ...models import JobExecutionLog
 from ...scheduler import scheduler
 from ..deps import get_current_user
@@ -16,7 +17,9 @@ router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
 
 @router.get("/")
+@limiter.limit(RateLimits.API_READ)
 async def list_jobs(
+    request: Request,
     current_user = Depends(get_current_user)
 ):
     """Get list of scheduled jobs with their status."""
@@ -37,7 +40,9 @@ async def list_jobs(
 
 
 @router.get("/{job_id}/history")
+@limiter.limit(RateLimits.API_READ)
 async def get_job_history(
+    request: Request,
     job_id: str,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
@@ -66,7 +71,9 @@ async def get_job_history(
 
 
 @router.get("/history/recent")
+@limiter.limit(RateLimits.API_READ)
 async def get_recent_executions(
+    request: Request,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -93,7 +100,9 @@ async def get_recent_executions(
 
 
 @router.post("/{job_id}/trigger")
+@limiter.limit(RateLimits.CLEANUP_OPERATION)
 async def trigger_job(
+    request: Request,
     job_id: str,
     current_user = Depends(get_current_user)
 ):

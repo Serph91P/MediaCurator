@@ -458,7 +458,7 @@ export default function Dashboard() {
               onClick={async () => {
                 await api.post('/system/sync/run')
               }}
-              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-100 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2 py-4"
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2 py-4"
             >
               <PlayIcon className="w-5 h-5" />
               Sync All Services
@@ -467,7 +467,7 @@ export default function Dashboard() {
               onClick={async () => {
                 await api.post('/system/cleanup/run', null, { params: { dry_run: true } })
               }}
-              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-100 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2 py-4"
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2 py-4"
             >
               <ExclamationTriangleIcon className="w-5 h-5" />
               Preview Cleanup
@@ -487,3 +487,6 @@ export default function Dashboard() {
     </div>
   )
 }
+
+
+

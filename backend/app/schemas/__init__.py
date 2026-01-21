@@ -54,13 +54,47 @@ class SeriesDeleteMode(str, Enum):
 # ==================== Auth Schemas ====================
 
 class Token(BaseModel):
+    """Token response with access and refresh tokens."""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int  # Access token lifetime in seconds
+
+
+class TokenRefreshRequest(BaseModel):
+    """Request to refresh access token."""
+    refresh_token: str
+
+
+class TokenRefreshResponse(BaseModel):
+    """Response from token refresh."""
     access_token: str
     token_type: str = "bearer"
+    expires_in: int
 
 
 class TokenPayload(BaseModel):
     sub: Optional[int] = None
     username: Optional[str] = None
+
+
+class SessionInfo(BaseModel):
+    """Information about an active session."""
+    id: int
+    device_info: Optional[str] = None
+    ip_address: Optional[str] = None
+    created_at: datetime
+    expires_at: datetime
+    is_current: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class SessionListResponse(BaseModel):
+    """List of active sessions."""
+    sessions: List["SessionInfo"]
+    total: int
 
 
 class UserBase(BaseModel):

@@ -101,8 +101,8 @@ export default function Services() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white">Services</h1>
-          <p className="text-dark-400 mt-1">Manage Sonarr, Radarr, Emby connections</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Services</h1>
+          <p className="text-gray-500 dark:text-dark-400 mt-1">Manage Sonarr, Radarr, Emby connections</p>
         </div>
         <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2">
           <PlusIcon className="w-5 h-5" />
@@ -113,7 +113,7 @@ export default function Services() {
       {isLoading ? (
         <div className="grid gap-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg animate-pulse">
+            <div key={i} className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg animate-pulse">
               <div className="p-6 h-24" />
             </div>
           ))}
@@ -130,29 +130,29 @@ export default function Services() {
 
             return (
               <div key={category}>
-                <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                   <div className="w-1 h-6 bg-primary-500 rounded-full"></div>
                   {category}
                 </h2>
                 <div className="grid gap-4">
                   {categoryServices.map((service) => (
-                    <div key={service.id} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+                    <div key={service.id} className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
                       <div className="p-6 flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                          <div className={`p-3 rounded-lg ${service.is_enabled ? 'bg-green-500/20' : 'bg-dark-700'}`}>
+                          <div className={`p-3 rounded-lg ${service.is_enabled ? 'bg-green-500/20' : 'bg-gray-200 dark:bg-dark-700'}`}>
                             {service.is_enabled ? (
                               <CheckCircleIcon className="w-6 h-6 text-green-400" />
                             ) : (
-                              <XCircleIcon className="w-6 h-6 text-dark-400" />
+                              <XCircleIcon className="w-6 h-6 text-gray-400 dark:text-dark-400" />
                             )}
                           </div>
                           <div>
-                            <h3 className="font-semibold text-white">{service.name}</h3>
-                            <p className="text-sm text-dark-400">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">{service.name}</h3>
+                            <p className="text-sm text-gray-500 dark:text-dark-400">
                               {service.service_type.toUpperCase()} • {service.url}
                             </p>
                             {service.last_sync && (
-                              <p className="text-xs text-dark-500">
+                              <p className="text-xs text-gray-400 dark:text-dark-500">
                                 Last sync: {formatDateTime(service.last_sync)}
                               </p>
                             )}
@@ -203,9 +203,9 @@ export default function Services() {
           })}
         </div>
       ) : (
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6 text-center py-12">
-            <p className="text-dark-400">No services configured yet</p>
+            <p className="text-gray-500 dark:text-dark-400">No services configured yet</p>
             <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mt-4">
               Add your first service
             </button>
@@ -263,16 +263,16 @@ function ServiceModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg w-full max-w-md mx-4">
-        <div className="px-6 py-4 border-b border-dark-700">
-          <h2 className="text-lg font-semibold text-white">
+      <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg w-full max-w-md mx-4">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {initialData ? 'Edit Service' : 'Add Service'}
           </h2>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="p-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-dark-200 mb-1">Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">Name</label>
               <input
                 type="text"
                 className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -284,7 +284,7 @@ function ServiceModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-200 mb-1">Service Type</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">Service Type</label>
               <select
                 className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                 value={formData.service_type}
@@ -299,7 +299,7 @@ function ServiceModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-200 mb-1">URL</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">URL</label>
               <input
                 type="url"
                 className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -311,7 +311,7 @@ function ServiceModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark-200 mb-1">API Key</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">API Key</label>
               <input
                 type="password"
                 className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -345,8 +345,8 @@ function ServiceModal({
             </div>
           </div>
 
-          <div className="px-6 py-4 border-t border-dark-700 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-dark-700 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               Cancel
             </button>
             <button type="submit" disabled={isLoading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
@@ -358,3 +358,7 @@ function ServiceModal({
     </div>
   )
 }
+
+
+
+

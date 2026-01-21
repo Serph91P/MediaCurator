@@ -124,19 +124,19 @@ export default function Preview() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-white">Dry Run Preview</h1>
-          <p className="text-dark-400 mt-1">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dry Run Preview</h1>
+          <p className="text-gray-500 dark:text-dark-400 mt-1">
             Preview what would be cleaned up without actually deleting anything
           </p>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+      <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
         <div className="p-6">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-dark-200 mb-1">Rule to Preview</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">Rule to Preview</label>
               <select
                 className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                 value={selectedRuleId ?? ''}
@@ -153,7 +153,7 @@ export default function Preview() {
             <button
               onClick={() => refetch()}
               disabled={isFetching}
-              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-900 dark:text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               {isFetching ? (
                 <ArrowPathIcon className="w-5 h-5 animate-spin" />
@@ -168,7 +168,7 @@ export default function Preview() {
 
       {/* Results */}
       {isLoading || isFetching ? (
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6 text-center py-12">
             <ArrowPathIcon className="w-8 h-8 mx-auto text-primary-500 animate-spin" />
             <p className="text-dark-400 mt-4">Evaluating cleanup rules...</p>
@@ -178,18 +178,18 @@ export default function Preview() {
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+            <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
               <div className="p-6">
                 <div className="flex items-center justify-between">
-                  <span className="text-dark-400">Total Evaluated</span>
-                  <EyeIcon className="w-5 h-5 text-dark-400" />
+                  <span className="text-gray-500 dark:text-dark-400">Total Evaluated</span>
+                  <EyeIcon className="w-5 h-5 text-gray-400 dark:text-dark-400" />
                 </div>
-                <p className="text-2xl font-bold text-white mt-2">
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
                   {preview.summary.total_evaluated}
                 </p>
               </div>
             </div>
-            <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg bg-red-900/20 border-red-800/50">
+            <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg bg-red-900/20 border-red-800/50">
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <span className="text-red-400">Would Delete</span>
@@ -200,7 +200,7 @@ export default function Preview() {
                 </p>
               </div>
             </div>
-            <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg bg-green-900/20 border-green-800/50">
+            <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg bg-green-900/20 border-green-800/50">
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <span className="text-green-400">Would Skip</span>
@@ -211,7 +211,7 @@ export default function Preview() {
                 </p>
               </div>
             </div>
-            <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg bg-yellow-900/20 border-yellow-800/50">
+            <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg bg-yellow-900/20 border-yellow-800/50">
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <span className="text-yellow-400">Space to Free</span>
@@ -235,7 +235,7 @@ export default function Preview() {
               />
               <span className="text-sm text-dark-200">Show skipped items</span>
             </label>
-            <span className="text-dark-500">
+            <span className="text-gray-400 dark:text-dark-500">
               Showing {displayedItems?.length || 0} items
             </span>
           </div>
@@ -269,7 +269,7 @@ export default function Preview() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <MediaTypeIcon type={item.media_type} />
-                          <h3 className="font-medium text-white truncate">
+                          <h3 className="font-medium text-gray-900 dark:text-white truncate">
                             {item.title}
                           </h3>
                         </div>
@@ -317,46 +317,46 @@ export default function Preview() {
                         </button>
 
                         {expandedItems.has(item.item_id) && (
-                          <div className="mt-3 p-3 bg-dark-800/50 rounded-lg text-sm">
+                          <div className="mt-3 p-3 bg-gray-50 dark:bg-dark-800/50 rounded-lg text-sm">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                               <div>
-                                <span className="text-dark-400">Watched:</span>
+                                <span className="text-gray-500 dark:text-dark-400">Watched:</span>
                                 <span className="ml-2 text-white">
                                   {item.item_details.is_watched ? 'Yes' : 'No'}
                                 </span>
                               </div>
                               <div>
-                                <span className="text-dark-400">Progress:</span>
+                                <span className="text-gray-500 dark:text-dark-400">Progress:</span>
                                 <span className="ml-2 text-white">
                                   {item.item_details.progress_percent?.toFixed(0) || 0}%
                                 </span>
                               </div>
                               <div>
-                                <span className="text-dark-400">Watch Count:</span>
+                                <span className="text-gray-500 dark:text-dark-400">Watch Count:</span>
                                 <span className="ml-2 text-white">
                                   {item.item_details.watch_count || 0}
                                 </span>
                               </div>
                               <div>
-                                <span className="text-dark-400">Favorited:</span>
+                                <span className="text-gray-500 dark:text-dark-400">Favorited:</span>
                                 <span className="ml-2 text-white">
                                   {item.item_details.is_favorited ? 'Yes' : 'No'}
                                 </span>
                               </div>
                               <div>
-                                <span className="text-dark-400">Rating:</span>
+                                <span className="text-gray-500 dark:text-dark-400">Rating:</span>
                                 <span className="ml-2 text-white">
                                   {item.item_details.rating || 'N/A'}
                                 </span>
                               </div>
                               <div>
-                                <span className="text-dark-400">Currently Watching:</span>
+                                <span className="text-gray-500 dark:text-dark-400">Currently Watching:</span>
                                 <span className="ml-2 text-white">
                                   {item.item_details.is_currently_watching ? 'Yes' : 'No'}
                                 </span>
                               </div>
                               <div>
-                                <span className="text-dark-400">Last Watched:</span>
+                                <span className="text-gray-500 dark:text-dark-400">Last Watched:</span>
                                 <span className="ml-2 text-white">
                                   {item.item_details.last_watched_at 
                                     ? new Date(item.item_details.last_watched_at).toLocaleDateString()
@@ -364,7 +364,7 @@ export default function Preview() {
                                 </span>
                               </div>
                               <div>
-                                <span className="text-dark-400">Added:</span>
+                                <span className="text-gray-500 dark:text-dark-400">Added:</span>
                                 <span className="ml-2 text-white">
                                   {item.item_details.added_at 
                                     ? new Date(item.item_details.added_at).toLocaleDateString()
@@ -374,13 +374,13 @@ export default function Preview() {
                             </div>
                             {item.path && (
                               <div className="mt-3 pt-3 border-t border-dark-700">
-                                <span className="text-dark-400">Path:</span>
+                                <span className="text-gray-500 dark:text-dark-400">Path:</span>
                                 <span className="ml-2 text-dark-300 break-all">{item.path}</span>
                               </div>
                             )}
                             {item.item_details.genres.length > 0 && (
                               <div className="mt-2">
-                                <span className="text-dark-400">Genres:</span>
+                                <span className="text-gray-500 dark:text-dark-400">Genres:</span>
                                 <span className="ml-2 text-dark-300">
                                   {item.item_details.genres.join(', ')}
                                 </span>
@@ -388,7 +388,7 @@ export default function Preview() {
                             )}
                             {item.item_details.tags.length > 0 && (
                               <div className="mt-2">
-                                <span className="text-dark-400">Tags:</span>
+                                <span className="text-gray-500 dark:text-dark-400">Tags:</span>
                                 <span className="ml-2 text-dark-300">
                                   {item.item_details.tags.join(', ')}
                                 </span>
@@ -403,7 +403,7 @@ export default function Preview() {
               ))}
             </div>
           ) : (
-            <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+            <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
               <div className="p-6 text-center py-12">
                 <CheckCircleIcon className="w-12 h-12 mx-auto text-green-500" />
                 <p className="text-dark-400 mt-4">
@@ -416,9 +416,9 @@ export default function Preview() {
           )}
         </>
       ) : (
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6 text-center py-12">
-            <EyeIcon className="w-12 h-12 mx-auto text-dark-500" />
+            <EyeIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-dark-500" />
             <p className="text-dark-400 mt-4">
               Click "Run Preview" to see what would be cleaned up
             </p>
@@ -431,3 +431,7 @@ export default function Preview() {
     </div>
   )
 }
+
+
+
+

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import api, { setToken, getToken } from '../lib/api'
-import type { User, Token } from '../types'
+import api, { setToken, setRefreshToken, getToken, getRefreshToken, removeToken } from '../lib/api'
+import type { User, Token, Session } from '../types'
 
 interface AuthState {
   user: User | null
@@ -9,9 +9,12 @@ interface AuthState {
   isLoading: boolean
   login: (username: string, password: string) => Promise<void>
   register: (username: string, password: string, email?: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
+  logoutAll: () => Promise<void>
   fetchUser: () => Promise<void>
   checkAuth: () => boolean
+  getSessions: () => Promise<Session[]>
+  revokeSession: (sessionId: number) => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -40,10 +43,11 @@ export const useAuthStore = create<AuthState>()(
             },
           })
 
-          const token = response.data.access_token
+          const { access_token, refresh_token } = response.data
           
-          // Store token BEFORE making any other requests
-          setToken(token)
+          // Store both tokens
+          setToken(access_token)
+          setRefreshToken(refresh_token)
           set({ isAuthenticated: true, isLoading: false })
 
           // Now fetch user info
@@ -71,12 +75,33 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: () => {
-        setToken(null)
-        set({ 
-          user: null, 
-          isAuthenticated: false 
-        })
+      logout: async () => {
+        try {
+          const refreshToken = getRefreshToken()
+          if (refreshToken) {
+            await api.post('/auth/logout', { refresh_token: refreshToken })
+          }
+        } catch {
+          // Ignore errors during logout
+        } finally {
+          removeToken()
+          set({ 
+            user: null, 
+            isAuthenticated: false 
+          })
+        }
+      },
+
+      logoutAll: async () => {
+        try {
+          await api.post('/auth/logout-all')
+        } finally {
+          removeToken()
+          set({ 
+            user: null, 
+            isAuthenticated: false 
+          })
+        }
       },
 
       fetchUser: async () => {
@@ -85,9 +110,22 @@ export const useAuthStore = create<AuthState>()(
           set({ user: response.data, isAuthenticated: true })
         } catch {
           // Token invalid - clear auth state
-          setToken(null)
+          removeToken()
           set({ user: null, isAuthenticated: false })
         }
+      },
+
+      getSessions: async () => {
+        const response = await api.get<{ sessions: Session[], total: number }>('/auth/sessions', {
+          headers: {
+            'x-refresh-token': getRefreshToken() || ''
+          }
+        })
+        return response.data.sessions
+      },
+
+      revokeSession: async (sessionId: number) => {
+        await api.delete(`/auth/sessions/${sessionId}`)
       },
     }),
     {

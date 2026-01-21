@@ -27,7 +27,8 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+    access_token_expire_minutes: int = 15  # Short-lived access tokens (15 min)
+    refresh_token_expire_days: int = 30  # Long-lived refresh tokens (30 days)
     
     # Initial admin (for first setup)
     initial_admin_user: Optional[str] = None

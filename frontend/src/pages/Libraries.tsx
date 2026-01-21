@@ -69,8 +69,8 @@ export default function Libraries() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white">Libraries</h1>
-          <p className="text-dark-400 mt-1">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Libraries</h1>
+          <p className="text-gray-500 dark:text-dark-400 mt-1">
             Libraries are synced automatically from your Emby/Jellyfin servers
           </p>
         </div>
@@ -97,7 +97,7 @@ export default function Libraries() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg animate-pulse">
+            <div key={i} className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg animate-pulse">
               <div className="p-6 h-32" />
             </div>
           ))}
@@ -105,7 +105,7 @@ export default function Libraries() {
       ) : libraries && libraries.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {libraries.map((library) => (
-            <div key={library.id} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+            <div key={library.id} className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
               <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -117,8 +117,8 @@ export default function Libraries() {
                       }`} />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-white">{library.name}</h3>
-                      <p className="text-sm text-dark-400">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">{library.name}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-dark-400">
                         {getServiceName(library.service_connection_id)}
                       </p>
                     </div>
@@ -139,7 +139,7 @@ export default function Libraries() {
                   </button>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-dark-700">
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-dark-700">
                   <div className="flex flex-wrap gap-2 text-sm">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       library.media_type === 'movie' 
@@ -163,12 +163,12 @@ export default function Libraries() {
                     </span>
                   </div>
                   {library.path && (
-                    <p className="text-xs text-dark-500 mt-2 truncate" title={library.path}>
+                    <p className="text-xs text-gray-400 dark:text-dark-500 mt-2 truncate" title={library.path}>
                       {library.path}
                     </p>
                   )}
                   {library.last_synced_at && (
-                    <p className="text-xs text-dark-500 mt-1">
+                    <p className="text-xs text-gray-400 dark:text-dark-500 mt-1">
                       Synced {formatRelativeTime(library.last_synced_at)}
                     </p>
                   )}
@@ -178,9 +178,9 @@ export default function Libraries() {
           ))}
         </div>
       ) : (
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6 text-center py-12">
-            <FolderIcon className="w-12 h-12 mx-auto text-dark-500" />
+            <FolderIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-dark-500" />
             <p className="text-dark-400 mt-4">No libraries synced yet</p>
             <p className="text-sm text-dark-500 mt-1">
               {hasMediaServers
@@ -200,9 +200,9 @@ export default function Libraries() {
         </div>
       )}
 
-      <div className="bg-dark-800/50 rounded-xl border border-dark-700 shadow-lg">
+      <div className="bg-gray-50 dark:bg-dark-800/50 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
         <div className="p-6">
-          <h3 className="font-semibold text-white mb-2">How it works</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-2">How it works</h3>
           <ul className="text-sm text-dark-400 space-y-2">
             <li className="flex items-start gap-2">
               <span className="text-primary-400">•</span>
@@ -226,3 +226,7 @@ export default function Libraries() {
     </div>
   )
 }
+
+
+
+

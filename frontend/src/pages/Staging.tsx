@@ -128,15 +128,15 @@ export default function Staging() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-white">Staging System</h1>
-          <p className="text-dark-400 mt-1">Soft-delete system with grace period</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Staging System</h1>
+          <p className="text-gray-500 dark:text-dark-400 mt-1">Soft-delete system with grace period</p>
         </div>
         
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg p-8 text-center">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg p-8 text-center">
           <div className="w-16 h-16 rounded-full bg-yellow-600/20 flex items-center justify-center mx-auto mb-4">
             <ClockIcon className="w-8 h-8 text-yellow-400" />
           </div>
-          <h2 className="text-xl font-semibold text-white mb-2">Staging System Disabled</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Staging System Disabled</h2>
           <p className="text-dark-400 mb-6">
             The staging system allows media to be moved to a temporary location before permanent deletion.
             Users can still watch staged items in Emby, and they will be auto-restored if watched.
@@ -157,15 +157,15 @@ export default function Staging() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Staged Items</h1>
-          <p className="text-dark-400 mt-1">Items scheduled for deletion with {settings.grace_period_days}-day grace period</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Staged Items</h1>
+          <p className="text-gray-500 dark:text-dark-400 mt-1">Items scheduled for deletion with {settings.grace_period_days}-day grace period</p>
         </div>
         <button
           onClick={() => {
             setSettingsForm(settings)
             setShowSettings(true)
           }}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600"
         >
           <Cog6ToothIcon className="w-4 h-4" />
           Settings
@@ -174,54 +174,54 @@ export default function Staging() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary-600/20 flex items-center justify-center">
                 <ClockIcon className="w-5 h-5 text-primary-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{stats?.total_staged || 0}</p>
-                <p className="text-sm text-dark-400">Total Staged</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.total_staged || 0}</p>
+                <p className="text-sm text-gray-500 dark:text-dark-400">Total Staged</p>
               </div>
             </div>
           </div>
         </div>
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-yellow-600/20 flex items-center justify-center">
                 <TrashIcon className="w-5 h-5 text-yellow-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{formatBytes(stats?.total_size_bytes || 0)}</p>
-                <p className="text-sm text-dark-400">Total Size</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatBytes(stats?.total_size_bytes || 0)}</p>
+                <p className="text-sm text-gray-500 dark:text-dark-400">Total Size</p>
               </div>
             </div>
           </div>
         </div>
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-orange-600/20 flex items-center justify-center">
                 <ClockIcon className="w-5 h-5 text-orange-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{stats?.expiring_soon || 0}</p>
-                <p className="text-sm text-dark-400">Expiring Soon</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.expiring_soon || 0}</p>
+                <p className="text-sm text-gray-500 dark:text-dark-400">Expiring Soon</p>
               </div>
             </div>
           </div>
         </div>
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-red-600/20 flex items-center justify-center">
                 <TrashIcon className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{stats?.expired || 0}</p>
-                <p className="text-sm text-dark-400">Expired</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.expired || 0}</p>
+                <p className="text-sm text-gray-500 dark:text-dark-400">Expired</p>
               </div>
             </div>
           </div>
@@ -229,7 +229,7 @@ export default function Staging() {
       </div>
 
       {/* Staged Items List */}
-      <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg overflow-hidden">
+      <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">
         {itemsLoading ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
@@ -238,58 +238,58 @@ export default function Staging() {
         ) : items.length === 0 ? (
           <div className="p-8 text-center">
             <div className="w-16 h-16 rounded-full bg-dark-700 flex items-center justify-center mx-auto mb-4">
-              <CheckCircleIcon className="w-8 h-8 text-dark-400" />
+              <CheckCircleIcon className="w-8 h-8 text-gray-400 dark:text-dark-400" />
             </div>
-            <p className="text-dark-400">No staged items</p>
+            <p className="text-gray-500 dark:text-dark-400">No staged items</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-dark-700">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-dark-700">
               <thead className="bg-gray-50 dark:bg-dark-900/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
                     Media
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
                     Type
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
                     Size
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
                     Staged
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
                     Time Remaining
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-dark-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-dark-800 divide-y divide-dark-700">
+              <tbody className="bg-white dark:bg-dark-800 divide-y divide-gray-200 dark:divide-dark-700">
                 {items.map((item) => {
                   const timeRemaining = getTimeRemaining(item.permanent_delete_at)
                   
                   return (
-                    <tr key={item.id} className="hover:bg-dark-700/50 transition-colors">
+                    <tr key={item.id} className="hover:bg-gray-100 dark:hover:bg-dark-700/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium text-white">{item.title}</span>
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">{item.title}</span>
                           {item.season_number && item.episode_number && (
-                            <span className="text-xs text-dark-400">S{item.season_number}E{item.episode_number}</span>
+                            <span className="text-xs text-gray-500 dark:text-dark-400">S{item.season_number}E{item.episode_number}</span>
                           )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-700 text-dark-300">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-dark-700 text-gray-600 dark:text-dark-300">
                           {getMediaTypeIcon(item.media_type)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-300">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-dark-300">
                         {formatBytes(item.size_bytes)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-400">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-dark-400">
                         {formatRelativeTime(item.staged_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -335,13 +335,13 @@ export default function Staging() {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg max-w-lg w-full">
-            <div className="p-6 border-b border-dark-700">
-              <h2 className="text-xl font-semibold text-white">Staging Settings</h2>
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg max-w-lg w-full">
+            <div className="p-6 border-b border-gray-200 dark:border-dark-700">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Staging Settings</h2>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-dark-300 mb-2">
+                <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
                   Enable Staging System
                 </label>
                 <input
@@ -353,20 +353,20 @@ export default function Staging() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-dark-300 mb-2">
+                <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
                   Staging Path
                 </label>
                 <input
                   type="text"
                   value={settingsForm.staging_path ?? settings.staging_path}
                   onChange={(e) => setSettingsForm({ ...settingsForm, staging_path: e.target.value })}
-                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder="/media/staging"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-dark-300 mb-2">
+                <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
                   Grace Period (days)
                 </label>
                 <input
@@ -375,25 +375,25 @@ export default function Staging() {
                   max="365"
                   value={settingsForm.grace_period_days ?? settings.grace_period_days}
                   onChange={(e) => setSettingsForm({ ...settingsForm, grace_period_days: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-dark-300 mb-2">
+                <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
                   Emby Library Name
                 </label>
                 <input
                   type="text"
                   value={settingsForm.library_name ?? settings.library_name}
                   onChange={(e) => setSettingsForm({ ...settingsForm, library_name: e.target.value })}
-                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder="MediaCleanup - Scheduled for Deletion"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-dark-300 mb-2">
+                <label className="block text-sm font-medium text-gray-600 dark:text-dark-300 mb-2">
                   Auto-restore on Watch
                 </label>
                 <input
@@ -402,18 +402,18 @@ export default function Staging() {
                   onChange={(e) => setSettingsForm({ ...settingsForm, auto_restore_on_watch: e.target.checked })}
                   className="rounded border-dark-600 text-primary-600 focus:ring-primary-500"
                 />
-                <p className="text-xs text-dark-400 mt-1">
+                <p className="text-xs text-gray-500 dark:text-dark-400 mt-1">
                   Automatically restore items to original location if watched in Emby
                 </p>
               </div>
             </div>
-            <div className="p-6 border-t border-dark-700 flex justify-end gap-3">
+            <div className="p-6 border-t border-gray-200 dark:border-dark-700 flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowSettings(false)
                   setSettingsForm({})
                 }}
-                className="px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600"
+                className="px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600"
               >
                 Cancel
               </button>
@@ -431,3 +431,8 @@ export default function Staging() {
     </div>
   )
 }
+
+
+
+
+

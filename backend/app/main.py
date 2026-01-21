@@ -13,7 +13,7 @@ import sys
 from .core.config import get_settings
 from .core.database import init_db, close_db
 from .core.rate_limit import setup_rate_limiting, limiter, RateLimits
-from .api.routes import auth, services, rules, libraries, notifications, system, jobs, media, staging
+from .api.routes import auth, services, rules, libraries, notifications, system, jobs, media, staging, audit
 
 settings = get_settings()
 

@@ -60,7 +60,7 @@ export default function History() {
       case 'skipped':
         return <ClockIcon className="w-5 h-5 text-yellow-400" />
       default:
-        return <ClockIcon className="w-5 h-5 text-dark-400" />
+        return <ClockIcon className="w-5 h-5 text-gray-400 dark:text-dark-400" />
     }
   }
 
@@ -87,47 +87,47 @@ export default function History() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">Cleanup History</h1>
-        <p className="text-dark-400 mt-1">View past cleanup operations and their results</p>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Cleanup History</h1>
+        <p className="text-gray-500 dark:text-dark-400 mt-1">View past cleanup operations and their results</p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-green-600/20 flex items-center justify-center">
                 <CheckCircleIcon className="w-5 h-5 text-green-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{totalDeleted}</p>
-                <p className="text-sm text-dark-400">Total Actions</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalDeleted}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-dark-400">Total Actions</p>
               </div>
             </div>
           </div>
         </div>
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary-600/20 flex items-center justify-center">
                 <TrashIcon className="w-5 h-5 text-primary-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{formatBytes(totalSpaceFreed)}</p>
-                <p className="text-sm text-dark-400">Space Freed</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatBytes(totalSpaceFreed)}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-dark-400">Space Freed</p>
               </div>
             </div>
           </div>
         </div>
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-red-600/20 flex items-center justify-center">
                 <ExclamationTriangleIcon className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{totalErrors}</p>
-                <p className="text-sm text-dark-400">Errors</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalErrors}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-dark-400">Errors</p>
               </div>
             </div>
           </div>
@@ -138,19 +138,19 @@ export default function History() {
       <div className="flex gap-2">
         <button
           onClick={() => { setFilter('all'); setOffset(0); }}
-          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'all' ? 'bg-primary-600 text-white' : ''}`}
+          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'all' ? 'bg-primary-600 text-white' : ''}`}
         >
           All
         </button>
         <button
           onClick={() => { setFilter('success'); setOffset(0); }}
-          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'success' ? 'bg-green-600 text-white' : ''}`}
+          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'success' ? 'bg-green-600 text-white' : ''}`}
         >
           Success
         </button>
         <button
           onClick={() => { setFilter('failed'); setOffset(0); }}
-          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'failed' ? 'bg-red-600 text-white' : ''}`}
+          className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${filter === 'failed' ? 'bg-red-600 text-white' : ''}`}
         >
           Errors
         </button>
@@ -158,11 +158,11 @@ export default function History() {
 
       {/* Logs Table */}
       {isLoading ? (
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg p-6">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg p-6">
           <TableSkeleton rows={10} columns={6} />
         </div>
       ) : logs && logs.length > 0 ? (
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg overflow-hidden">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">
           <ResponsiveTable
             columns={[
               {
@@ -188,7 +188,7 @@ export default function History() {
                 accessor: 'media_title',
                 cell: (log) => (
                   <div>
-                    <p className="font-medium text-white">
+                    <p className="font-medium text-gray-900 dark:text-white">
                       {log.media_title || 'Unknown'}
                     </p>
                     {log.media_path && (
@@ -213,11 +213,11 @@ export default function History() {
                   log.error_message ? (
                     <span className="text-sm text-red-400">{log.error_message}</span>
                   ) : log.details && Object.keys(log.details).length > 0 ? (
-                    <span className="text-sm text-dark-400">
+                    <span className="text-sm text-gray-500 dark:text-gray-500 dark:text-dark-400">
                       {JSON.stringify(log.details).substring(0, 50)}...
                     </span>
                   ) : (
-                    <span className="text-dark-500">-</span>
+                    <span className="text-gray-400 dark:text-dark-500">-</span>
                   ),
                 mobileLabel: 'Details',
               },
@@ -229,22 +229,22 @@ export default function History() {
           
           {/* Pagination */}
           {pagination && pagination.total > limit && (
-            <div className="px-6 py-4 border-t border-dark-700 flex items-center justify-between">
-              <div className="text-sm text-dark-400">
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-dark-700 flex items-center justify-between">
+              <div className="text-sm text-gray-500 dark:text-gray-500 dark:text-dark-400">
                 Showing {offset + 1} to {Math.min(offset + limit, pagination.total)} of {pagination.total} entries
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setOffset(Math.max(0, offset - limit))}
                   disabled={offset === 0}
-                  className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setOffset(offset + limit)}
                   disabled={!pagination.has_more}
-                  className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Next
                 </button>
@@ -253,9 +253,9 @@ export default function History() {
           )}
         </div>
       ) : (
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6 text-center py-12">
-            <ClockIcon className="w-12 h-12 mx-auto text-dark-500" />
+            <ClockIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-dark-500" />
             <p className="text-dark-400 mt-4">No cleanup history yet</p>
             <p className="text-sm text-dark-500 mt-1">
               Cleanup operations will appear here once they run
@@ -266,3 +266,7 @@ export default function History() {
     </div>
   )
 }
+
+
+
+

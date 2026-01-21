@@ -12,7 +12,18 @@ export interface User {
 
 export interface Token {
   access_token: string
+  refresh_token: string
   token_type: string
+  expires_in: number
+}
+
+export interface Session {
+  id: number
+  device_info: string | null
+  ip_address: string | null
+  created_at: string
+  expires_at: string
+  is_current: boolean
 }
 
 export type ServiceType = 'sonarr' | 'radarr' | 'emby' | 'jellyfin' | 'jellystat'

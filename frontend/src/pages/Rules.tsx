@@ -164,18 +164,18 @@ export default function Rules() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white">Cleanup Rules</h1>
-          <p className="text-dark-400 mt-1">Define when and how media should be cleaned up</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Cleanup Rules</h1>
+          <p className="text-gray-500 dark:text-dark-400 mt-1">Define when and how media should be cleaned up</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleExport}
-            className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 transition-colors"
+            className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 transition-colors"
             title="Export Rules"
           >
             <ArrowDownTrayIcon className="w-5 h-5" />
           </button>
-          <label className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 transition-colors cursor-pointer" title="Import Rules">
+          <label className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 transition-colors cursor-pointer" title="Import Rules">
             <ArrowUpTrayIcon className="w-5 h-5" />
             <input
               type="file"
@@ -185,7 +185,7 @@ export default function Rules() {
               className="hidden"
             />
           </label>
-          <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2">
+          <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-900 dark:text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2">
             <PlusIcon className="w-5 h-5" />
             Add Rule
           </button>
@@ -194,9 +194,9 @@ export default function Rules() {
 
       {/* Templates */}
       {templates && templates.length > 0 && (
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
-          <div className="px-6 py-4 border-b border-dark-700">
-            <h2 className="text-lg font-semibold text-white">Quick Start Templates</h2>
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Quick Start Templates</h2>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -207,10 +207,10 @@ export default function Rules() {
                     setSelectedTemplate(template)
                     setIsModalOpen(true)
                   }}
-                  className="p-4 bg-dark-700/50 rounded-lg text-left hover:bg-dark-700 transition-colors"
+                  className="p-4 bg-gray-100 dark:bg-dark-700/50 rounded-lg text-left hover:bg-gray-200 dark:hover:bg-dark-700 transition-colors"
                 >
-                  <h3 className="font-medium text-white">{template.name}</h3>
-                  <p className="text-sm text-dark-400 mt-1">{template.description}</p>
+                  <h3 className="font-medium text-gray-900 dark:text-white">{template.name}</h3>
+                  <p className="text-sm text-gray-500 dark:text-dark-400 mt-1">{template.description}</p>
                   <div className="flex gap-2 mt-2">
                     {template.media_types.map(mt => (
                       <span key={mt} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">
@@ -230,7 +230,7 @@ export default function Rules() {
       {isLoading ? (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg animate-pulse">
+            <div key={i} className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg animate-pulse">
               <div className="p-6 h-24" />
             </div>
           ))}
@@ -246,11 +246,11 @@ export default function Rules() {
                 onChange={toggleSelectAll}
                 className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-600 focus:ring-primary-500"
               />
-              <span className="text-sm text-dark-300">Select All</span>
+              <span className="text-sm text-gray-600 dark:text-dark-300">Select All</span>
             </label>
             {selectedRules.size > 0 && (
               <>
-                <span className="text-sm text-dark-400">
+                <span className="text-sm text-gray-500 dark:text-dark-400">
                   {selectedRules.size} selected
                 </span>
                 <div className="flex gap-2 ml-auto">
@@ -281,7 +281,7 @@ export default function Rules() {
           </div>
 
           {rules.map((rule) => (
-            <div key={rule.id} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+            <div key={rule.id} className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
               <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -304,10 +304,10 @@ export default function Rules() {
                           }`}
                         />
                       </button>
-                      <h3 className="font-semibold text-white">{rule.name}</h3>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">{rule.name}</h3>
                     </div>
                     {rule.description && (
-                      <p className="text-sm text-dark-400 mt-2">{rule.description}</p>
+                      <p className="text-sm text-gray-500 dark:text-dark-400 mt-2">{rule.description}</p>
                     )}
                     <div className="flex flex-wrap gap-2 mt-3">
                       {rule.media_types.map(mt => (
@@ -324,7 +324,7 @@ export default function Rules() {
                       </span>
                     </div>
                     {/* Conditions summary */}
-                    <div className="mt-3 text-sm text-dark-400">
+                    <div className="mt-3 text-sm text-gray-500 dark:text-dark-400">
                       {rule.conditions.not_watched_days && (
                         <span className="mr-3">• Not watched: {rule.conditions.not_watched_days} days</span>
                       )}
@@ -350,9 +350,9 @@ export default function Rules() {
           ))}
         </div>
       ) : (
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6 text-center py-12">
-            <p className="text-dark-400">No cleanup rules configured</p>
+            <p className="text-gray-500 dark:text-dark-400">No cleanup rules configured</p>
             <p className="text-sm text-dark-500 mt-1">
               Create rules to automatically clean up your media library
             </p>
@@ -444,9 +444,9 @@ function RuleModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
-      <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg w-full max-w-2xl mx-4 my-8">
-        <div className="px-6 py-4 border-b border-dark-700">
-          <h2 className="text-lg font-semibold text-white">
+      <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg w-full max-w-2xl mx-4 my-8">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {template ? `Create Rule from Template` : 'Create Cleanup Rule'}
           </h2>
         </div>
@@ -455,7 +455,7 @@ function RuleModal({
             {/* Basic Info */}
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-dark-200 mb-1">Rule Name</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">Rule Name</label>
                 <input
                   type="text"
                   className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -466,7 +466,7 @@ function RuleModal({
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-dark-200 mb-1">Description</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">Description</label>
                 <textarea
                   className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   value={formData.description || ''}
@@ -478,7 +478,7 @@ function RuleModal({
               
               {/* Media Types Multi-Select */}
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-dark-200 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">
                   Media Types
                   <span className="text-xs text-dark-400 ml-2">Select one or more types</span>
                 </label>
@@ -508,21 +508,21 @@ function RuleModal({
 
               {/* Series Configuration - only show when 'series' is selected */}
               {formData.media_types.includes('series') && seriesOptions && (
-                <div className="col-span-2 space-y-6 border-t border-dark-700 pt-6 mt-4">
+                <div className="col-span-2 space-y-6 border-t border-gray-200 dark:border-dark-700 pt-6 mt-4">
                   <div>
-                    <h4 className="text-sm font-semibold text-white mb-3">Series Cleanup Configuration</h4>
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Series Cleanup Configuration</h4>
                     <p className="text-xs text-dark-400 mb-4">Configure how series should be evaluated and what should be deleted when rules match</p>
                   </div>
 
                   {/* Series Evaluation Mode */}
                   <div>
-                    <label className="block text-sm font-medium text-dark-200 mb-3">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-3">
                       Evaluation Mode
                       <span className="text-xs text-dark-400 ml-2 font-normal">How to evaluate series for cleanup</span>
                     </label>
                     <div className="space-y-3">
                       {seriesOptions.evaluation_modes.map((mode) => (
-                        <label key={mode.value} className="flex items-start gap-3 p-4 bg-dark-700/30 rounded-lg hover:bg-dark-700/50 cursor-pointer transition-colors border border-dark-600/50">
+                        <label key={mode.value} className="flex items-start gap-3 p-4 bg-dark-700/30 rounded-lg hover:bg-gray-100 dark:bg-dark-700/50 cursor-pointer transition-colors border border-dark-600/50">
                           <input
                             type="radio"
                             name="series_evaluation_mode"
@@ -536,7 +536,7 @@ function RuleModal({
                           />
                           <div className="flex-1">
                             <div className="text-sm font-medium text-gray-800 dark:text-dark-100">{mode.label}</div>
-                            <div className="text-xs text-dark-400 mt-1">{mode.description}</div>
+                            <div className="text-xs text-gray-500 dark:text-dark-400 mt-1">{mode.description}</div>
                           </div>
                         </label>
                       ))}
@@ -545,13 +545,13 @@ function RuleModal({
 
                   {/* Series Delete Target */}
                   <div>
-                    <label className="block text-sm font-medium text-dark-200 mb-3">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-3">
                       Delete Target
                       <span className="text-xs text-dark-400 ml-2 font-normal">What to delete when rule matches</span>
                     </label>
                     <div className="space-y-3">
                       {seriesOptions.delete_targets.map((target) => (
-                        <label key={target.value} className="flex items-start gap-3 p-4 bg-dark-700/30 rounded-lg hover:bg-dark-700/50 cursor-pointer transition-colors border border-dark-600/50">
+                        <label key={target.value} className="flex items-start gap-3 p-4 bg-dark-700/30 rounded-lg hover:bg-gray-100 dark:bg-dark-700/50 cursor-pointer transition-colors border border-dark-600/50">
                           <input
                             type="radio"
                             name="series_delete_target"
@@ -565,7 +565,7 @@ function RuleModal({
                           />
                           <div className="flex-1">
                             <div className="text-sm font-medium text-gray-800 dark:text-dark-100">{target.label}</div>
-                            <div className="text-xs text-dark-400 mt-1">{target.description}</div>
+                            <div className="text-xs text-gray-500 dark:text-dark-400 mt-1">{target.description}</div>
                           </div>
                         </label>
                       ))}
@@ -574,8 +574,8 @@ function RuleModal({
                 </div>
               )}
 
-              <div className="col-span-2 border-t border-dark-700 pt-6 mt-4">
-                <label className="block text-sm font-medium text-dark-200 mb-1">Action</label>
+              <div className="col-span-2 border-t border-gray-200 dark:border-dark-700 pt-6 mt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">Action</label>
                 <select
                   className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
                   value={formData.action}
@@ -589,14 +589,14 @@ function RuleModal({
             </div>
 
             {/* Conditions */}
-            <div className="border-t border-dark-700 pt-6">
-              <h3 className="font-medium text-white mb-5">Cleanup Conditions</h3>
+            <div className="border-t border-gray-200 dark:border-dark-700 pt-6">
+              <h3 className="font-medium text-gray-900 dark:text-white mb-5">Cleanup Conditions</h3>
               
               {/* Time-based Conditions */}
               <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-5">
                   <div>
-                    <label className="block text-sm font-medium text-dark-200 mb-2">Not Watched (days)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">Not Watched (days)</label>
                     <input
                       type="number"
                       className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -612,7 +612,7 @@ function RuleModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-dark-200 mb-2">Disk Space Threshold (%)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">Disk Space Threshold (%)</label>
                     <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -628,7 +628,7 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">Minimum Age (days)</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">Minimum Age (days)</label>
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -644,7 +644,7 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">Grace Period (days)</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">Grace Period (days)</label>
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -659,11 +659,11 @@ function RuleModal({
               </div>
 
               {/* Rating & Progress Conditions */}
-              <div className="border-t border-dark-700 pt-5 mt-5">
-                <h4 className="text-sm font-semibold text-white mb-4">Rating & Progress Filters</h4>
+              <div className="border-t border-gray-200 dark:border-dark-700 pt-5 mt-5">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Rating & Progress Filters</h4>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-5">
                   <div>
-                    <label className="block text-sm font-medium text-dark-200 mb-2">Rating Below (delete if below)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">Rating Below (delete if below)</label>
                     <input
                       type="number"
                       step="0.1"
@@ -680,7 +680,7 @@ function RuleModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-dark-200 mb-2">Watch Progress Below (%)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">Watch Progress Below (%)</label>
                     <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -696,7 +696,7 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">Exclude Recently Added (days)</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">Exclude Recently Added (days)</label>
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -712,7 +712,7 @@ function RuleModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">Max Items Per Run</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">Max Items Per Run</label>
                   <input
                     type="number"
                     className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -731,11 +731,11 @@ function RuleModal({
             </div>
 
               {/* Genre & Tag Filters */}
-              <div className="border-t border-dark-700 pt-5 mt-5">
-                <h4 className="text-sm font-semibold text-white mb-4">Genre & Tag Filters</h4>
+              <div className="border-t border-gray-200 dark:border-dark-700 pt-5 mt-5">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Genre & Tag Filters</h4>
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-sm font-medium text-dark-200 mb-2">Exclude Genres (comma separated)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">Exclude Genres (comma separated)</label>
                     <input
                       type="text"
                       className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -751,7 +751,7 @@ function RuleModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-dark-200 mb-2">Exclude Tags (comma separated)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">Exclude Tags (comma separated)</label>
                     <input
                       type="text"
                       className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -767,7 +767,7 @@ function RuleModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-dark-200 mb-2">Include Only Tags (comma separated, leave empty for all)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">Include Only Tags (comma separated, leave empty for all)</label>
                     <input
                       type="text"
                       className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -786,8 +786,8 @@ function RuleModal({
               </div>
 
             {/* Exclusion Options */}
-            <div className="border-t border-dark-700 pt-5">
-              <h4 className="text-sm font-semibold text-white mb-4">Exclusion Options</h4>
+            <div className="border-t border-gray-200 dark:border-dark-700 pt-5">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Exclusion Options</h4>
               <div className="space-y-5">
                 <div className="flex flex-wrap gap-4">
                   <label className="flex items-center gap-2">
@@ -805,7 +805,7 @@ function RuleModal({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-dark-200 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">
                     Exclude Recently Watched (days)
                     <span className="text-xs text-dark-400 ml-2 font-normal">Items watched within last X days won't be deleted</span>
                   </label>
@@ -848,11 +848,11 @@ function RuleModal({
           </div>
           </div>
 
-          <div className="px-6 py-4 border-t border-dark-700 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-dark-700 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={isLoading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            <button type="submit" disabled={isLoading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-900 dark:text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {isLoading ? 'Creating...' : 'Create Rule'}
             </button>
           </div>
@@ -861,3 +861,7 @@ function RuleModal({
     </div>
   )
 }
+
+
+
+

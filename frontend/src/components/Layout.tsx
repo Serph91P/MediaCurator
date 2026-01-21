@@ -91,7 +91,7 @@ export default function Layout() {
   })
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-50 dark:bg-dark-900">
+    <div className="flex h-screen bg-gray-100 dark:bg-dark-900">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -206,7 +206,7 @@ export default function Layout() {
               </button>
               {(!sidebarCollapsed || sidebarOpen) && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-800 dark:text-dark-100">{user?.username || 'User'}</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-dark-100">{user?.username || 'User'}</p>
                   <p className="text-xs text-gray-500 dark:text-dark-400">{user?.is_admin ? 'Admin' : 'User'}</p>
                 </div>
               )}
@@ -214,7 +214,7 @@ export default function Layout() {
             {(!sidebarCollapsed || sidebarOpen) && (
               <button
                 onClick={logout}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-dark-400 dark:hover:text-gray-800 dark:text-dark-100 dark:hover:bg-dark-700 rounded-lg transition-colors"
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-dark-400 dark:hover:text-dark-100 dark:hover:bg-dark-700 rounded-lg transition-colors"
                 title="Logout"
               >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />

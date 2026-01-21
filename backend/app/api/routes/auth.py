@@ -4,20 +4,49 @@ Authentication API routes.
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from datetime import datetime, timedelta
+from sqlalchemy import select, and_
+from datetime import datetime, timezone
 from typing import List
 
 from ...core.database import get_db
-from ...core.security import hash_password, verify_password, create_access_token
+from ...core.security import (
+    hash_password, verify_password, create_access_token, 
+    create_refresh_token, create_token_pair
+)
 from ...core.config import get_settings
 from ...core.rate_limit import limiter, RateLimits
-from ...models import User
-from ...schemas import Token, UserCreate, UserResponse, UserUpdate
+from ...models import User, RefreshToken
+from ...schemas import (
+    Token, TokenRefreshRequest, TokenRefreshResponse, 
+    UserCreate, UserResponse, UserUpdate,
+    SessionInfo, SessionListResponse
+)
 from ..deps import get_current_user, get_current_active_admin
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 settings = get_settings()
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP address from request."""
+    # Check for X-Forwarded-For header (when behind proxy/load balancer)
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        # Take the first IP in the list
+        return forwarded_for.split(",")[0].strip()
+    # Check for X-Real-IP header
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip
+    # Fall back to direct client
+    return request.client.host if request.client else "unknown"
+
+
+def get_device_info(request: Request) -> str:
+    """Extract device info from User-Agent header."""
+    user_agent = request.headers.get("user-agent", "Unknown Device")
+    # Truncate if too long
+    return user_agent[:255] if len(user_agent) > 255 else user_agent
 
 
 @router.get("/setup-required")
@@ -39,7 +68,7 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
-    """Login and get access token."""
+    """Login and get access and refresh tokens."""
     result = await db.execute(
         select(User).where(User.username == form_data.username)
     )
@@ -59,14 +88,30 @@ async def login(
         )
     
     # Update last login
-    user.last_login = datetime.utcnow()
-    await db.commit()
+    user.last_login = datetime.now(timezone.utc)
     
-    access_token = create_access_token(
-        data={"sub": str(user.id), "username": user.username}
+    # Create access and refresh tokens
+    access_token, refresh_token, refresh_expires = create_token_pair(
+        user_id=user.id, 
+        username=user.username
     )
     
-    return Token(access_token=access_token)
+    # Store refresh token in database
+    db_refresh_token = RefreshToken(
+        token=refresh_token,
+        user_id=user.id,
+        expires_at=refresh_expires,
+        device_info=get_device_info(request),
+        ip_address=get_client_ip(request)
+    )
+    db.add(db_refresh_token)
+    await db.commit()
+    
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=settings.access_token_expire_minutes * 60
+    )
 
 
 @router.post("/register", response_model=UserResponse)
@@ -151,4 +196,187 @@ async def update_current_user(
     await db.refresh(current_user)
     
     return current_user
+
+
+@router.post("/refresh", response_model=TokenRefreshResponse)
+@limiter.limit(RateLimits.AUTH_LOGIN)
+async def refresh_token(
+    request: Request,
+    token_request: TokenRefreshRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Refresh access token using a valid refresh token."""
+    # Find the refresh token in database
+    result = await db.execute(
+        select(RefreshToken).where(RefreshToken.token == token_request.refresh_token)
+    )
+    db_token = result.scalar_one_or_none()
+    
+    if not db_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if token is valid
+    if not db_token.is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token expired or revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Get the user
+    user_result = await db.execute(
+        select(User).where(User.id == db_token.user_id)
+    )
+    user = user_result.scalar_one_or_none()
+    
+    if not user or not user.is_active:
+        # Revoke the token if user doesn't exist or is inactive
+        db_token.revoked_at = datetime.now(timezone.utc)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Create new access token
+    access_token = create_access_token(
+        data={"sub": str(user.id), "username": user.username}
+    )
+    
+    return TokenRefreshResponse(
+        access_token=access_token,
+        expires_in=settings.access_token_expire_minutes * 60
+    )
+
+
+@router.post("/logout")
+@limiter.limit(RateLimits.API_WRITE)
+async def logout(
+    request: Request,
+    token_request: TokenRefreshRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Logout and revoke the refresh token."""
+    # Find and revoke the refresh token
+    result = await db.execute(
+        select(RefreshToken).where(
+            and_(
+                RefreshToken.token == token_request.refresh_token,
+                RefreshToken.user_id == current_user.id
+            )
+        )
+    )
+    db_token = result.scalar_one_or_none()
+    
+    if db_token:
+        db_token.revoked_at = datetime.now(timezone.utc)
+        await db.commit()
+    
+    return {"message": "Successfully logged out"}
+
+
+@router.post("/logout-all")
+@limiter.limit(RateLimits.API_WRITE)
+async def logout_all_sessions(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Logout from all sessions by revoking all refresh tokens."""
+    result = await db.execute(
+        select(RefreshToken).where(
+            and_(
+                RefreshToken.user_id == current_user.id,
+                RefreshToken.revoked_at.is_(None)
+            )
+        )
+    )
+    tokens = result.scalars().all()
+    
+    now = datetime.now(timezone.utc)
+    for token in tokens:
+        token.revoked_at = now
+    
+    await db.commit()
+    
+    return {"message": f"Revoked {len(tokens)} active sessions"}
+
+
+@router.get("/sessions", response_model=SessionListResponse)
+@limiter.limit(RateLimits.API_READ)
+async def list_sessions(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """List all active sessions for the current user."""
+    # Get current refresh token from request (if available)
+    current_token = request.headers.get("x-refresh-token")
+    
+    result = await db.execute(
+        select(RefreshToken).where(
+            and_(
+                RefreshToken.user_id == current_user.id,
+                RefreshToken.revoked_at.is_(None),
+                RefreshToken.expires_at > datetime.now(timezone.utc)
+            )
+        ).order_by(RefreshToken.created_at.desc())
+    )
+    tokens = result.scalars().all()
+    
+    sessions = []
+    for token in tokens:
+        sessions.append(SessionInfo(
+            id=token.id,
+            device_info=token.device_info,
+            ip_address=token.ip_address,
+            created_at=token.created_at,
+            expires_at=token.expires_at,
+            is_current=(current_token == token.token if current_token else False)
+        ))
+    
+    return SessionListResponse(sessions=sessions, total=len(sessions))
+
+
+@router.delete("/sessions/{session_id}")
+@limiter.limit(RateLimits.API_WRITE)
+async def revoke_session(
+    request: Request,
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Revoke a specific session by ID."""
+    result = await db.execute(
+        select(RefreshToken).where(
+            and_(
+                RefreshToken.id == session_id,
+                RefreshToken.user_id == current_user.id
+            )
+        )
+    )
+    db_token = result.scalar_one_or_none()
+    
+    if not db_token:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found"
+        )
+    
+    if db_token.revoked_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session already revoked"
+        )
+    
+    db_token.revoked_at = datetime.now(timezone.utc)
+    await db.commit()
+    
+    return {"message": "Session revoked successfully"}
 

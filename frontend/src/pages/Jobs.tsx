@@ -153,7 +153,7 @@ export default function Jobs() {
           ) : jobsData?.jobs && jobsData.jobs.length > 0 ? (
             <div className="space-y-4">
               {jobsData.jobs.map((job) => (
-                <div key={job.id} className="bg-dark-700/50 rounded-lg p-4">
+                <div key={job.id} className="bg-gray-100 dark:bg-dark-700/50 rounded-lg p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
@@ -163,7 +163,7 @@ export default function Jobs() {
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-500 dark:text-dark-400">
                         <div className="flex items-center gap-1">
                           <ClockIcon className="w-4 h-4" />
-                          Next run: <span className="text-dark-200">{formatNextRun(job.next_run_time)}</span>
+                          Next run: <span className="text-gray-700 dark:text-dark-200">{formatNextRun(job.next_run_time)}</span>
                         </div>
                         <span>•</span>
                         <span>{formatDateTime(job.next_run_time)}</span>
@@ -173,7 +173,7 @@ export default function Jobs() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setSelectedJobId(job.id)}
-                        className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-dark-600 text-dark-200 rounded-lg hover:bg-dark-500 transition-colors"
+                        className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-dark-600 text-gray-700 dark:text-dark-200 rounded-lg hover:bg-dark-500 transition-colors"
                       >
                         View History
                       </button>
@@ -213,7 +213,7 @@ export default function Jobs() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-dark-700/50">
+            <thead className="bg-gray-100 dark:bg-dark-700/50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Job</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Status</th>
@@ -222,7 +222,7 @@ export default function Jobs() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Details</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-dark-700">
+            <tbody className="divide-y divide-gray-200 dark:divide-dark-700">
               {executionsLoading ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-dark-400">
@@ -230,7 +230,7 @@ export default function Jobs() {
                   </td>
                 </tr>
               ) : (selectedJobId ? jobHistory : recentExecutions)?.map((exec) => (
-                <tr key={exec.id} className="hover:bg-dark-700/30">
+                <tr key={exec.id} className="hover:bg-gray-100 dark:hover:bg-dark-700/30">
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900 dark:text-white">{exec.job_name}</div>
                     <div className="text-xs text-gray-500 dark:text-dark-400 font-mono">{exec.job_id}</div>
@@ -270,3 +270,7 @@ export default function Jobs() {
     </div>
   )
 }
+
+
+
+

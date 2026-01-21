@@ -48,6 +48,60 @@ class NotificationType(str, Enum):
 
 class NotificationEventType(str, Enum):
     """Event types that can trigger notifications."""
+
+
+class AuditActionType(str, Enum):
+    """Types of auditable actions."""
+    # Auth actions
+    LOGIN = "login"
+    LOGOUT = "logout"
+    LOGIN_FAILED = "login_failed"
+    PASSWORD_CHANGED = "password_changed"
+    
+    # User management
+    USER_CREATED = "user_created"
+    USER_UPDATED = "user_updated"
+    USER_DELETED = "user_deleted"
+    
+    # Service connections
+    SERVICE_CREATED = "service_created"
+    SERVICE_UPDATED = "service_updated"
+    SERVICE_DELETED = "service_deleted"
+    SERVICE_TESTED = "service_tested"
+    
+    # Libraries
+    LIBRARY_CREATED = "library_created"
+    LIBRARY_UPDATED = "library_updated"
+    LIBRARY_DELETED = "library_deleted"
+    LIBRARY_SYNCED = "library_synced"
+    
+    # Rules
+    RULE_CREATED = "rule_created"
+    RULE_UPDATED = "rule_updated"
+    RULE_DELETED = "rule_deleted"
+    RULE_ENABLED = "rule_enabled"
+    RULE_DISABLED = "rule_disabled"
+    RULES_IMPORTED = "rules_imported"
+    RULES_EXPORTED = "rules_exported"
+    
+    # Cleanup
+    CLEANUP_STARTED = "cleanup_started"
+    CLEANUP_COMPLETED = "cleanup_completed"
+    MEDIA_DELETED = "media_deleted"
+    MEDIA_STAGED = "media_staged"
+    MEDIA_RESTORED = "media_restored"
+    
+    # Notifications
+    NOTIFICATION_CREATED = "notification_created"
+    NOTIFICATION_UPDATED = "notification_updated"
+    NOTIFICATION_DELETED = "notification_deleted"
+    
+    # Settings
+    SETTINGS_UPDATED = "settings_updated"
+    
+    # Sessions
+    SESSION_REVOKED = "session_revoked"
+    ALL_SESSIONS_REVOKED = "all_sessions_revoked"
     MEDIA_FLAGGED = "media_flagged"
     MEDIA_DELETED = "media_deleted"
     MEDIA_STAGED = "media_staged"
@@ -92,6 +146,42 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relationships
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class RefreshToken(Base):
+    """Refresh token for session management."""
+    __tablename__ = "refresh_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String(255), unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    device_info = Column(String(255), nullable=True)  # Optional: track device/browser
+    ip_address = Column(String(45), nullable=True)  # IPv4 or IPv6
+    
+    # Relationships
+    user = relationship("User", back_populates="refresh_tokens")
+    
+    @property
+    def is_expired(self) -> bool:
+        """Check if token is expired."""
+        from datetime import datetime, timezone
+        return datetime.now(timezone.utc) > self.expires_at
+    
+    @property
+    def is_revoked(self) -> bool:
+        """Check if token has been revoked."""
+        return self.revoked_at is not None
+    
+    @property
+    def is_valid(self) -> bool:
+        """Check if token is valid (not expired and not revoked)."""
+        return not self.is_expired and not self.is_revoked
 
 
 class ServiceConnection(Base):
@@ -388,3 +478,35 @@ class ImportStats(Base):
     
     # Relationships
     service_connection = relationship("ServiceConnection", backref="import_stats")
+
+
+class AuditLog(Base):
+    """Audit log for tracking admin actions."""
+    __tablename__ = "audit_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Who performed the action
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    username = Column(String(100), nullable=True)  # Store username in case user is deleted
+    
+    # What action was performed
+    action = Column(String(50), nullable=False, index=True)
+    
+    # What resource was affected
+    resource_type = Column(String(50), nullable=True)  # e.g., "rule", "service", "user"
+    resource_id = Column(Integer, nullable=True)
+    resource_name = Column(String(255), nullable=True)  # Human-readable name
+    
+    # Additional details
+    details = Column(JSON, nullable=True)  # Store action-specific details
+    
+    # Request context
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(255), nullable=True)
+    
+    # Timestamp
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    # Relationships
+    user = relationship("User", backref="audit_logs")

@@ -144,3 +144,45 @@ async def migrate_database(db: AsyncSession):
     
     await db.commit()
     logger.info("Database indexes created successfully")
+
+    # Check if refresh_tokens table exists
+    result = await db.execute(text("""
+        SELECT COUNT(*) as count 
+        FROM sqlite_master 
+        WHERE type='table' AND name='refresh_tokens'
+    """))
+    has_refresh_tokens = result.scalar() > 0
+    
+    if not has_refresh_tokens:
+        logger.info("Creating refresh_tokens table for session management")
+        
+        await db.execute(text("""
+            CREATE TABLE refresh_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                token VARCHAR(255) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                revoked_at TIMESTAMP,
+                device_info VARCHAR(255),
+                ip_address VARCHAR(45),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """))
+        
+        # Create indexes for performance
+        await db.execute(text("""
+            CREATE INDEX idx_refresh_tokens_token 
+            ON refresh_tokens(token)
+        """))
+        await db.execute(text("""
+            CREATE INDEX idx_refresh_tokens_user 
+            ON refresh_tokens(user_id)
+        """))
+        await db.execute(text("""
+            CREATE INDEX idx_refresh_tokens_expires 
+            ON refresh_tokens(expires_at)
+        """))
+        
+        await db.commit()
+        logger.info("Migration completed: refresh_tokens table created")

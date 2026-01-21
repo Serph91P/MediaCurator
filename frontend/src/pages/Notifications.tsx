@@ -97,15 +97,15 @@ export default function Notifications() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white">Notifications</h1>
-          <p className="text-dark-400 mt-1">Configure notification channels for cleanup events</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Notifications</h1>
+          <p className="text-gray-500 dark:text-dark-400 mt-1">Configure notification channels for cleanup events</p>
         </div>
         <button
           onClick={() => {
             setEditingChannel(null)
             setIsModalOpen(true)
           }}
-          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-900 dark:text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
         >
           <PlusIcon className="w-5 h-5" />
           Add Channel
@@ -126,9 +126,9 @@ export default function Notifications() {
             <div className="p-6">
               <div className="flex items-center gap-2">
                 <BellIcon className="w-5 h-5 text-primary-400" />
-                <h3 className="font-medium text-white">{type.label}</h3>
+                <h3 className="font-medium text-gray-900 dark:text-white">{type.label}</h3>
               </div>
-              <p className="text-sm text-dark-400 mt-2">{type.description}</p>
+              <p className="text-sm text-gray-500 dark:text-dark-400 mt-2">{type.description}</p>
             </div>
           </button>
         ))}
@@ -138,7 +138,7 @@ export default function Notifications() {
       {isLoading ? (
         <div className="space-y-4">
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg animate-pulse">
+            <div key={i} className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg animate-pulse">
               <div className="p-6 h-24" />
             </div>
           ))}
@@ -146,27 +146,27 @@ export default function Notifications() {
       ) : channels && channels.length > 0 ? (
         <div className="space-y-4">
           {channels.map((channel) => (
-            <div key={channel.id} className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+            <div key={channel.id} className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
               <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                      channel.is_enabled ? 'bg-primary-600/20' : 'bg-dark-700'
+                      channel.is_enabled ? 'bg-primary-600/20' : 'bg-gray-200 dark:bg-dark-700'
                     }`}>
                       {channel.is_enabled ? (
                         <BellAlertIcon className="w-6 h-6 text-primary-400" />
                       ) : (
-                        <BellIcon className="w-6 h-6 text-dark-500" />
+                        <BellIcon className="w-6 h-6 text-gray-400 dark:text-dark-500" />
                       )}
                     </div>
                     <div>
                       <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-white">{channel.name}</h3>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{channel.name}</h3>
                         <span className="px-2 py-1 text-xs font-medium bg-primary-600/20 text-primary-400 rounded-md">
                           Apprise
                         </span>
                       </div>
-                      <div className="text-sm text-dark-400 mt-1 space-y-1">
+                      <div className="text-sm text-gray-500 dark:text-dark-400 mt-1 space-y-1">
                         {((channel.config as any)?.urls || []).map((url: string, idx: number) => (
                           <p key={idx} className="font-mono text-xs">
                             {url.substring(0, 60)}{url.length > 60 && '...'}
@@ -209,11 +209,11 @@ export default function Notifications() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-dark-700">
+                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-dark-700">
                   <button
                     onClick={() => testMutation.mutate(channel.id)}
                     disabled={testMutation.isPending}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
                     <CheckCircleIcon className="w-4 h-4" />
                     Test
@@ -239,9 +239,9 @@ export default function Notifications() {
           ))}
         </div>
       ) : (
-        <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg">
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
           <div className="p-6 text-center py-12">
-            <BellIcon className="w-12 h-12 mx-auto text-dark-500" />
+            <BellIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-dark-500" />
             <p className="text-dark-400 mt-4">No notification channels configured</p>
             <p className="text-sm text-dark-500 mt-1">
               Add a channel to receive alerts when media is cleaned up
@@ -371,16 +371,16 @@ function NotificationModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg w-full max-w-lg my-4">
-        <div className="px-6 py-4 border-b border-dark-700">
-          <h2 className="text-lg font-semibold text-white">
+      <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg w-full max-w-lg my-4">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {channel ? 'Edit Notification Channel' : 'Add Notification Channel'}
           </h2>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
             <div>
-              <label className="block text-sm font-medium text-dark-200 mb-1">Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-1">Name</label>
               <input
                 type="text"
                 className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
@@ -393,7 +393,7 @@ function NotificationModal({
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-dark-200">
+                <label className="block text-sm font-medium text-gray-700 dark:text-dark-200">
                   Apprise URLs
                 </label>
                 <a
@@ -443,9 +443,9 @@ function NotificationModal({
             </div>
 
             {/* Event Types Section */}
-            <div className="pt-4 border-t border-dark-700">
+            <div className="pt-4 border-t border-gray-200 dark:border-dark-700">
               <div className="flex items-center justify-between mb-3">
-                <label className="block text-sm font-medium text-dark-200">Trigger Events</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-dark-200">Trigger Events</label>
                 <label className="flex items-center gap-2 text-xs">
                   <input
                     type="checkbox"
@@ -453,7 +453,7 @@ function NotificationModal({
                     onChange={(e) => setUseEventTypes(e.target.checked)}
                     className="rounded border-dark-600 bg-dark-700 text-primary-500"
                   />
-                  <span className="text-dark-400">Use granular event types</span>
+                  <span className="text-gray-500 dark:text-dark-400">Use granular event types</span>
                 </label>
               </div>
               
@@ -512,13 +512,13 @@ function NotificationModal({
             </div>
 
             {/* Templates Section */}
-            <div className="pt-4 border-t border-dark-700">
+            <div className="pt-4 border-t border-gray-200 dark:border-dark-700">
               <button
                 type="button"
                 onClick={() => setShowTemplates(!showTemplates)}
                 className="flex items-center justify-between w-full text-left"
               >
-                <span className="text-sm font-medium text-dark-200">Message Templates</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-dark-200">Message Templates</span>
                 {showTemplates ? (
                   <ChevronUpIcon className="w-4 h-4 text-dark-400" />
                 ) : (
@@ -528,7 +528,7 @@ function NotificationModal({
               
               {showTemplates && (
                 <div className="mt-3 space-y-3">
-                  <p className="text-xs text-dark-400">
+                  <p className="text-xs text-gray-500 dark:text-dark-400">
                     Customize notification messages using template variables. Leave empty for defaults.
                   </p>
                   
@@ -554,7 +554,7 @@ function NotificationModal({
                     />
                   </div>
                   
-                  <div className="p-2 bg-dark-700/50 rounded-lg text-xs text-dark-400">
+                  <div className="p-2 bg-dark-700/50 rounded-lg text-xs text-gray-500 dark:text-dark-400">
                     <p className="font-medium text-dark-300 mb-1">Available variables:</p>
                     <p><code className="text-primary-400">{"{{count}}"}</code> - Number of items</p>
                     <p><code className="text-primary-400">{"{{size}}"}</code> - Total size</p>
@@ -576,7 +576,7 @@ function NotificationModal({
                   {templatePreview && (
                     <div className="p-3 bg-dark-700 rounded-lg space-y-2">
                       <p className="text-xs font-medium text-dark-300">Preview:</p>
-                      <p className="text-sm font-medium text-white">{templatePreview.rendered_title}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{templatePreview.rendered_title}</p>
                       <p className="text-sm text-dark-200 whitespace-pre-wrap">{templatePreview.rendered_message}</p>
                     </div>
                   )}
@@ -585,13 +585,13 @@ function NotificationModal({
             </div>
 
             {/* Advanced Settings */}
-            <div className="pt-4 border-t border-dark-700">
+            <div className="pt-4 border-t border-gray-200 dark:border-dark-700">
               <button
                 type="button"
                 onClick={() => setShowAdvanced(!showAdvanced)}
                 className="flex items-center justify-between w-full text-left"
               >
-                <span className="text-sm font-medium text-dark-200">Retry Settings</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-dark-200">Retry Settings</span>
                 {showAdvanced ? (
                   <ChevronUpIcon className="w-4 h-4 text-dark-400" />
                 ) : (
@@ -601,7 +601,7 @@ function NotificationModal({
               
               {showAdvanced && (
                 <div className="mt-3 space-y-3">
-                  <p className="text-xs text-dark-400">
+                  <p className="text-xs text-gray-500 dark:text-dark-400">
                     Configure retry behavior for failed notifications with exponential backoff.
                   </p>
                   
@@ -630,7 +630,7 @@ function NotificationModal({
                     </div>
                   </div>
                   
-                  <p className="text-xs text-dark-500">
+                  <p className="text-xs text-gray-400 dark:text-dark-500">
                     Delays: {formData.retry_backoff_base}s, {(formData.retry_backoff_base || 2) ** 1}s, {(formData.retry_backoff_base || 2) ** 2}s...
                   </p>
                 </div>
@@ -638,11 +638,11 @@ function NotificationModal({
             </div>
           </div>
 
-          <div className="px-6 py-4 border-t border-dark-700 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-200 dark:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-dark-700 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={isLoading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            <button type="submit" disabled={isLoading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-900 dark:text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {isLoading ? 'Saving...' : channel ? 'Update' : 'Create'}
             </button>
           </div>
@@ -651,3 +651,7 @@ function NotificationModal({
     </div>
   )
 }
+
+
+
+

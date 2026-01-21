@@ -33,15 +33,15 @@ function StatCard({
   }
 
   return (
-    <div className="bg-white dark:bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-gray-200 dark:border-dark-700 shadow-lg">
-      <div className="p-6 flex items-center gap-4">
-        <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
-          <Icon className="w-6 h-6" />
+    <div className="bg-white dark:bg-dark-800 rounded-lg sm:rounded-xl border border-gray-200 dark:border-dark-700 shadow-sm sm:shadow-lg">
+      <div className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4">
+        <div className={`p-2.5 sm:p-3 rounded-lg ${colorClasses[color]}`}>
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
-        <div>
-          <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-dark-400">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-800 dark:text-dark-100">{value}</p>
-          {subtitle && <p className="text-xs text-gray-400 dark:text-gray-400 dark:text-dark-500">{subtitle}</p>}
+        <div className="min-w-0 flex-1">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-dark-400 truncate">{title}</p>
+          <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-dark-100">{value}</p>
+          {subtitle && <p className="text-xs text-gray-400 dark:text-dark-500 truncate">{subtitle}</p>}
         </div>
       </div>
     </div>
@@ -67,19 +67,19 @@ function DiskUsageBar({
 
   return (
     <div className="space-y-2">
-      <div className="flex justify-between text-sm">
-        <span className="text-gray-700 dark:text-gray-600 dark:text-dark-300">{path}</span>
-        <span className="text-gray-500 dark:text-gray-500 dark:text-dark-400">
+      <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0 text-xs sm:text-sm">
+        <span className="text-gray-700 dark:text-dark-300 font-medium truncate">{path}</span>
+        <span className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">
           {formatBytes(used)} / {formatBytes(total)}
         </span>
       </div>
-      <div className="h-2 bg-gray-200 dark:bg-gray-100 dark:bg-dark-700 rounded-full overflow-hidden">
+      <div className="h-2.5 sm:h-2 bg-gray-200 dark:bg-dark-700 rounded-full overflow-hidden">
         <div 
           className={`h-full ${getColor(usedPercent)} transition-all`}
           style={{ width: `${usedPercent}%` }}
         />
       </div>
-      <p className="text-xs text-gray-400 dark:text-gray-400 dark:text-dark-500">{usedPercent.toFixed(1)}% used</p>
+      <p className="text-xs text-gray-400 dark:text-dark-500">{usedPercent.toFixed(1)}% used</p>
     </div>
   )
 }
@@ -129,24 +129,24 @@ export default function Dashboard() {
   const isLoading = statsLoading || mediaLoading
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-900 dark:text-white">Dashboard</h1>
-        <p className="text-gray-500 dark:text-gray-500 dark:text-dark-400 mt-1">Overview of your media library</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        <p className="text-sm sm:text-base text-gray-500 dark:text-dark-400 mt-1">Overview of your media library</p>
       </div>
 
       {/* Stats Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white dark:bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-gray-200 dark:border-dark-700 shadow-lg animate-pulse">
-              <div className="p-6 h-24" />
+            <div key={i} className="bg-white dark:bg-dark-800 rounded-lg sm:rounded-xl border border-gray-200 dark:border-dark-700 shadow-sm sm:shadow-lg animate-pulse">
+              <div className="p-4 sm:p-6 h-20 sm:h-24" />
             </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
           <StatCard
             title="Total Movies"
             value={mediaStats?.movies || 0}
@@ -179,14 +179,14 @@ export default function Dashboard() {
       )}
 
       {/* Disk Usage */}
-      <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <CircleStackIcon className="w-5 h-5" />
+      <div className="bg-white dark:bg-dark-800 rounded-lg sm:rounded-xl border border-gray-200 dark:border-dark-700 shadow-sm sm:shadow-lg">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-dark-700">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <CircleStackIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             Disk Usage
           </h2>
         </div>
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {stats?.disk_space && stats.disk_space.length > 0 ? (
             stats.disk_space.map((disk, i) => (
               <DiskUsageBar

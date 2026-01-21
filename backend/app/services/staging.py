@@ -401,8 +401,11 @@ class StagingService:
         now = datetime.utcnow()
         
         # Find expired staged items
+        from sqlalchemy.orm import joinedload
         result = await self.db.execute(
-            select(MediaItem).where(
+            select(MediaItem)
+            .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
+            .where(
                 MediaItem.is_staged == True,
                 MediaItem.permanent_delete_at <= now
             )

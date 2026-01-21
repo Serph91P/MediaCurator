@@ -31,15 +31,44 @@
   --font-sans: Inter, system-ui, sans-serif;
 }
 
+/* Mobile-First Base Styles */
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent text size adjustment on orientation change */
+  -webkit-text-size-adjust: 100%;
+  /* Improve tap target size on mobile */
+  touch-action: manipulation;
 }
 
-/* Light mode scrollbar */
+/* Touch-friendly interactive elements */
+button,
+a,
+[role="button"] {
+  min-height: 44px; /* iOS/Android recommended tap target */
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+/* Improve form inputs on mobile */
+input,
+textarea,
+select {
+  /* Prevent zoom on focus on iOS */
+  font-size: 16px;
+}
+
+/* Mobile-optimized scrollbar (thinner on touch devices) */
 ::-webkit-scrollbar {
-  width: 0.5rem;
-  height: 0.5rem;
+  width: 0.375rem; /* 6px - thinner for mobile */
+  height: 0.375rem;
+}
+
+@media (min-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 0.5rem; /* 8px - wider for desktop */
+    height: 0.5rem;
+  }
 }
 
 ::-webkit-scrollbar-track {
@@ -62,4 +91,37 @@ body {
 
 .dark ::-webkit-scrollbar-thumb {
   background-color: var(--color-dark-600);
+}
+
+/* Mobile-First Utilities */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-right {
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Prevent pull-to-refresh on mobile */
+html {
+  overscroll-behavior-y: contain;
+}
+
+/* Optimize animations for mobile */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

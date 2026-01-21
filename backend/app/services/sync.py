@@ -111,7 +111,9 @@ async def _sync_sonarr(
         for series in series_list:
             # Get or create series item
             result = await db.execute(
-                select(MediaItem).where(
+                select(MediaItem)
+                .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
+                .where(
                     MediaItem.external_id == str(series["id"]),
                     MediaItem.service_connection_id == service.id
                 )
@@ -152,7 +154,9 @@ async def _sync_sonarr(
                         continue
                     
                     ep_result = await db.execute(
-                        select(MediaItem).where(
+                        select(MediaItem)
+                        .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
+                        .where(
                             MediaItem.external_id == str(episode["id"]),
                             MediaItem.service_connection_id == service.id,
                             MediaItem.media_type == MediaType.EPISODE
@@ -223,7 +227,9 @@ async def _sync_radarr(
                 continue
             
             result = await db.execute(
-                select(MediaItem).where(
+                select(MediaItem)
+                .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
+                .where(
                     MediaItem.external_id == str(movie["id"]),
                     MediaItem.service_connection_id == service.id
                 )
@@ -306,7 +312,10 @@ async def _sync_emby(
                     currently_watching_ids.add(now_playing.get("SeasonId"))
         
         # Get all media items from our database
-        result = await db.execute(select(MediaItem))
+        result = await db.execute(
+            select(MediaItem)
+            .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
+        )
         items = result.scalars().all()
         
         # Build path -> item mapping for faster lookup

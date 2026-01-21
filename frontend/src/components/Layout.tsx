@@ -101,11 +101,11 @@ export default function Layout() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 ${sidebarCollapsed ? 'lg:w-16' : 'w-64'} bg-white dark:bg-dark-800 border-r border-gray-200 dark:border-dark-700 flex flex-col transform transition-all duration-300 lg:translate-x-0 ${
-        sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full'
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 ${sidebarCollapsed ? 'lg:w-16' : 'w-64 sm:w-72'} bg-white dark:bg-dark-800 border-r border-gray-200 dark:border-dark-700 flex flex-col transform transition-all duration-300 lg:translate-x-0 ${
+        sidebarOpen ? 'translate-x-0 w-64 sm:w-72' : '-translate-x-full'
       }`}>
         {/* Logo */}
-        <div className="p-6 border-b border-gray-200 dark:border-dark-700">
+        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-dark-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
               <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -135,7 +135,7 @@ export default function Layout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
+        <nav className="flex-1 px-2 sm:px-3 py-4 space-y-1 overflow-y-auto">
           {navigation.map((item) => (
             <NavLink
               key={item.name}
@@ -143,7 +143,7 @@ export default function Layout() {
               onClick={() => setSidebarOpen(false)}
               title={sidebarCollapsed && !sidebarOpen ? item.name : undefined}
               className={({ isActive }) =>
-                `group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                `group flex items-center gap-3 px-3 sm:px-3 py-3 sm:py-2.5 rounded-lg text-sm sm:text-sm font-medium transition-all duration-200 active:scale-95 ${
                   sidebarCollapsed && !sidebarOpen ? 'justify-center' : ''
                 } ${
                   isActive
@@ -152,7 +152,7 @@ export default function Layout() {
                 }`
               }
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <item.icon className="w-5 h-5 sm:w-5 sm:h-5 flex-shrink-0" />
               {(!sidebarCollapsed || sidebarOpen) && <span>{item.name}</span>}
             </NavLink>
           ))}
@@ -227,15 +227,16 @@ export default function Layout() {
       {/* Main content */}
       <main className="flex-1 overflow-auto">
         {/* Mobile Header with Hamburger */}
-        <div className="lg:hidden sticky top-0 z-30 bg-white dark:bg-dark-800 border-b border-gray-200 dark:border-dark-700 px-4 py-3 flex items-center justify-between">
+        <div className="lg:hidden sticky top-0 z-30 bg-white dark:bg-dark-800 border-b border-gray-200 dark:border-dark-700 px-3 sm:px-4 py-3 flex items-center justify-between safe-top">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-dark-300 dark:hover:text-white dark:hover:bg-dark-700 rounded-lg transition-colors"
+            className="p-2.5 sm:p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-dark-300 dark:hover:text-white dark:hover:bg-dark-700 rounded-lg transition-colors active:scale-95"
+            aria-label="Open menu"
           >
             <Bars3Icon className="w-6 h-6" />
           </button>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">MediaCleaner</h1>
-          <div className="w-10" /> {/* Spacer for centering */}
+          <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">MediaCleaner</h1>
+          <div className="w-11 sm:w-10" /> {/* Spacer for centering */}
         </div>
 
         {/* Update Banner */}
@@ -275,7 +276,7 @@ export default function Layout() {
           </div>
         )}
         
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-3 sm:p-4 md:p-6 lg:p-8 safe-bottom">
           <Outlet />
         </div>
       </main>

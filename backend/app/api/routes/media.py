@@ -2,6 +2,7 @@
 Media API routes.
 """
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc
 from typing import Dict, Any, Optional, List
@@ -215,37 +216,41 @@ async def get_watch_stats(
     """Get watch statistics (most watched items, recently watched, etc.)."""
     
     # Most watched items
-    most_watched_result = await db.execute(
-        select(MediaItem)
-        .where(MediaItem.watch_count > 0)
-        .order_by(MediaItem.watch_count.desc())
-        .limit(limit)
-    )
-    most_watched = most_watched_result.scalars().all()
-    
-    # Recently watched items
-    recently_watched_result = await db.execute(
-        select(MediaItem)
-        .where(MediaItem.last_watched_at.isnot(None))
-        .order_by(MediaItem.last_watched_at.desc())
-        .limit(limit)
-    )
-    recently_watched = recently_watched_result.scalars().all()
-    
-    # Currently watching (in progress)
-    currently_watching_result = await db.execute(
-        select(MediaItem)
-        .where(
-            and_(
-                MediaItem.is_currently_watching == True,
-                MediaItem.progress_percent > 0,
-                MediaItem.progress_percent < 100
-            )
+        from sqlalchemy.orm import joinedload
+        most_watched_result = await db.execute(
+            select(MediaItem)
+            .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
+            .where(MediaItem.watch_count > 0)
+            .order_by(MediaItem.watch_count.desc())
+            .limit(limit)
         )
-        .order_by(MediaItem.last_progress_update.desc())
-        .limit(limit)
-    )
-    currently_watching = currently_watching_result.scalars().all()
+        most_watched = most_watched_result.scalars().all()
+
+        # Recently watched items
+        recently_watched_result = await db.execute(
+            select(MediaItem)
+            .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
+            .where(MediaItem.last_watched_at.isnot(None))
+            .order_by(MediaItem.last_watched_at.desc())
+            .limit(limit)
+        )
+        recently_watched = recently_watched_result.scalars().all()
+
+        # Currently watching (in progress)
+        currently_watching_result = await db.execute(
+            select(MediaItem)
+            .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
+            .where(
+                and_(
+                    MediaItem.is_currently_watching == True,
+                    MediaItem.progress_percent > 0,
+                    MediaItem.progress_percent < 100
+                )
+            )
+            .order_by(MediaItem.last_progress_update.desc())
+            .limit(limit)
+        )
+        currently_watching = currently_watching_result.scalars().all()
     
     # Watch statistics aggregation
     total_watches_result = await db.execute(

@@ -267,7 +267,7 @@ docker compose -f docker-compose.dev.yml up
 - [ ] Activate `tests.yml` workflow for automated testing
 - [ ] Add pytest unit tests for backend services
 - [ ] Add Vitest tests for frontend components
-- [ ] Extend `release.yml` for automatic Docker image builds
+- [x] Extend `release.yml` for automatic Docker image builds
 - [x] Push Docker images to GitHub Container Registry (ghcr.io)
 - [x] Create production-optimized Docker image (multi-stage build)
 - [x] Add health checks and monitoring endpoints
@@ -275,7 +275,7 @@ docker compose -f docker-compose.dev.yml up
 ### ⚡ Performance & Optimization
 - [x] Implement in-memory caching for Emby API calls (library items, watch status)
 - [x] Optimize TanStack Query staleTime/gcTime (5-10 minutes for rarely-changed data)
-- [ ] Add SQLAlchemy eager loading where appropriate (reduce N+1 queries)
+- [x] Add SQLAlchemy eager loading where appropriate (reduce N+1 queries)
 - [x] Implement pagination for large result sets (rules, media items, logs)
 - [x] Add database indexes on frequently queried columns (external_id, service_connection_id)
 - [x] Implement debouncing for search/filter inputs
@@ -292,7 +292,7 @@ docker compose -f docker-compose.dev.yml up
 - [x] Implement toast notifications for all user actions
 - [x] Add confirmation dialogs for destructive actions
 - [x] Dark/Light theme toggle with system preference support
-- [ ] Mobile First Design
+- [x] Mobile First Design
 - [ ] PWA
 - [ ] Notification via PWA
 

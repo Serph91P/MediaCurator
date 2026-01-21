@@ -293,8 +293,6 @@ docker compose -f docker-compose.dev.yml up
 - [x] Add confirmation dialogs for destructive actions
 - [x] Dark/Light theme toggle with system preference support
 - [x] Mobile First Design
-- [ ] PWA
-- [ ] Notification via PWA
 
 ### 🔔 Notifications & Integration
 - [x] Migrate to Apprise URL-schema for 90+ notification services

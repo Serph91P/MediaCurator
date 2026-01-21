@@ -46,6 +46,19 @@ class NotificationType(str, Enum):
     APPRISE = "apprise"
 
 
+class NotificationEventType(str, Enum):
+    """Event types that can trigger notifications."""
+    MEDIA_FLAGGED = "media_flagged"
+    MEDIA_DELETED = "media_deleted"
+    MEDIA_STAGED = "media_staged"
+    MEDIA_RESTORED = "media_restored"
+    CLEANUP_STARTED = "cleanup_started"
+    CLEANUP_COMPLETED = "cleanup_completed"
+    SYNC_COMPLETED = "sync_completed"
+    ERROR = "error"
+    TEST = "test"
+
+
 class SeriesEvaluationMode(str, Enum):
     """How to evaluate series for cleanup rules."""
     WHOLE_SERIES = "whole_series"  # Evaluate the entire series as one unit
@@ -261,10 +274,40 @@ class NotificationChannel(Base):
     Apprise: {"urls": ["discord://...", "slack://..."]}
     """
     
-    # Event triggers
+    # Event triggers (legacy - kept for backwards compatibility)
     notify_on_flagged = Column(Boolean, default=True)
     notify_on_deleted = Column(Boolean, default=True)
     notify_on_error = Column(Boolean, default=True)
+    
+    # Event types (new - more granular control)
+    # JSON list of NotificationEventType values
+    event_types = Column(JSON, nullable=True, default=None)
+    """
+    Example: ["media_flagged", "media_deleted", "cleanup_completed", "error"]
+    If None, falls back to legacy notify_on_* fields
+    """
+    
+    # Message templates (Jinja2-style with {{variable}} placeholders)
+    title_template = Column(String(500), nullable=True)
+    message_template = Column(Text, nullable=True)
+    """
+    Available variables:
+    - {{event_type}}: Type of event (e.g., "media_flagged")
+    - {{title}}: Media title or notification title
+    - {{message}}: Default message content
+    - {{media_title}}: Title of the media item
+    - {{media_year}}: Year of the media
+    - {{library_name}}: Name of the library
+    - {{rule_name}}: Name of the cleanup rule
+    - {{size}}: Size of the media
+    - {{service}}: Service name (Radarr/Sonarr)
+    - {{timestamp}}: Current timestamp
+    - {{count}}: Number of items (for batch operations)
+    """
+    
+    # Retry configuration for webhooks
+    max_retries = Column(Integer, default=3)
+    retry_backoff_base = Column(Integer, default=2)  # Base for exponential backoff in seconds
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

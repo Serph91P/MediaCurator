@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { PlusIcon, TrashIcon, BellIcon, BellAlertIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, TrashIcon, BellIcon, BellAlertIcon, CheckCircleIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
-import type { NotificationChannel, NotificationChannelCreate, NotificationType } from '../types'
+import type { NotificationChannel, NotificationChannelCreate, NotificationType, NotificationEventType, EventTypeInfo, TemplatePreviewResponse } from '../types'
 
 // Apprise supports 90+ notification services via URLs
 // Examples: discord://webhook_id/webhook_token, ntfy://ntfy.sh/topic, tgram://bot_token/chat_id
@@ -11,6 +11,19 @@ import type { NotificationChannel, NotificationChannelCreate, NotificationType }
 const notificationTypes = [
   { value: 'apprise', label: 'Apprise', description: 'Universal notification gateway supporting 90+ services' },
 ]
+
+// Available event types for the UI
+const eventTypeLabels: Record<NotificationEventType, { label: string; color: string }> = {
+  media_flagged: { label: 'Media Flagged', color: 'yellow' },
+  media_deleted: { label: 'Media Deleted', color: 'red' },
+  media_staged: { label: 'Media Staged', color: 'blue' },
+  media_restored: { label: 'Media Restored', color: 'green' },
+  cleanup_started: { label: 'Cleanup Started', color: 'purple' },
+  cleanup_completed: { label: 'Cleanup Completed', color: 'green' },
+  sync_completed: { label: 'Sync Completed', color: 'blue' },
+  error: { label: 'Errors', color: 'orange' },
+  test: { label: 'Test', color: 'gray' },
+}
 
 export default function Notifications() {
   const queryClient = useQueryClient()
@@ -270,6 +283,10 @@ function NotificationModal({
   onSubmit: (data: NotificationChannelCreate) => void
   isLoading: boolean
 }) {
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [templatePreview, setTemplatePreview] = useState<TemplatePreviewResponse | null>(null)
+  
   const [formData, setFormData] = useState<NotificationChannelCreate>({
     name: channel?.name || '',
     notification_type: 'apprise',
@@ -278,17 +295,47 @@ function NotificationModal({
     notify_on_flagged: channel?.notify_on_flagged ?? true,
     notify_on_deleted: channel?.notify_on_deleted ?? true,
     notify_on_error: channel?.notify_on_error ?? true,
+    event_types: channel?.event_types || null,
+    title_template: channel?.title_template || null,
+    message_template: channel?.message_template || null,
+    max_retries: channel?.max_retries ?? 3,
+    retry_backoff_base: channel?.retry_backoff_base ?? 2,
   })
 
   const [urls, setUrls] = useState<string[]>(
     (channel?.config as any)?.urls || ['']
   )
+  
+  const [useEventTypes, setUseEventTypes] = useState(!!channel?.event_types)
+  const [selectedEventTypes, setSelectedEventTypes] = useState<NotificationEventType[]>(
+    (channel?.event_types as NotificationEventType[]) || ['media_deleted', 'media_flagged', 'error']
+  )
+
+  // Fetch event types info from API
+  const { data: eventTypesInfo } = useQuery({
+    queryKey: ['notification-event-types'],
+    queryFn: async () => {
+      const res = await api.get<{ event_types: EventTypeInfo[] }>('/notifications/event-types')
+      return res.data.event_types
+    },
+  })
+
+  // Preview template
+  const previewMutation = useMutation({
+    mutationFn: async (data: { title_template?: string; message_template?: string; event_type: string }) => {
+      const res = await api.post<TemplatePreviewResponse>('/notifications/preview-template', data)
+      return res.data
+    },
+    onSuccess: (data) => setTemplatePreview(data),
+    onError: () => toast.error('Failed to preview template'),
+  })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit({
       ...formData,
-      config: { urls: urls.filter(url => url.trim()) }
+      config: { urls: urls.filter(url => url.trim()) },
+      event_types: useEventTypes ? selectedEventTypes : null,
     })
   }
 
@@ -306,16 +353,32 @@ function NotificationModal({
     setUrls(newUrls)
   }
 
+  const toggleEventType = (eventType: NotificationEventType) => {
+    if (selectedEventTypes.includes(eventType)) {
+      setSelectedEventTypes(selectedEventTypes.filter(t => t !== eventType))
+    } else {
+      setSelectedEventTypes([...selectedEventTypes, eventType])
+    }
+  }
+
+  const handlePreviewTemplate = () => {
+    previewMutation.mutate({
+      title_template: formData.title_template || undefined,
+      message_template: formData.message_template || undefined,
+      event_type: 'media_deleted',
+    })
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-dark-800 rounded-xl border border-dark-700 shadow-lg w-full max-w-lg my-4">
         <div className="px-6 py-4 border-b border-dark-700">
           <h2 className="text-lg font-semibold text-white">
             {channel ? 'Edit Notification Channel' : 'Add Notification Channel'}
           </h2>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
             <div>
               <label className="block text-sm font-medium text-dark-200 mb-1">Name</label>
               <input
@@ -377,47 +440,201 @@ function NotificationModal({
               >
                 + Add another URL
               </button>
-
-              <div className="mt-3 p-3 bg-dark-700/50 rounded-lg text-xs text-dark-300 space-y-1">
-                <p className="font-medium text-dark-200">Examples:</p>
-                <p className="font-mono">discord://webhook_id/webhook_token</p>
-                <p className="font-mono">ntfy://ntfy.sh/my_topic</p>
-                <p className="font-mono">tgram://bot_token/chat_id</p>
-                <p className="font-mono">slack://token_a/token_b/token_c</p>
-              </div>
             </div>
 
+            {/* Event Types Section */}
             <div className="pt-4 border-t border-dark-700">
-              <label className="block text-sm font-medium text-dark-200 mb-2">Trigger Events</label>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-dark-200">Trigger Events</label>
+                <label className="flex items-center gap-2 text-xs">
                   <input
                     type="checkbox"
-                    checked={formData.notify_on_deleted}
-                    onChange={(e) => setFormData({ ...formData, notify_on_deleted: e.target.checked })}
+                    checked={useEventTypes}
+                    onChange={(e) => setUseEventTypes(e.target.checked)}
                     className="rounded border-dark-600 bg-dark-700 text-primary-500"
                   />
-                  <span className="text-sm text-dark-200">Media deleted</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.notify_on_flagged}
-                    onChange={(e) => setFormData({ ...formData, notify_on_flagged: e.target.checked })}
-                    className="rounded border-dark-600 bg-dark-700 text-primary-500"
-                  />
-                  <span className="text-sm text-dark-200">Media flagged for cleanup</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.notify_on_error}
-                    onChange={(e) => setFormData({ ...formData, notify_on_error: e.target.checked })}
-                    className="rounded border-dark-600 bg-dark-700 text-primary-500"
-                  />
-                  <span className="text-sm text-dark-200">Errors</span>
+                  <span className="text-dark-400">Use granular event types</span>
                 </label>
               </div>
+              
+              {useEventTypes ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(eventTypeLabels).filter(([key]) => key !== 'test').map(([eventType, info]) => (
+                    <label
+                      key={eventType}
+                      className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                        selectedEventTypes.includes(eventType as NotificationEventType)
+                          ? `border-${info.color}-500/50 bg-${info.color}-600/10`
+                          : 'border-dark-600 hover:border-dark-500'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedEventTypes.includes(eventType as NotificationEventType)}
+                        onChange={() => toggleEventType(eventType as NotificationEventType)}
+                        className="rounded border-dark-600 bg-dark-700 text-primary-500"
+                      />
+                      <span className="text-sm text-dark-200">{info.label}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.notify_on_deleted}
+                      onChange={(e) => setFormData({ ...formData, notify_on_deleted: e.target.checked })}
+                      className="rounded border-dark-600 bg-dark-700 text-primary-500"
+                    />
+                    <span className="text-sm text-dark-200">Media deleted</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.notify_on_flagged}
+                      onChange={(e) => setFormData({ ...formData, notify_on_flagged: e.target.checked })}
+                      className="rounded border-dark-600 bg-dark-700 text-primary-500"
+                    />
+                    <span className="text-sm text-dark-200">Media flagged for cleanup</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.notify_on_error}
+                      onChange={(e) => setFormData({ ...formData, notify_on_error: e.target.checked })}
+                      className="rounded border-dark-600 bg-dark-700 text-primary-500"
+                    />
+                    <span className="text-sm text-dark-200">Errors</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Templates Section */}
+            <div className="pt-4 border-t border-dark-700">
+              <button
+                type="button"
+                onClick={() => setShowTemplates(!showTemplates)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <span className="text-sm font-medium text-dark-200">Message Templates</span>
+                {showTemplates ? (
+                  <ChevronUpIcon className="w-4 h-4 text-dark-400" />
+                ) : (
+                  <ChevronDownIcon className="w-4 h-4 text-dark-400" />
+                )}
+              </button>
+              
+              {showTemplates && (
+                <div className="mt-3 space-y-3">
+                  <p className="text-xs text-dark-400">
+                    Customize notification messages using template variables. Leave empty for defaults.
+                  </p>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-dark-300 mb-1">Title Template</label>
+                    <input
+                      type="text"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors text-sm"
+                      value={formData.title_template || ''}
+                      onChange={(e) => setFormData({ ...formData, title_template: e.target.value || null })}
+                      placeholder="🗑️ Media Deleted: {{count}} items"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-dark-300 mb-1">Message Template</label>
+                    <textarea
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors text-sm"
+                      rows={3}
+                      value={formData.message_template || ''}
+                      onChange={(e) => setFormData({ ...formData, message_template: e.target.value || null })}
+                      placeholder="**{{count}}** items deleted&#10;**Space freed:** {{size}}&#10;{{#rule_name}}**Rule:** {{rule_name}}{{/rule_name}}"
+                    />
+                  </div>
+                  
+                  <div className="p-2 bg-dark-700/50 rounded-lg text-xs text-dark-400">
+                    <p className="font-medium text-dark-300 mb-1">Available variables:</p>
+                    <p><code className="text-primary-400">{"{{count}}"}</code> - Number of items</p>
+                    <p><code className="text-primary-400">{"{{size}}"}</code> - Total size</p>
+                    <p><code className="text-primary-400">{"{{rule_name}}"}</code> - Cleanup rule name</p>
+                    <p><code className="text-primary-400">{"{{library_name}}"}</code> - Library name</p>
+                    <p><code className="text-primary-400">{"{{media_title}}"}</code> - Media title</p>
+                    <p><code className="text-primary-400">{"{{timestamp}}"}</code> - Current time</p>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={handlePreviewTemplate}
+                    disabled={previewMutation.isPending}
+                    className="text-sm text-primary-400 hover:text-primary-300"
+                  >
+                    {previewMutation.isPending ? 'Loading...' : 'Preview with sample data →'}
+                  </button>
+                  
+                  {templatePreview && (
+                    <div className="p-3 bg-dark-700 rounded-lg space-y-2">
+                      <p className="text-xs font-medium text-dark-300">Preview:</p>
+                      <p className="text-sm font-medium text-white">{templatePreview.rendered_title}</p>
+                      <p className="text-sm text-dark-200 whitespace-pre-wrap">{templatePreview.rendered_message}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Advanced Settings */}
+            <div className="pt-4 border-t border-dark-700">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <span className="text-sm font-medium text-dark-200">Retry Settings</span>
+                {showAdvanced ? (
+                  <ChevronUpIcon className="w-4 h-4 text-dark-400" />
+                ) : (
+                  <ChevronDownIcon className="w-4 h-4 text-dark-400" />
+                )}
+              </button>
+              
+              {showAdvanced && (
+                <div className="mt-3 space-y-3">
+                  <p className="text-xs text-dark-400">
+                    Configure retry behavior for failed notifications with exponential backoff.
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-dark-300 mb-1">Max Retries</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                        value={formData.max_retries}
+                        onChange={(e) => setFormData({ ...formData, max_retries: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-dark-300 mb-1">Backoff Base (s)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                        value={formData.retry_backoff_base}
+                        onChange={(e) => setFormData({ ...formData, retry_backoff_base: parseInt(e.target.value) || 1 })}
+                      />
+                    </div>
+                  </div>
+                  
+                  <p className="text-xs text-dark-500">
+                    Delays: {formData.retry_backoff_base}s, {(formData.retry_backoff_base || 2) ** 1}s, {(formData.retry_backoff_base || 2) ** 2}s...
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

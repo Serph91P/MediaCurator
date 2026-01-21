@@ -19,6 +19,16 @@ export type ServiceType = 'sonarr' | 'radarr' | 'emby' | 'jellyfin' | 'jellystat
 export type MediaType = 'movie' | 'series' | 'episode' | 'season'
 export type RuleActionType = 'delete' | 'notify_only' | 'move_to_trash' | 'unmonitor'
 export type NotificationType = 'webhook' | 'discord' | 'slack' | 'email' | 'apprise'
+export type NotificationEventType = 
+  | 'media_flagged' 
+  | 'media_deleted' 
+  | 'media_staged' 
+  | 'media_restored' 
+  | 'cleanup_started' 
+  | 'cleanup_completed' 
+  | 'sync_completed' 
+  | 'error' 
+  | 'test'
 export type SeriesDeleteMode = 'episode' | 'season' | 'series'
 export type SeriesEvaluationMode = 'whole_series' | 'season' | 'episode'
 export type SeriesDeleteTarget = 'whole_series' | 'matched_season' | 'matched_episode' | 'previous_seasons' | 'following_seasons' | 'previous_episodes' | 'following_episodes' | 'unwatched_episodes_in_season' | 'unwatched_seasons'
@@ -139,6 +149,12 @@ export interface NotificationChannel {
   notify_on_deleted: boolean
   notify_on_flagged: boolean
   notify_on_error: boolean
+  // New template and retry fields
+  event_types: NotificationEventType[] | null
+  title_template: string | null
+  message_template: string | null
+  max_retries: number
+  retry_backoff_base: number
   created_at: string
   updated_at: string | null
 }
@@ -152,6 +168,30 @@ export interface NotificationChannelCreate {
   notify_on_deleted?: boolean
   notify_on_flagged?: boolean
   notify_on_error?: boolean
+  // New template and retry fields
+  event_types?: NotificationEventType[] | null
+  title_template?: string | null
+  message_template?: string | null
+  max_retries?: number
+  retry_backoff_base?: number
+}
+
+export interface EventTypeInfo {
+  value: NotificationEventType
+  name: string
+  default_title: string
+  default_message: string
+}
+
+export interface TemplatePreviewRequest {
+  title_template?: string | null
+  message_template?: string | null
+  event_type?: string
+}
+
+export interface TemplatePreviewResponse {
+  rendered_title: string
+  rendered_message: string
 }
 
 export interface CleanupLog {

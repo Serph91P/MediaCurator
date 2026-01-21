@@ -297,9 +297,9 @@ docker compose -f docker-compose.dev.yml up
 ### 🔔 Notifications & Integration
 - [x] Migrate to Apprise URL-schema for 90+ notification services
 - [x] Add notification preview/test button
-- [ ] Implement notification templates (customize message format)
-- [ ] Add webhook retry logic with exponential backoff
-- [ ] Support multiple notification channels per event type
+- [x] Implement notification templates (customize message format)
+- [x] Add webhook retry logic with exponential backoff
+- [x] Support multiple notification channels per event type
 
 ### 🔒 Security & Auth
 - [ ] Add rate limiting for API endpoints
@@ -309,7 +309,6 @@ docker compose -f docker-compose.dev.yml up
 ### 📊 Monitoring & Observability
 - [ ] Implement structured logging with correlation IDs
 - [ ] Add performance monitoring for slow queries
-- [ ] Create admin dashboard with system stats
 
 ### 🚀 Features & Enhancements
 - [x] Bulk operations for rules (enable/disable multiple)

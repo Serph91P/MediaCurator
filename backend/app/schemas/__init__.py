@@ -256,6 +256,12 @@ class NotificationChannelBase(BaseModel):
     notify_on_flagged: bool = True
     notify_on_deleted: bool = True
     notify_on_error: bool = True
+    # New fields for enhanced notifications
+    event_types: Optional[List[str]] = None
+    title_template: Optional[str] = Field(None, max_length=500)
+    message_template: Optional[str] = None
+    max_retries: int = Field(default=3, ge=0, le=10)
+    retry_backoff_base: int = Field(default=2, ge=1, le=60)
 
 
 class NotificationChannelCreate(NotificationChannelBase):
@@ -270,6 +276,12 @@ class NotificationChannelUpdate(BaseModel):
     notify_on_flagged: Optional[bool] = None
     notify_on_deleted: Optional[bool] = None
     notify_on_error: Optional[bool] = None
+    # New fields for enhanced notifications
+    event_types: Optional[List[str]] = None
+    title_template: Optional[str] = Field(None, max_length=500)
+    message_template: Optional[str] = None
+    max_retries: Optional[int] = Field(None, ge=0, le=10)
+    retry_backoff_base: Optional[int] = Field(None, ge=1, le=60)
 
 
 class NotificationChannelResponse(NotificationChannelBase):

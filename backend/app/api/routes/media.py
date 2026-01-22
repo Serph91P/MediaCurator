@@ -233,28 +233,23 @@ async def get_watch_stats(
     )
     most_watched = most_watched_result.scalars().all()
     
-    # If no items with watch_count, fall back to items marked as watched with last_watched_at
+    # If no items with watch_count, fall back to items marked as watched (any)
     if not most_watched:
         most_watched_result = await db.execute(
             select(MediaItem)
             .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
-            .where(
-                and_(
-                    MediaItem.is_watched == True,
-                    MediaItem.last_watched_at.isnot(None)
-                )
-            )
-            .order_by(MediaItem.last_watched_at.desc())
+            .where(MediaItem.is_watched == True)
+            .order_by(MediaItem.last_watched_at.desc().nullslast())
             .limit(limit)
         )
         most_watched = most_watched_result.scalars().all()
 
-    # Recently watched items - only show items with actual last_watched_at date
+    # Recently watched items - show items that are watched, prioritize those with last_watched_at
     recently_watched_result = await db.execute(
         select(MediaItem)
         .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
-        .where(MediaItem.last_watched_at.isnot(None))
-        .order_by(MediaItem.last_watched_at.desc())
+        .where(MediaItem.is_watched == True)
+        .order_by(MediaItem.last_watched_at.desc().nullslast())
         .limit(limit)
     )
     recently_watched = recently_watched_result.scalars().all()

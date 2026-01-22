@@ -127,7 +127,7 @@ export default function Layout() {
                 <p className="text-xs text-gray-500 dark:text-dark-400">
                   {healthData?.version || 'v0.1.0'}
                   {healthData?.database === 'unhealthy' && (
-                    <span className="ml-2 text-red-400" title="Database connection issue">⚠</span>
+                    <span className="ml-2 text-red-400 font-bold" title="Database connection issue">DB!</span>
                   )}
                 </p>
               </div>

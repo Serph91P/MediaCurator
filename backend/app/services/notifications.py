@@ -37,39 +37,39 @@ class NotificationEventType(str, Enum):
 # Default message templates
 DEFAULT_TEMPLATES = {
     NotificationEventType.MEDIA_FLAGGED: {
-        "title": "🚩 Media Flagged for Cleanup",
+        "title": "Media Flagged for Cleanup",
         "message": "**{{count}}** items flagged for cleanup\n**Total size:** {{size}}\n{{#rule_name}}**Rule:** {{rule_name}}{{/rule_name}}"
     },
     NotificationEventType.MEDIA_DELETED: {
-        "title": "🗑️ Media Deleted",
+        "title": "Media Deleted",
         "message": "**{{count}}** items deleted\n**Space freed:** {{size}}\n{{#rule_name}}**Rule:** {{rule_name}}{{/rule_name}}"
     },
     NotificationEventType.MEDIA_STAGED: {
-        "title": "📦 Media Staged",
+        "title": "Media Staged",
         "message": "**{{count}}** items moved to staging\n**Total size:** {{size}}"
     },
     NotificationEventType.MEDIA_RESTORED: {
-        "title": "♻️ Media Restored",
+        "title": "Media Restored",
         "message": "**{{count}}** items restored from staging"
     },
     NotificationEventType.CLEANUP_STARTED: {
-        "title": "🧹 Cleanup Started",
+        "title": "Cleanup Started",
         "message": "Cleanup job started at {{timestamp}}"
     },
     NotificationEventType.CLEANUP_COMPLETED: {
-        "title": "✅ Cleanup Completed",
+        "title": "Cleanup Completed",
         "message": "Cleanup completed\n**Items processed:** {{count}}\n**Space freed:** {{size}}"
     },
     NotificationEventType.SYNC_COMPLETED: {
-        "title": "🔄 Sync Completed",
+        "title": "Sync Completed",
         "message": "Library sync completed for **{{library_name}}**\n**Items synced:** {{count}}"
     },
     NotificationEventType.ERROR: {
-        "title": "❌ Error Occurred",
+        "title": "Error Occurred",
         "message": "An error occurred: {{message}}"
     },
     NotificationEventType.TEST: {
-        "title": "🧪 Test Notification",
+        "title": "Test Notification",
         "message": "This is a test notification from MediaCurator"
     }
 }

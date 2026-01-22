@@ -558,7 +558,7 @@ function NotificationModal({
                       className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors text-sm"
                       value={formData.title_template || ''}
                       onChange={(e) => setFormData({ ...formData, title_template: e.target.value || null })}
-                      placeholder="🗑️ Media Deleted: {{count}} items"
+                      placeholder="Media Deleted: {{count}} items"
                     />
                   </div>
                   

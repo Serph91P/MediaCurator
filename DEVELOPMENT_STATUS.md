@@ -4,7 +4,7 @@
 **Branch**: `develop`
 **Latest Commit**: `46e93f0` - "fix: timezone display, auto-restore job status, and staging settings UI"
 
-## ✅ Completed in This Session
+## Completed in This Session
 
 ### 1. Feature Implementations
 - **Rules Export/Import**: Backup and restore cleanup rules as JSON files
@@ -25,7 +25,7 @@
 - Centralized `formatDateTime` utility in `frontend/src/lib/utils.ts`
 - Updated all pages with proper light/dark mode classes
 
-## 📋 Recent Commits
+## Recent Commits
 ```
 46e93f0 fix: timezone display, auto-restore job status, and staging settings UI
 4cda2e4 fix: improve light/dark mode styling across all components
@@ -34,7 +34,7 @@ f167137 fix: remove invalid library_id index from migrations
 fb567d6 feat: add collapsible sidebar with localStorage persistence
 ```
 
-## 🔧 How to Continue Development
+## How to Continue Development
 
 ### 1. Clone/Pull the Latest Code
 ```bash
@@ -52,7 +52,7 @@ docker compose -f docker-compose.dev.yml up --build
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:8080/docs
 
-## ⚠️ Known Issues / Potential Improvements
+## Known Issues / Potential Improvements
 
 ### 1. Timezone Display (May Need Verification)
 The frontend now appends `Z` to ISO strings without timezone indicators. This should fix the 1-hour offset. **Verify after next deployment.**
@@ -65,7 +65,7 @@ When staging is disabled, the job now shows "skipped" status instead of "error".
 ### 3. Theme Toggle
 The theme system uses Tailwind v4's `@custom-variant` feature for manual toggle. The toggle cycles: Light → Dark → System.
 
-## 📁 Key Files Modified
+## Key Files Modified
 
 | File | Changes |
 |------|---------|
@@ -76,7 +76,7 @@ The theme system uses Tailwind v4's `@custom-variant` feature for manual toggle.
 | `frontend/src/pages/Jobs.tsx` | Added "skipped" badge, imported formatDateTime |
 | `frontend/src/components/Layout.tsx` | Theme toggle button, fixed sidebar collapse |
 
-## 🚀 Next Steps (Optional)
+## Next Steps (Optional)
 
 1. **Test the Staging UI**: Verify the staging settings form saves correctly
 2. **Test Timezone Fix**: Confirm dates display in correct local time

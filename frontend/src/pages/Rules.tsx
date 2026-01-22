@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { PlusIcon, TrashIcon, ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, TrashIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, CheckIcon, PencilIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -21,8 +21,10 @@ export default function Rules() {
   const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<RuleTemplate | null>(null)
+  const [editingRule, setEditingRule] = useState<CleanupRule | null>(null)
   const [ruleToDelete, setRuleToDelete] = useState<CleanupRule | null>(null)
   const [selectedRules, setSelectedRules] = useState<Set<number>>(new Set())
+  const [selectionMode, setSelectionMode] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: rules, isLoading } = useQuery({
@@ -53,6 +55,20 @@ export default function Rules() {
       toast.success('Rule created')
     },
     onError: () => toast.error('Failed to create rule'),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: CleanupRuleCreate }) => {
+      const res = await api.put(`/rules/${id}`, data)
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] })
+      setIsModalOpen(false)
+      setEditingRule(null)
+      toast.success('Rule updated')
+    },
+    onError: () => toast.error('Failed to update rule'),
   })
 
   const deleteMutation = useMutation({
@@ -86,6 +102,7 @@ export default function Rules() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['rules'] })
       setSelectedRules(new Set())
+      setSelectionMode(false)
       const actionLabel = variables.action === 'delete' ? 'deleted' : 
                          variables.action === 'enable' ? 'enabled' : 'disabled'
       toast.success(`${data.success_count} rules ${actionLabel}`)
@@ -169,6 +186,22 @@ export default function Rules() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => {
+              setSelectionMode(!selectionMode)
+              if (selectionMode) {
+                setSelectedRules(new Set())
+              }
+            }}
+            className={`inline-flex items-center justify-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+              selectionMode 
+                ? 'bg-primary-600 text-white hover:bg-primary-700'
+                : 'bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 hover:bg-gray-300 dark:hover:bg-dark-600'
+            }`}
+            title={selectionMode ? 'Exit Selection Mode' : 'Select Multiple'}
+          >
+            <CheckIcon className="w-5 h-5" />
+          </button>
+          <button
             onClick={handleExport}
             className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 transition-colors"
             title="Export Rules"
@@ -237,48 +270,50 @@ export default function Rules() {
         </div>
       ) : rules && rules.length > 0 ? (
         <div className="space-y-4">
-          {/* Bulk Actions Bar */}
-          <div className="flex items-center gap-4 bg-dark-800 rounded-xl border border-dark-700 p-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={rules.length > 0 && selectedRules.size === rules.length}
-                onChange={toggleSelectAll}
-                className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-600 focus:ring-primary-500"
-              />
-              <span className="text-sm text-gray-600 dark:text-dark-300">Select All</span>
-            </label>
-            {selectedRules.size > 0 && (
-              <>
-                <span className="text-sm text-gray-500 dark:text-dark-400">
-                  {selectedRules.size} selected
-                </span>
-                <div className="flex gap-2 ml-auto">
-                  <button
-                    onClick={() => bulkMutation.mutate({ action: 'enable', ruleIds: Array.from(selectedRules) })}
-                    disabled={bulkMutation.isPending}
-                    className="px-3 py-1.5 text-sm font-medium bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-colors disabled:opacity-50"
-                  >
-                    Enable
-                  </button>
-                  <button
-                    onClick={() => bulkMutation.mutate({ action: 'disable', ruleIds: Array.from(selectedRules) })}
-                    disabled={bulkMutation.isPending}
-                    className="px-3 py-1.5 text-sm font-medium bg-yellow-600/20 text-yellow-400 rounded-lg hover:bg-yellow-600/30 transition-colors disabled:opacity-50"
-                  >
-                    Disable
-                  </button>
-                  <button
-                    onClick={() => bulkMutation.mutate({ action: 'delete', ruleIds: Array.from(selectedRules) })}
-                    disabled={bulkMutation.isPending}
-                    className="px-3 py-1.5 text-sm font-medium bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30 transition-colors disabled:opacity-50"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          {/* Bulk Actions Bar - only show in selection mode */}
+          {selectionMode && (
+            <div className="flex items-center gap-4 bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rules.length > 0 && selectedRules.size === rules.length}
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-600 dark:text-dark-300">Select All</span>
+              </label>
+              {selectedRules.size > 0 && (
+                <>
+                  <span className="text-sm text-gray-500 dark:text-dark-400">
+                    {selectedRules.size} selected
+                  </span>
+                  <div className="flex gap-2 ml-auto">
+                    <button
+                      onClick={() => bulkMutation.mutate({ action: 'enable', ruleIds: Array.from(selectedRules) })}
+                      disabled={bulkMutation.isPending}
+                      className="px-3 py-1.5 text-sm font-medium bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-colors disabled:opacity-50"
+                    >
+                      Enable
+                    </button>
+                    <button
+                      onClick={() => bulkMutation.mutate({ action: 'disable', ruleIds: Array.from(selectedRules) })}
+                      disabled={bulkMutation.isPending}
+                      className="px-3 py-1.5 text-sm font-medium bg-yellow-600/20 text-yellow-400 rounded-lg hover:bg-yellow-600/30 transition-colors disabled:opacity-50"
+                    >
+                      Disable
+                    </button>
+                    <button
+                      onClick={() => bulkMutation.mutate({ action: 'delete', ruleIds: Array.from(selectedRules) })}
+                      disabled={bulkMutation.isPending}
+                      className="px-3 py-1.5 text-sm font-medium bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30 transition-colors disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {rules.map((rule) => (
             <div key={rule.id} className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
@@ -286,12 +321,14 @@ export default function Rules() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedRules.has(rule.id)}
-                        onChange={() => toggleSelectRule(rule.id)}
-                        className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-600 focus:ring-primary-500"
-                      />
+                      {selectionMode && (
+                        <input
+                          type="checkbox"
+                          checked={selectedRules.has(rule.id)}
+                          onChange={() => toggleSelectRule(rule.id)}
+                          className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-600 focus:ring-primary-500"
+                        />
+                      )}
                       <button
                         onClick={() => toggleMutation.mutate(rule.id)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-dark-800 ${
@@ -338,6 +375,16 @@ export default function Rules() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button
+                      onClick={() => {
+                        setEditingRule(rule)
+                        setIsModalOpen(true)
+                      }}
+                      className="inline-flex items-center justify-center p-2 text-sm font-medium text-gray-500 dark:text-dark-400 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 hover:text-gray-700 dark:hover:text-dark-200 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 transition-colors"
+                      title="Edit Rule"
+                    >
+                      <PencilIcon className="w-5 h-5" />
+                    </button>
+                    <button
                       onClick={() => setRuleToDelete(rule)}
                       className="inline-flex items-center justify-center p-2 text-sm font-medium text-red-400 rounded-lg hover:bg-red-500/10 hover:text-red-300 focus:outline-2 focus:outline-offset-2 focus:outline-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
@@ -360,16 +407,24 @@ export default function Rules() {
         </div>
       )}
 
-      {/* Add Rule Modal */}
+      {/* Add/Edit Rule Modal */}
       {isModalOpen && (
         <RuleModal
           onClose={() => {
             setIsModalOpen(false)
             setSelectedTemplate(null)
+            setEditingRule(null)
           }}
-          onSubmit={(data) => createMutation.mutate(data)}
-          isLoading={createMutation.isPending}
+          onSubmit={(data) => {
+            if (editingRule) {
+              updateMutation.mutate({ id: editingRule.id, data })
+            } else {
+              createMutation.mutate(data)
+            }
+          }}
+          isLoading={createMutation.isPending || updateMutation.isPending}
           template={selectedTemplate}
+          existingRule={editingRule}
         />
       )}
 
@@ -398,11 +453,13 @@ function RuleModal({
   onSubmit,
   isLoading,
   template,
+  existingRule,
 }: {
   onClose: () => void
   onSubmit: (data: CleanupRuleCreate) => void
   isLoading: boolean
   template?: RuleTemplate | null
+  existingRule?: CleanupRule | null
 }) {
   // Fetch series options from API
   const { data: seriesOptions } = useQuery({
@@ -413,28 +470,34 @@ function RuleModal({
     },
   })
 
+  // Determine initial values from existing rule, template, or defaults
+  const initialData = existingRule || template
+
   const [formData, setFormData] = useState<CleanupRuleCreate>({
-    name: template?.name || '',
-    description: template?.description || '',
-    is_enabled: true,
-    priority: 0,
-    media_types: template?.media_types || ['movie'],  // Array of media types
+    name: initialData?.name || '',
+    description: initialData?.description || '',
+    is_enabled: existingRule?.is_enabled ?? true,
+    priority: existingRule?.priority ?? 0,
+    media_types: initialData?.media_types || ['movie'],
     conditions: {
-      disk_space_threshold_percent: template?.conditions?.disk_space_threshold_percent || null,
-      not_watched_days: template?.conditions?.not_watched_days || 180,
-      min_age_days: template?.conditions?.min_age_days || 30,
-      exclude_favorited: template?.conditions?.exclude_favorited ?? true,
-      exclude_watched_within_days: template?.conditions?.exclude_watched_within_days || 30,
-      series_evaluation_mode: template?.conditions?.series_evaluation_mode || 'episode',
-      series_delete_target: template?.conditions?.series_delete_target || 'matched_episode',
-      exclude_genres: [],
-      exclude_tags: [],
-      include_tags: [],
-      rating_below: null,
-      max_items_per_run: null,
+      disk_space_threshold_percent: initialData?.conditions?.disk_space_threshold_percent || null,
+      not_watched_days: initialData?.conditions?.not_watched_days || 180,
+      min_age_days: initialData?.conditions?.min_age_days || 30,
+      exclude_favorited: initialData?.conditions?.exclude_favorited ?? true,
+      exclude_watched_within_days: initialData?.conditions?.exclude_watched_within_days || 30,
+      series_evaluation_mode: initialData?.conditions?.series_evaluation_mode || 'episode',
+      series_delete_target: initialData?.conditions?.series_delete_target || 'matched_episode',
+      exclude_genres: initialData?.conditions?.exclude_genres || [],
+      exclude_tags: initialData?.conditions?.exclude_tags || [],
+      include_tags: initialData?.conditions?.include_tags || [],
+      rating_below: initialData?.conditions?.rating_below || null,
+      max_items_per_run: initialData?.conditions?.max_items_per_run || null,
+      watched_progress_below: (initialData?.conditions as any)?.watched_progress_below || null,
+      exclude_recently_added_days: (initialData?.conditions as any)?.exclude_recently_added_days || null,
+      add_import_exclusion: (initialData?.conditions as any)?.add_import_exclusion ?? true,
     },
-    action: template?.action || 'delete',
-    grace_period_days: template?.grace_period_days || 7,
+    action: initialData?.action || 'delete',
+    grace_period_days: existingRule?.grace_period_days ?? template?.grace_period_days ?? 7,
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -447,7 +510,7 @@ function RuleModal({
       <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg w-full max-w-2xl mx-4 my-8">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {template ? `Create Rule from Template` : 'Create Cleanup Rule'}
+            {existingRule ? 'Edit Cleanup Rule' : template ? 'Create Rule from Template' : 'Create Cleanup Rule'}
           </h2>
         </div>
         <form onSubmit={handleSubmit}>
@@ -853,7 +916,7 @@ function RuleModal({
               Cancel
             </button>
             <button type="submit" disabled={isLoading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-900 dark:text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-              {isLoading ? 'Creating...' : 'Create Rule'}
+              {isLoading ? (existingRule ? 'Updating...' : 'Creating...') : (existingRule ? 'Update Rule' : 'Create Rule')}
             </button>
           </div>
         </form>

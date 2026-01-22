@@ -469,3 +469,24 @@ class SystemSettingResponse(BaseModel):
 
 class SystemSettingUpdate(BaseModel):
     value: Any
+
+
+class SystemSettingsResponse(BaseModel):
+    """Full system settings object for the frontend."""
+    id: int = 1
+    cleanup_enabled: bool = True
+    cleanup_schedule: str = "0 3 * * *"
+    sync_schedule: str = "0 * * * *"
+    dry_run_mode: bool = True
+    default_grace_period_days: int = 7
+    max_deletions_per_run: int = 10
+
+
+class SystemSettingsUpdate(BaseModel):
+    """Update multiple system settings at once."""
+    cleanup_enabled: Optional[bool] = None
+    cleanup_schedule: Optional[str] = None
+    sync_schedule: Optional[str] = None
+    dry_run_mode: Optional[bool] = None
+    default_grace_period_days: Optional[int] = None
+    max_deletions_per_run: Optional[int] = None

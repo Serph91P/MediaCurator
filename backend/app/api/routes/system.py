@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from ...core.database import get_db
 from ...core.config import get_settings
 from ...models import MediaItem, CleanupLog, SystemSettings, MediaType
-from ...schemas import SystemStats, HealthCheck, DiskSpaceInfo, SystemSettingResponse, SystemSettingUpdate
+from ...schemas import SystemStats, HealthCheck, DiskSpaceInfo, SystemSettingResponse, SystemSettingUpdate, SystemSettingsResponse, SystemSettingsUpdate
 from ...services.version import version_service
 from ..deps import get_current_user, get_optional_user
 
@@ -169,25 +169,82 @@ async def get_system_stats(
     )
 
 
-@router.get("/settings", response_model=List[SystemSettingResponse])
+# Helper function to get or create a setting
+async def _get_setting_value(db: AsyncSession, key: str, default: Any) -> Any:
+    """Get a setting value from the database or return default."""
+    result = await db.execute(
+        select(SystemSettings).where(SystemSettings.key == key)
+    )
+    setting = result.scalar_one_or_none()
+    if setting:
+        return setting.value
+    return default
+
+
+async def _set_setting_value(db: AsyncSession, key: str, value: Any, description: str = None):
+    """Set a setting value in the database."""
+    result = await db.execute(
+        select(SystemSettings).where(SystemSettings.key == key)
+    )
+    setting = result.scalar_one_or_none()
+    
+    if setting:
+        setting.value = value
+    else:
+        setting = SystemSettings(key=key, value=value, description=description)
+        db.add(setting)
+
+
+@router.get("/settings", response_model=SystemSettingsResponse)
 async def get_system_settings(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all system settings."""
-    result = await db.execute(select(SystemSettings))
-    settings_list = result.scalars().all()
+    """Get all system settings as a single object."""
+    return SystemSettingsResponse(
+        id=1,
+        cleanup_enabled=await _get_setting_value(db, "cleanup_enabled", True),
+        cleanup_schedule=await _get_setting_value(db, "cleanup_schedule", "0 3 * * *"),
+        sync_schedule=await _get_setting_value(db, "sync_schedule", "0 * * * *"),
+        dry_run_mode=await _get_setting_value(db, "dry_run_mode", True),
+        default_grace_period_days=await _get_setting_value(db, "default_grace_period_days", 7),
+        max_deletions_per_run=await _get_setting_value(db, "max_deletions_per_run", 10),
+    )
+
+
+@router.put("/settings", response_model=SystemSettingsResponse)
+async def update_system_settings(
+    settings_data: SystemSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Update multiple system settings at once."""
+    # Update only provided fields
+    if settings_data.cleanup_enabled is not None:
+        await _set_setting_value(db, "cleanup_enabled", settings_data.cleanup_enabled, "Enable automatic cleanup")
+    if settings_data.cleanup_schedule is not None:
+        await _set_setting_value(db, "cleanup_schedule", settings_data.cleanup_schedule, "Cron schedule for cleanup")
+    if settings_data.sync_schedule is not None:
+        await _set_setting_value(db, "sync_schedule", settings_data.sync_schedule, "Cron schedule for sync")
+    if settings_data.dry_run_mode is not None:
+        await _set_setting_value(db, "dry_run_mode", settings_data.dry_run_mode, "Only simulate cleanups without deleting")
+    if settings_data.default_grace_period_days is not None:
+        await _set_setting_value(db, "default_grace_period_days", settings_data.default_grace_period_days, "Default grace period in days")
+    if settings_data.max_deletions_per_run is not None:
+        await _set_setting_value(db, "max_deletions_per_run", settings_data.max_deletions_per_run, "Maximum deletions per cleanup run")
     
-    # Return defaults if no settings exist
-    if not settings_list:
-        return [
-            {"key": "cleanup_enabled", "value": True, "description": "Enable automatic cleanup"},
-            {"key": "cleanup_interval_hours", "value": 24, "description": "Hours between cleanup runs"},
-            {"key": "sync_interval_hours", "value": 6, "description": "Hours between media sync runs"},
-            {"key": "dry_run_mode", "value": False, "description": "Only simulate cleanups without deleting"},
-        ]
+    await db.commit()
     
-    return settings_list
+    # Return updated settings
+    return SystemSettingsResponse(
+        id=1,
+        cleanup_enabled=await _get_setting_value(db, "cleanup_enabled", True),
+        cleanup_schedule=await _get_setting_value(db, "cleanup_schedule", "0 3 * * *"),
+        sync_schedule=await _get_setting_value(db, "sync_schedule", "0 * * * *"),
+        dry_run_mode=await _get_setting_value(db, "dry_run_mode", True),
+        default_grace_period_days=await _get_setting_value(db, "default_grace_period_days", 7),
+        max_deletions_per_run=await _get_setting_value(db, "max_deletions_per_run", 10),
+    )
 
 
 @router.put("/settings/{key}", response_model=SystemSettingResponse)
@@ -197,21 +254,14 @@ async def update_system_setting(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update a system setting."""
-    result = await db.execute(
-        select(SystemSettings).where(SystemSettings.key == key)
-    )
-    setting = result.scalar_one_or_none()
-    
-    if setting:
-        setting.value = setting_data.value
-    else:
-        setting = SystemSettings(key=key, value=setting_data.value)
-        db.add(setting)
-    
+    """Update a single system setting by key."""
+    await _set_setting_value(db, key, setting_data.value)
     await db.commit()
-    await db.refresh(setting)
-    return setting
+    
+    return SystemSettingResponse(
+        key=key,
+        value=await _get_setting_value(db, key, setting_data.value)
+    )
 
 
 @router.post("/cleanup/run")

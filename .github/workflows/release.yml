@@ -125,9 +125,12 @@ jobs:
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
-          args: --latest --strip header
+          # For develop: get unreleased commits since last tag
+          # For tags: get commits for this specific tag
+          args: ${{ github.ref == 'refs/heads/develop' && '--unreleased --strip header' || '--latest --strip header' }}
         env:
           OUTPUT: CHANGELOG.md
+          GIT_CLIFF__GIT__TAG_PATTERN: "v[0-9].*"
 
       - name: Create release notes
         id: notes
@@ -138,14 +141,15 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           # Create release notes with changelog and Docker instructions
-          cat > release_notes.md << 'HEADER'
-          ## What's Changed
+          cat > release_notes.md << EOF
+          ## What's Changed in ${VERSION}
           
-          HEADER
+          EOF
           
-          # Add changelog content
+          # Add changelog content - remove version header line if present (git-cliff adds it)
           if [ -n "$CHANGELOG_CONTENT" ]; then
-            echo "$CHANGELOG_CONTENT" >> release_notes.md
+            # Remove the "## [x.x.x] - date" header line since we already have our own
+            echo "$CHANGELOG_CONTENT" | sed '/^## \[/d' >> release_notes.md
           else
             echo "No changelog entries for this release." >> release_notes.md
           fi

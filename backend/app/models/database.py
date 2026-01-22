@@ -233,6 +233,7 @@ class Library(Base):
     staging_path = Column(String(500), nullable=True)
     staging_grace_period_days = Column(Integer, nullable=True)
     staging_auto_restore = Column(Boolean, nullable=True, default=None)
+    staging_library_name = Column(String(200), nullable=True)  # Custom Emby library name for this library's staging
     
     # Sync tracking
     last_synced_at = Column(DateTime(timezone=True), nullable=True)

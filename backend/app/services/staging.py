@@ -81,6 +81,8 @@ class StagingService:
                 settings['grace_period_days'] = library.staging_grace_period_days
             if library.staging_auto_restore is not None:
                 settings['auto_restore_on_watch'] = library.staging_auto_restore
+            if library.staging_library_name:
+                settings['library_name'] = library.staging_library_name
             # Add library info to settings
             settings['library_id'] = library.id
             settings['library_name_source'] = library.name

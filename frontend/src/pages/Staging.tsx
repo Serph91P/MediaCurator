@@ -41,11 +41,13 @@ interface LibraryStagingSettings {
   staging_path: string | null
   staging_grace_period_days: number | null
   staging_auto_restore: boolean | null
+  staging_library_name: string | null
   uses_custom_settings: boolean
   effective_enabled: boolean
   effective_path: string
   effective_grace_period_days: number
   effective_auto_restore: boolean
+  effective_library_name: string
 }
 
 export default function Staging() {
@@ -640,6 +642,19 @@ export default function Staging() {
                             <option value="false">Disabled</option>
                           </select>
                         </div>
+                        <div>
+                          <label className="block text-sm text-gray-600 dark:text-dark-300 mb-1">Emby Library Name</label>
+                          <input
+                            type="text"
+                            value={libraryForm.staging_library_name ?? ''}
+                            onChange={(e) => setLibraryForm({ ...libraryForm, staging_library_name: e.target.value || null })}
+                            placeholder="Use global name"
+                            className="w-full text-sm px-3 py-1.5 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white"
+                          />
+                          <p className="text-xs text-gray-500 dark:text-dark-500 mt-1">
+                            Name of the staging library in Emby for this library
+                          </p>
+                        </div>
                         <div className="flex gap-2 mt-4">
                           <button
                             onClick={() => updateLibraryMutation.mutate({ libraryId: lib.library_id, data: libraryForm })}
@@ -683,6 +698,10 @@ export default function Staging() {
                               : <span className="text-gray-400 dark:text-dark-500">global</span>
                             }
                           </div>
+                          <div className="text-gray-500 dark:text-dark-400">Emby Library:</div>
+                          <div className="text-gray-700 dark:text-dark-300 truncate" title={lib.effective_library_name}>
+                            {lib.staging_library_name || <span className="text-gray-400 dark:text-dark-500">global</span>}
+                          </div>
                         </div>
                         <button
                           onClick={() => {
@@ -692,6 +711,7 @@ export default function Staging() {
                               staging_path: lib.staging_path,
                               staging_grace_period_days: lib.staging_grace_period_days,
                               staging_auto_restore: lib.staging_auto_restore,
+                              staging_library_name: lib.staging_library_name,
                             })
                           }}
                           className="mt-4 w-full text-sm text-primary-500 hover:text-primary-400 flex items-center justify-center gap-1"

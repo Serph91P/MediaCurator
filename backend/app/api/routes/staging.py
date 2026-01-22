@@ -57,11 +57,13 @@ class LibraryStagingSettingsResponse(BaseModel):
     staging_path: Optional[str] = None
     staging_grace_period_days: Optional[int] = None
     staging_auto_restore: Optional[bool] = None
+    staging_library_name: Optional[str] = None  # Custom Emby library name
     uses_custom_settings: bool
     effective_enabled: bool  # Calculated: library setting or global fallback
     effective_path: str
     effective_grace_period_days: int
     effective_auto_restore: bool
+    effective_library_name: str  # The library name that will be used in Emby
 
 
 class LibraryStagingSettingsUpdate(BaseModel):
@@ -69,6 +71,7 @@ class LibraryStagingSettingsUpdate(BaseModel):
     staging_path: Optional[str] = None
     staging_grace_period_days: Optional[int] = Field(None, ge=1, le=365)
     staging_auto_restore: Optional[bool] = None
+    staging_library_name: Optional[str] = None
 
 
 class StagingSettingsUpdate(BaseModel):
@@ -379,7 +382,8 @@ async def get_library_staging_settings(
             lib.staging_enabled is not None or 
             lib.staging_path is not None or
             lib.staging_grace_period_days is not None or
-            lib.staging_auto_restore is not None
+            lib.staging_auto_restore is not None or
+            lib.staging_library_name is not None
         )
         
         library_settings.append(LibraryStagingSettingsResponse(
@@ -389,11 +393,13 @@ async def get_library_staging_settings(
             staging_path=lib.staging_path,
             staging_grace_period_days=lib.staging_grace_period_days,
             staging_auto_restore=lib.staging_auto_restore,
+            staging_library_name=lib.staging_library_name,
             uses_custom_settings=uses_custom,
             effective_enabled=effective_settings['enabled'],
             effective_path=effective_settings['staging_path'],
             effective_grace_period_days=effective_settings['grace_period_days'],
-            effective_auto_restore=effective_settings['auto_restore_on_watch']
+            effective_auto_restore=effective_settings['auto_restore_on_watch'],
+            effective_library_name=effective_settings['library_name']
         ))
     
     return library_settings
@@ -420,7 +426,8 @@ async def get_library_staging_setting(
         library.staging_enabled is not None or 
         library.staging_path is not None or
         library.staging_grace_period_days is not None or
-        library.staging_auto_restore is not None
+        library.staging_auto_restore is not None or
+        library.staging_library_name is not None
     )
     
     return LibraryStagingSettingsResponse(
@@ -430,11 +437,13 @@ async def get_library_staging_setting(
         staging_path=library.staging_path,
         staging_grace_period_days=library.staging_grace_period_days,
         staging_auto_restore=library.staging_auto_restore,
+        staging_library_name=library.staging_library_name,
         uses_custom_settings=uses_custom,
         effective_enabled=effective_settings['enabled'],
         effective_path=effective_settings['staging_path'],
         effective_grace_period_days=effective_settings['grace_period_days'],
-        effective_auto_restore=effective_settings['auto_restore_on_watch']
+        effective_auto_restore=effective_settings['auto_restore_on_watch'],
+        effective_library_name=effective_settings['library_name']
     )
 
 
@@ -468,7 +477,8 @@ async def update_library_staging_settings(
         library.staging_enabled is not None or 
         library.staging_path is not None or
         library.staging_grace_period_days is not None or
-        library.staging_auto_restore is not None
+        library.staging_auto_restore is not None or
+        library.staging_library_name is not None
     )
     
     return LibraryStagingSettingsResponse(
@@ -478,11 +488,13 @@ async def update_library_staging_settings(
         staging_path=library.staging_path,
         staging_grace_period_days=library.staging_grace_period_days,
         staging_auto_restore=library.staging_auto_restore,
+        staging_library_name=library.staging_library_name,
         uses_custom_settings=uses_custom,
         effective_enabled=effective_settings['enabled'],
         effective_path=effective_settings['staging_path'],
         effective_grace_period_days=effective_settings['grace_period_days'],
-        effective_auto_restore=effective_settings['auto_restore_on_watch']
+        effective_auto_restore=effective_settings['auto_restore_on_watch'],
+        effective_library_name=effective_settings['library_name']
     )
 
 
@@ -506,6 +518,7 @@ async def reset_library_staging_settings(
     library.staging_path = None
     library.staging_grace_period_days = None
     library.staging_auto_restore = None
+    library.staging_library_name = None
     
     await db.commit()
     

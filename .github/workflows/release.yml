@@ -131,72 +131,71 @@ jobs:
 
       - name: Create release notes
         id: notes
+        env:
+          CHANGELOG_CONTENT: ${{ steps.changelog.outputs.content }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.repository }}
         run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
-          IS_PRERELEASE="${{ needs.prepare.outputs.is_prerelease }}"
+          # Create release notes with changelog and Docker instructions
+          cat > release_notes.md << 'HEADER'
+          ## What's Changed
           
-          # Create release notes with Docker instructions
-          cat > release_notes.md << 'EOF'
-          ${{ steps.changelog.outputs.content }}
-
-          ## Docker Images
-
+          HEADER
+          
+          # Add changelog content
+          if [ -n "$CHANGELOG_CONTENT" ]; then
+            echo "$CHANGELOG_CONTENT" >> release_notes.md
+          else
+            echo "No changelog entries for this release." >> release_notes.md
+          fi
+          
+          # Add Docker information
+          cat >> release_notes.md << EOF
+          
+          ---
+          
+          ## 🐳 Docker Images
+          
           This release is available as multi-architecture Docker images (amd64, arm64):
-
+          
           ### Pull the image:
-          ```bash
+          \`\`\`bash
           # Specific version
-          docker pull ghcr.io/${{ github.repository_owner }}/mediacurator:${VERSION}
+          docker pull ghcr.io/${REPO_OWNER}/mediacurator:${VERSION}
           
           # Or latest stable (main branch)
-          docker pull ghcr.io/${{ github.repository_owner }}/mediacurator:latest
+          docker pull ghcr.io/${REPO_OWNER}/mediacurator:latest
           
           # Or development (develop branch)
-          docker pull ghcr.io/${{ github.repository_owner }}/mediacurator:dev
-          ```
-
-          ### Run with Docker:
-          ```bash
-          docker run -d \
-            --name mediacurator \
-            -p 8080:8080 \
-            -v $(pwd)/data:/app/data \
-            -e SECRET_KEY=your-secret-key \
-            ghcr.io/${{ github.repository_owner }}/mediacurator:${VERSION}
-          ```
-
+          docker pull ghcr.io/${REPO_OWNER}/mediacurator:dev
+          \`\`\`
+          
           ### Run with Docker Compose:
-          ```bash
+          \`\`\`bash
           # Download docker-compose.yml
-          curl -O https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
+          curl -O https://raw.githubusercontent.com/${REPO}/main/docker-compose.yml
           
           # Start services
           docker compose up -d
-          ```
-
-          ## Registry Information
-
-          - **Registry**: GitHub Container Registry (ghcr.io)
-          - **Image**: `ghcr.io/${{ github.repository_owner }}/mediacurator`
-          - **Version**: `${VERSION}`
-          - **Architectures**: linux/amd64, linux/arm64
-          - **Base Image**: Python 3.14-slim (backend), Node 24-alpine (frontend build)
-
-          ## Configuration
-
-          See the [README.md](https://github.com/${{ github.repository }}/blob/main/README.md) for full configuration options.
-
-          ### Required Environment Variables:
-          - `SECRET_KEY` - Your secret key for JWT tokens (generate with `openssl rand -hex 32`)
-          - `DATABASE_URL` - PostgreSQL connection string
-
-          ### Optional Configuration:
-          - Media server URLs (Emby, Jellyfin)
-          - Sonarr/Radarr API endpoints
-          - Notification webhooks (Discord, Slack, etc.)
+          \`\`\`
+          
+          ## 📦 Registry Information
+          
+          | Property | Value |
+          |----------|-------|
+          | Registry | GitHub Container Registry (ghcr.io) |
+          | Image | \`ghcr.io/${REPO_OWNER}/mediacurator\` |
+          | Version | \`${VERSION}\` |
+          | Architectures | linux/amd64, linux/arm64 |
+          
+          ## 📖 Documentation
+          
+          See the [README.md](https://github.com/${REPO}/blob/main/README.md) for full configuration options.
           EOF
           
-          echo "Release notes created"
+          echo "Release notes created with changelog"
+          cat release_notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   FilmIcon, 
@@ -7,7 +8,9 @@ import {
   TrashIcon,
   CircleStackIcon,
   ServerStackIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  EyeIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import { formatBytes, formatDateTime } from '../lib/utils'
@@ -87,6 +90,7 @@ function DiskUsageBar({
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -385,7 +389,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2">
                           <h3 className="font-medium text-gray-900 dark:text-white truncate">{item.title}</h3>
                           {item.is_favorited && (
-                            <span className="text-yellow-400 text-xs">★</span>
+                            <span className="text-yellow-400 text-xs font-bold">Fav</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
@@ -393,7 +397,7 @@ export default function Dashboard() {
                             {item.media_type}
                           </span>
                           {item.rating && (
-                            <span className="text-xs text-gray-500 dark:text-dark-400">⭐ {item.rating.toFixed(1)}</span>
+                            <span className="text-xs text-gray-500 dark:text-dark-400">{item.rating.toFixed(1)}</span>
                           )}
                         </div>
                       </div>
@@ -468,12 +472,12 @@ export default function Dashboard() {
             <div className="space-y-3">
               {recentActivity.logs.slice(0, 8).map((log: any) => (
                 <div key={log.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-dark-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors">
-                  <div className={`mt-0.5 font-bold ${
+                  <div className={`mt-0.5 text-xs font-bold uppercase ${
                     log.status === 'success' ? 'text-green-400' :
                     log.status === 'failed' ? 'text-red-400' :
                     'text-yellow-400'
                   }`}>
-                    {log.status === 'success' ? '✓' : log.status === 'failed' ? '✗' : '○'}
+                    {log.status === 'success' ? 'OK' : log.status === 'failed' ? 'ERR' : 'SKIP'}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -504,48 +508,60 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Quick Actions */}
-      <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Quick Actions</h2>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button
-              onClick={() => syncMutation.mutate()}
-              disabled={syncMutation.isPending}
-              className="inline-flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-dark-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <ArrowPathIcon className={`w-5 h-5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-              {syncMutation.isPending ? 'Syncing...' : 'Sync All Services'}
-            </button>
-            <button
-              onClick={() => previewCleanupMutation.mutate()}
-              disabled={previewCleanupMutation.isPending}
-              className="inline-flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-dark-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {previewCleanupMutation.isPending ? (
-                <ArrowPathIcon className="w-5 h-5 animate-spin" />
-              ) : (
-                <ExclamationTriangleIcon className="w-5 h-5" />
-              )}
-              {previewCleanupMutation.isPending ? 'Running Preview...' : 'Preview Cleanup'}
-            </button>
-            <button
-              onClick={() => runCleanupMutation.mutate()}
-              disabled={runCleanupMutation.isPending}
-              className="inline-flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-dark-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {runCleanupMutation.isPending ? (
-                <ArrowPathIcon className="w-5 h-5 animate-spin" />
-              ) : (
-                <TrashIcon className="w-5 h-5" />
-              )}
-              {runCleanupMutation.isPending ? 'Cleaning...' : 'Run Cleanup Now'}
-            </button>
+      {/* Quick Actions - Fixed at Bottom */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-dark-900/95 backdrop-blur-sm border-t border-gray-200 dark:border-dark-700 shadow-lg z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-gray-600 dark:text-dark-400 hidden sm:block">Quick Actions</h2>
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-end">
+              <button
+                onClick={() => {
+                  syncMutation.mutate()
+                  navigate('/services')
+                }}
+                disabled={syncMutation.isPending}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-dark-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ArrowPathIcon className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                <span className="hidden xs:inline">{syncMutation.isPending ? 'Syncing...' : 'Sync All'}</span>
+                <span className="xs:hidden">{syncMutation.isPending ? '...' : 'Sync'}</span>
+              </button>
+              <button
+                onClick={() => {
+                  previewCleanupMutation.mutate()
+                  navigate('/preview')
+                }}
+                disabled={previewCleanupMutation.isPending}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-dark-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {previewCleanupMutation.isPending ? (
+                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                ) : (
+                  <EyeIcon className="w-4 h-4" />
+                )}
+                <span className="hidden xs:inline">{previewCleanupMutation.isPending ? 'Running...' : 'Preview'}</span>
+                <span className="xs:hidden">{previewCleanupMutation.isPending ? '...' : 'Preview'}</span>
+              </button>
+              <button
+                onClick={() => runCleanupMutation.mutate()}
+                disabled={runCleanupMutation.isPending}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-dark-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {runCleanupMutation.isPending ? (
+                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                ) : (
+                  <TrashIcon className="w-4 h-4" />
+                )}
+                <span className="hidden xs:inline">{runCleanupMutation.isPending ? 'Cleaning...' : 'Run Cleanup'}</span>
+                <span className="xs:hidden">{runCleanupMutation.isPending ? '...' : 'Cleanup'}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
+      
+      {/* Spacer to prevent content from being hidden behind fixed bar */}
+      <div className="h-20"></div>
     </div>
   )
 }

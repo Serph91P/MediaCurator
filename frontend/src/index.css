@@ -45,9 +45,15 @@ body {
 button,
 a,
 [role="button"] {
-  min-height: 44px; /* iOS/Android recommended tap target */
-  min-width: 44px;
   touch-action: manipulation;
+}
+
+/* Toggle switch buttons - must override min-height */
+/* Matches buttons with h-6 w-11 classes (toggle switches) */
+button.h-6,
+button.w-11 {
+  min-height: 1.5rem !important; /* 24px - h-6 */
+  min-width: auto !important;
 }
 
 /* Improve form inputs on mobile */

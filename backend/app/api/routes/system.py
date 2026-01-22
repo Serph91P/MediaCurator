@@ -35,6 +35,7 @@ class VersionInfo(BaseModel):
 class UpdateInfo(BaseModel):
     """Update check response."""
     update_available: bool
+    latest_version: str | None
     latest_commit: str | None
     commits_behind: int
     error: str | None
@@ -56,6 +57,7 @@ async def check_for_updates():
     
     return UpdateInfo(
         update_available=update_info.get("update_available", False),
+        latest_version=update_info.get("latest_version"),
         latest_commit=update_info.get("latest_commit"),
         commits_behind=update_info.get("commits_behind", 0),
         error=update_info.get("error"),

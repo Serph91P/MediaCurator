@@ -1,4 +1,4 @@
-# MediaCleanup App - Development Status
+# MediaMediaCurator - Development Status
 
 **Last Updated**: Session vom 30.12.2024
 **Branch**: `develop`
@@ -85,7 +85,7 @@ The theme system uses Tailwind v4's `@custom-variant` feature for manual toggle.
 
 ---
 
-**Note**: The repository has been renamed from `cleanup-app` to `MediaCleanup`. Update your remotes if needed:
+**Note**: The repository has been renamed from `MediaCurator` to `MediaCleanup`. Update your remotes if needed:
 ```bash
 git remote set-url origin https://github.com/Serph91P/MediaCleanup.git
 ```

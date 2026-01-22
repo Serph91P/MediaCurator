@@ -206,6 +206,7 @@ class VersionService:
         git_info = self.get_git_info()
         update_info = {
             "update_available": False,
+            "latest_version": None,
             "latest_commit": None,
             "commits_behind": 0,
             "error": None
@@ -238,6 +239,29 @@ class VersionService:
                     "Accept": "application/vnd.github.v3+json",
                     "User-Agent": "MediaCleanup-UpdateChecker"
                 }
+                
+                # First, try to get the latest release/tag for this branch
+                is_dev_branch = branch in ("develop", "dev")
+                if is_dev_branch:
+                    # For dev branch, get latest pre-release or dev tag
+                    releases_url = f"https://api.github.com/repos/{owner}/{repo}/releases"
+                    async with session.get(releases_url, headers=headers, timeout=10) as releases_response:
+                        if releases_response.status == 200:
+                            releases = await releases_response.json()
+                            for release in releases:
+                                tag_name = release.get("tag_name", "")
+                                # Look for dev releases (vdev.x.x.x or dev.x.x.x)
+                                if "dev" in tag_name.lower():
+                                    update_info["latest_version"] = tag_name.lstrip("v")
+                                    break
+                else:
+                    # For main/master, get latest stable release
+                    releases_url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
+                    async with session.get(releases_url, headers=headers, timeout=10) as releases_response:
+                        if releases_response.status == 200:
+                            release = await releases_response.json()
+                            tag_name = release.get("tag_name", "")
+                            update_info["latest_version"] = tag_name.lstrip("v")
                 
                 async with session.get(api_url, headers=headers, timeout=10) as response:
                     if response.status == 200:

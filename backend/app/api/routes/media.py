@@ -219,23 +219,42 @@ async def get_watch_stats(
 ):
     """Get watch statistics (most watched items, recently watched, etc.)."""
     
-    # Most watched items (include items with watch_count > 0 OR marked as watched)
+    # Most watched items - prioritize items with actual watch counts
     from sqlalchemy.orm import joinedload
+    from sqlalchemy import case
+    
+    # First try to get items with actual watch counts > 0
     most_watched_result = await db.execute(
         select(MediaItem)
         .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
-        .where(or_(MediaItem.watch_count > 0, MediaItem.is_watched == True))
-        .order_by(MediaItem.watch_count.desc(), MediaItem.last_watched_at.desc())
+        .where(MediaItem.watch_count > 0)
+        .order_by(MediaItem.watch_count.desc(), MediaItem.last_watched_at.desc().nullslast())
         .limit(limit)
     )
     most_watched = most_watched_result.scalars().all()
+    
+    # If no items with watch_count, fall back to items marked as watched with last_watched_at
+    if not most_watched:
+        most_watched_result = await db.execute(
+            select(MediaItem)
+            .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
+            .where(
+                and_(
+                    MediaItem.is_watched == True,
+                    MediaItem.last_watched_at.isnot(None)
+                )
+            )
+            .order_by(MediaItem.last_watched_at.desc())
+            .limit(limit)
+        )
+        most_watched = most_watched_result.scalars().all()
 
-    # Recently watched items (prefer items with last_watched_at, fall back to is_watched)
+    # Recently watched items - only show items with actual last_watched_at date
     recently_watched_result = await db.execute(
         select(MediaItem)
         .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
-        .where(or_(MediaItem.last_watched_at.isnot(None), MediaItem.is_watched == True))
-        .order_by(MediaItem.last_watched_at.desc().nullslast())
+        .where(MediaItem.last_watched_at.isnot(None))
+        .order_by(MediaItem.last_watched_at.desc())
         .limit(limit)
     )
     recently_watched = recently_watched_result.scalars().all()

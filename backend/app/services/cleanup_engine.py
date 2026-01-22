@@ -2,7 +2,7 @@
 Cleanup engine - evaluates rules and performs cleanup actions.
 """
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime as dt, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
 from loguru import logger
@@ -75,8 +75,7 @@ class CleanupEngine:
             # Skip items watched recently (within last X days)
             if conditions.exclude_watched_within_days is not None:
                 if item.last_watched:
-                    from datetime import datetime, timedelta, timezone
-                    cutoff_date = datetime.now(timezone.utc) - timedelta(days=conditions.exclude_watched_within_days)
+                    cutoff_date = dt.now(timezone.utc) - timedelta(days=conditions.exclude_watched_within_days)
                     if item.last_watched >= cutoff_date:
                         logger.debug(f"Skipping {item.title} - watched within last {conditions.exclude_watched_within_days} days")
                         continue
@@ -92,25 +91,25 @@ class CleanupEngine:
             
             # Skip recently added items
             if conditions.exclude_recently_added_days and item.added_at:
-                days_since_added = (datetime.utcnow() - item.added_at).days
+                days_since_added = (dt.utcnow() - item.added_at).days
                 if days_since_added < conditions.exclude_recently_added_days:
                     continue
             
             # Check not watched days
             if conditions.not_watched_days:
                 if item.last_watched_at:
-                    days_since_watched = (datetime.utcnow() - item.last_watched_at).days
+                    days_since_watched = (dt.utcnow() - item.last_watched_at).days
                     if days_since_watched < conditions.not_watched_days:
                         continue
                 elif item.added_at:
                     # Never watched - use added date
-                    days_since_added = (datetime.utcnow() - item.added_at).days
+                    days_since_added = (dt.utcnow() - item.added_at).days
                     if days_since_added < conditions.not_watched_days:
                         continue
             
             # Check minimum age
             if conditions.min_age_days and item.added_at:
-                days_since_added = (datetime.utcnow() - item.added_at).days
+                days_since_added = (dt.utcnow() - item.added_at).days
                 if days_since_added < conditions.min_age_days:
                     continue
             
@@ -142,7 +141,7 @@ class CleanupEngine:
         # Apply max items limit
         if conditions.max_items_per_run and len(matched_items) > conditions.max_items_per_run:
             # Sort by oldest last watched
-            matched_items.sort(key=lambda x: x.last_watched_at or datetime.min)
+            matched_items.sort(key=lambda x: x.last_watched_at or dt.min)
             matched_items = matched_items[:conditions.max_items_per_run]
         
         return matched_items
@@ -154,7 +153,7 @@ class CleanupEngine:
     ) -> int:
         """Flag items for cleanup with grace period."""
         flagged_count = 0
-        now = datetime.utcnow()
+        now = dt.utcnow()
         scheduled_at = now + timedelta(days=rule.grace_period_days)
         
         for item in items:
@@ -285,7 +284,7 @@ class CleanupEngine:
     
     async def run_scheduled_cleanups(self) -> Dict[str, Any]:
         """Run scheduled cleanups for flagged items past their grace period."""
-        now = datetime.utcnow()
+        now = dt.utcnow()
         
         # Get items due for cleanup
         result = await self.db.execute(
@@ -494,9 +493,8 @@ class CleanupEngine:
         # Check if watched recently (within last X days)
         if conditions.exclude_watched_within_days is not None:
             if item.last_watched_at:
-                from datetime import datetime, timedelta, timezone
-                cutoff_date = datetime.now(timezone.utc) - timedelta(days=conditions.exclude_watched_within_days)
-                if item.last_watched_at_at >= cutoff_date:
+                cutoff_date = dt.now(timezone.utc) - timedelta(days=conditions.exclude_watched_within_days)
+                if item.last_watched_at >= cutoff_date:
                     result["would_delete"] = False
                     result["skip_reasons"].append(
                         f"Watched within last {conditions.exclude_watched_within_days} days (last watched: {item.last_watched_at.strftime('%Y-%m-%d')})"
@@ -520,7 +518,7 @@ class CleanupEngine:
         
         # Check recently added
         if getattr(conditions, 'exclude_recently_added_days', None) and item.added_at:
-            days_since_added = (datetime.utcnow() - item.added_at).days
+            days_since_added = (dt.utcnow() - item.added_at).days
             if days_since_added < conditions.exclude_recently_added_days:
                 result["would_delete"] = False
                 result["skip_reasons"].append(
@@ -531,7 +529,7 @@ class CleanupEngine:
         # Check not watched days
         if conditions.not_watched_days:
             if item.last_watched_at:
-                days_since_watched = (datetime.utcnow() - item.last_watched_at).days
+                days_since_watched = (dt.utcnow() - item.last_watched_at).days
                 if days_since_watched < conditions.not_watched_days:
                     result["would_delete"] = False
                     result["skip_reasons"].append(
@@ -543,7 +541,7 @@ class CleanupEngine:
                         f"Not watched for {days_since_watched} days (threshold: {conditions.not_watched_days} days)"
                     )
             elif item.added_at:
-                days_since_added = (datetime.utcnow() - item.added_at).days
+                days_since_added = (dt.utcnow() - item.added_at).days
                 if days_since_added < conditions.not_watched_days:
                     result["would_delete"] = False
                     result["skip_reasons"].append(
@@ -557,7 +555,7 @@ class CleanupEngine:
         
         # Check minimum age
         if conditions.min_age_days and item.added_at:
-            days_since_added = (datetime.utcnow() - item.added_at).days
+            days_since_added = (dt.utcnow() - item.added_at).days
             if days_since_added < conditions.min_age_days:
                 result["would_delete"] = False
                 result["skip_reasons"].append(

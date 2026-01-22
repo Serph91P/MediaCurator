@@ -70,7 +70,7 @@ DEFAULT_TEMPLATES = {
     },
     NotificationEventType.TEST: {
         "title": "🧪 Test Notification",
-        "message": "This is a test notification from MediaCleaner"
+        "message": "This is a test notification from MediaCurator"
     }
 }
 
@@ -336,7 +336,7 @@ class NotificationService:
         if channel.title_template:
             return TemplateRenderer.render(channel.title_template, context)
         
-        default = DEFAULT_TEMPLATES.get(event_type, {}).get("title", "MediaCleaner Notification")
+        default = DEFAULT_TEMPLATES.get(event_type, {}).get("title", "MediaCurator Notification")
         return TemplateRenderer.render(default, context)
     
     def _get_rendered_message(
@@ -375,7 +375,7 @@ class NotificationService:
             "title": title,
             "description": message,
             "color": color,
-            "footer": {"text": "MediaCleaner"},
+            "footer": {"text": "MediaCurator"},
             "timestamp": datetime.now().isoformat()
         }
         
@@ -444,7 +444,7 @@ class NotificationService:
         payload = {
             "title": title,
             "message": message,
-            "source": "MediaCleaner",
+            "source": "MediaCurator",
             "timestamp": datetime.now().isoformat(),
             **{k: v for k, v in kwargs.items() if k not in ["fields"]}
         }

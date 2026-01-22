@@ -61,12 +61,12 @@ ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 
 # Metadata labels
-LABEL org.opencontainers.image.title="MediaCleaner" \
+LABEL org.opencontainers.image.title="MediaCurator" \
       org.opencontainers.image.description="Automated media library cleanup and management" \
-      org.opencontainers.image.source="https://github.com/Serph91P/cleanup-app" \
+      org.opencontainers.image.source="https://github.com/Serph91P/MediaCurator" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.vendor="MediaCleaner" \
-      org.opencontainers.image.documentation="https://github.com/Serph91P/cleanup-app#readme" \
+      org.opencontainers.image.vendor="MediaCurator" \
+      org.opencontainers.image.documentation="https://github.com/Serph91P/MediaCurator#readme" \
       org.opencontainers.image.version="${VERSION}"
 
 # Install only runtime dependencies

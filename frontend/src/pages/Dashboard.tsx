@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   FilmIcon, 
   TvIcon, 
@@ -6,10 +6,12 @@ import {
   ExclamationTriangleIcon,
   TrashIcon,
   CircleStackIcon,
-  ServerStackIcon
+  ServerStackIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import { formatBytes, formatDateTime } from '../lib/utils'
+import toast from 'react-hot-toast'
 import type { SystemStats, MediaStats } from '../types'
 
 function StatCard({ 
@@ -85,6 +87,8 @@ function DiskUsageBar({
 }
 
 export default function Dashboard() {
+  const queryClient = useQueryClient()
+  
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['systemStats'],
     queryFn: async () => {
@@ -124,6 +128,59 @@ export default function Dashboard() {
       return res.data
     },
     refetchInterval: 30000,
+  })
+
+  // Mutations for Quick Actions
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/system/sync/run')
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast.success(`Sync completed! ${data.message || 'All services synced.'}`)
+      queryClient.invalidateQueries({ queryKey: ['mediaStats'] })
+      queryClient.invalidateQueries({ queryKey: ['importStats'] })
+      queryClient.invalidateQueries({ queryKey: ['watchStats'] })
+      queryClient.invalidateQueries({ queryKey: ['systemStats'] })
+    },
+    onError: () => toast.error('Sync failed. Check the logs for details.'),
+  })
+
+  const previewCleanupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/system/cleanup/run', null, { params: { dry_run: true } })
+      return res.data
+    },
+    onSuccess: (data) => {
+      const message = data.items_evaluated 
+        ? `Preview complete: ${data.items_to_delete || 0} items would be deleted`
+        : 'Preview complete. Check the Preview page for results.'
+      toast.success(message)
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.detail || 'Preview cleanup failed. Check the logs.'
+      toast.error(message)
+    },
+  })
+
+  const runCleanupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/system/cleanup/run')
+      return res.data
+    },
+    onSuccess: (data) => {
+      const message = data.deleted_count 
+        ? `Cleanup complete! ${data.deleted_count} items deleted.`
+        : 'Cleanup complete.'
+      toast.success(message)
+      queryClient.invalidateQueries({ queryKey: ['mediaStats'] })
+      queryClient.invalidateQueries({ queryKey: ['systemStats'] })
+      queryClient.invalidateQueries({ queryKey: ['recentActivity'] })
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.detail || 'Cleanup failed. Check the logs.'
+      toast.error(message)
+    },
   })
 
   const isLoading = statsLoading || mediaLoading
@@ -455,31 +512,36 @@ export default function Dashboard() {
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
-              onClick={async () => {
-                await api.post('/system/sync/run')
-              }}
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
               className="inline-flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-dark-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <PlayIcon className="w-5 h-5" />
-              Sync All Services
+              <ArrowPathIcon className={`w-5 h-5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+              {syncMutation.isPending ? 'Syncing...' : 'Sync All Services'}
             </button>
             <button
-              onClick={async () => {
-                await api.post('/system/cleanup/run', null, { params: { dry_run: true } })
-              }}
+              onClick={() => previewCleanupMutation.mutate()}
+              disabled={previewCleanupMutation.isPending}
               className="inline-flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-dark-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <ExclamationTriangleIcon className="w-5 h-5" />
-              Preview Cleanup
+              {previewCleanupMutation.isPending ? (
+                <ArrowPathIcon className="w-5 h-5 animate-spin" />
+              ) : (
+                <ExclamationTriangleIcon className="w-5 h-5" />
+              )}
+              {previewCleanupMutation.isPending ? 'Running Preview...' : 'Preview Cleanup'}
             </button>
             <button
-              onClick={async () => {
-                await api.post('/system/cleanup/run')
-              }}
+              onClick={() => runCleanupMutation.mutate()}
+              disabled={runCleanupMutation.isPending}
               className="inline-flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-dark-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <TrashIcon className="w-5 h-5" />
-              Run Cleanup Now
+              {runCleanupMutation.isPending ? (
+                <ArrowPathIcon className="w-5 h-5 animate-spin" />
+              ) : (
+                <TrashIcon className="w-5 h-5" />
+              )}
+              {runCleanupMutation.isPending ? 'Cleaning...' : 'Run Cleanup Now'}
             </button>
           </div>
         </div>

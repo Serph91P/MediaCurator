@@ -79,6 +79,7 @@ export default function Layout() {
       const res = await api.get('/system/check-updates')
       return res.data as {
         update_available: boolean
+        latest_version: string | null
         latest_commit: string | null
         commits_behind: number
         error: string | null
@@ -115,7 +116,7 @@ export default function Layout() {
             {(!sidebarCollapsed || sidebarOpen) && (
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-bold text-gray-900 dark:text-white">MediaCleaner</h1>
+                  <h1 className="text-lg font-bold text-gray-900 dark:text-white">MediaCurator</h1>
                   {updateData?.update_available && (
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
@@ -235,7 +236,7 @@ export default function Layout() {
           >
             <Bars3Icon className="w-6 h-6" />
           </button>
-          <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">MediaCleaner</h1>
+          <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">MediaCurator</h1>
           <div className="w-11 sm:w-10" /> {/* Spacer for centering */}
         </div>
 
@@ -257,12 +258,12 @@ export default function Layout() {
                     )}
                   </p>
                   <p className="text-xs text-primary-100">
-                    Aktuelle Version: {updateData.current_commit} → Neueste: {updateData.latest_commit}
+                    Aktuelle Version: {updateData.current_version || updateData.current_commit} → Neueste: {updateData.latest_version || updateData.latest_commit}
                   </p>
                 </div>
               </div>
               <a
-                href={`https://github.com/${healthData?.version?.includes('github.com') ? '' : 'Serph91P/MediaCleanup'}/commits`}
+                href="https://github.com/Serph91P/MediaCurator/releases"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white text-primary-600 rounded-lg hover:bg-primary-50 transition-colors"

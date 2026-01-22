@@ -27,8 +27,8 @@ services:
       # Security - IMPORTANT: Change this in production!
       - SECRET_KEY=${SECRET_KEY:-please-change-this-secret-key-in-production}
       
-      # Database
-      - DATABASE_URL=sqlite+aiosqlite:////data/mediacurator.db
+      # Database - stored in /app/config (separate from media paths)
+      - DATABASE_URL=sqlite+aiosqlite:////app/config/mediacurator.db
       
       # Optional: Pre-create admin user (useful for automated deployments)
       # If not set, first registered user via web UI becomes admin automatically
@@ -39,8 +39,8 @@ services:
       # - DEBUG=false
     
     volumes:
-      # Application data (database, config) - using named volume
-      - mediacurator_data:/data
+      # Application data (database, config) - separate from media paths
+      - mediacurator_config:/app/config
       
       # Application logs - using named volume
       - mediacurator_logs:/app/logs
@@ -94,7 +94,7 @@ services:
           memory: 256M
 
 volumes:
-  mediacurator_data:
+  mediacurator_config:
     driver: local
   mediacurator_logs:
     driver: local

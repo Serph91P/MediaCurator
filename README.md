@@ -147,7 +147,7 @@ Das Projekt nutzt [Semantic Versioning](https://semver.org/):
 |----------|-------------|---------|
 | `TZ` | Timezone for scheduling | `UTC` |
 | `SECRET_KEY` | JWT signing key (change in production!) | - |
-| `DATABASE_URL` | Database connection string | `sqlite+aiosqlite:////data/mediacurator.db` |
+| `DATABASE_URL` | Database connection string | `sqlite+aiosqlite:////app/config/mediacurator.db` |
 | `INITIAL_ADMIN_USER` | Pre-create admin user (optional) | - |
 | `INITIAL_ADMIN_PASSWORD` | Password for pre-created admin (optional) | - |
 | `DEBUG` | Enable debug logging | `false` |
@@ -156,11 +156,11 @@ Das Projekt nutzt [Semantic Versioning](https://semver.org/):
 
 | Path | Description | Type |
 |------|-------------|------|
-| `mediacurator_data` → `/data` | Database and persistent data | Named volume |
+| `mediacurator_config` → `/app/config` | Database and persistent data | Named volume |
 | `mediacurator_logs` → `/app/logs` | Application logs | Named volume |
 | `/media` | Media files (read-only recommended) | Bind mount |
 
-Note: Named volumes are used for application data and logs, managed automatically by Docker. For development, use bind mounts via `docker-compose.dev.yml`.
+Note: Named volumes are used for application data and logs, managed automatically by Docker. The config volume is separate from media paths to avoid conflicts with Emby/Jellyfin mounts.
 
 ### Media Path Mapping (Critical!)
 

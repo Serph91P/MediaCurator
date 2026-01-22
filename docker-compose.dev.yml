@@ -23,8 +23,8 @@ services:
       # Security (dev key - not for production!)
       - SECRET_KEY=dev-secret-key-change-for-production
       
-      # Database
-      - DATABASE_URL=sqlite+aiosqlite:////data/mediacurator.db
+      # Database - stored in /app/config (separate from media paths)
+      - DATABASE_URL=sqlite+aiosqlite:////app/config/mediacurator.db
       
       # Development settings
       - DEBUG=true
@@ -41,8 +41,8 @@ services:
       # Git directory for version info (read-only)
       - ./.git:/app/.git:ro
       
-      # Application data - using named volume
-      - mediacurator_dev_data:/data
+      # Application data (database, config) - separate from media paths
+      - mediacurator_dev_config:/app/config
       
       # Application logs - using named volume
       - mediacurator_dev_logs:/app/logs
@@ -66,7 +66,7 @@ services:
           memory: 512M
 
 volumes:
-  mediacurator_dev_data:
+  mediacurator_dev_config:
     driver: local
   mediacurator_dev_logs:
     driver: local

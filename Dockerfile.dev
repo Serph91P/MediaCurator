@@ -29,7 +29,7 @@ WORKDIR /app
 
 # Create volume mount points and set ownership
 # Note: Actual volumes will be mounted here and permissions fixed at runtime
-RUN mkdir -p /app/data /app/logs /data && \
+RUN mkdir -p /app/config /app/logs /data && \
     chown -R appuser:appuser /app /data
 
 # Environment

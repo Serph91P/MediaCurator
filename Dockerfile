@@ -109,14 +109,14 @@ COPY --from=frontend-builder --chown=appuser:appuser /app/frontend/dist ./static
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # Create application directories with correct permissions
-RUN mkdir -p /app/data /app/logs /data /media && \
+RUN mkdir -p /app/config /app/logs /data /media && \
     chown -R appuser:appuser /app /data
 
 # Application configuration
 ENV APP_ENV=production \
-    DATA_PATH=/data \
+    CONFIG_PATH=/app/config \
     MEDIA_PATH=/media \
-    DATABASE_URL=sqlite+aiosqlite:///./data/mediacleanup.db \
+    DATABASE_URL=sqlite+aiosqlite:////app/config/mediacurator.db \
     TZ=UTC \
     WORKERS=1 \
     VERSION=${VERSION} \

@@ -125,12 +125,13 @@ jobs:
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
-          # For develop: get unreleased commits since last tag
-          # For tags: get commits for this specific tag
-          args: ${{ github.ref == 'refs/heads/develop' && '--unreleased --strip header' || '--latest --strip header' }}
+          # Always use --latest to get changes since the previous tag
+          # This works for both develop (vdev.0.0.X) and main (v0.0.X) releases
+          args: --latest --strip header
         env:
           OUTPUT: CHANGELOG.md
-          GIT_CLIFF__GIT__TAG_PATTERN: "v[0-9].*"
+          # Match both stable tags (v1.2.3) and dev tags (vdev.0.0.85)
+          GIT_CLIFF__GIT__TAG_PATTERN: "v(dev\\.)?[0-9].*"
 
       - name: Create release notes
         id: notes
@@ -159,7 +160,7 @@ jobs:
           
           ---
           
-          ## 🐳 Docker Images
+          ## Docker Images
           
           This release is available as multi-architecture Docker images (amd64, arm64):
           
@@ -184,7 +185,7 @@ jobs:
           docker compose up -d
           \`\`\`
           
-          ## 📦 Registry Information
+          ## Registry Information
           
           | Property | Value |
           |----------|-------|
@@ -193,7 +194,7 @@ jobs:
           | Version | \`${VERSION}\` |
           | Architectures | linux/amd64, linux/arm64 |
           
-          ## 📖 Documentation
+          ## Documentation
           
           See the [README.md](https://github.com/${REPO}/blob/main/README.md) for full configuration options.
           EOF

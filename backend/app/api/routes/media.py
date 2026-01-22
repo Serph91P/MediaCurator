@@ -219,23 +219,23 @@ async def get_watch_stats(
 ):
     """Get watch statistics (most watched items, recently watched, etc.)."""
     
-    # Most watched items
+    # Most watched items (include items with watch_count > 0 OR marked as watched)
     from sqlalchemy.orm import joinedload
     most_watched_result = await db.execute(
         select(MediaItem)
         .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
-        .where(MediaItem.watch_count > 0)
-        .order_by(MediaItem.watch_count.desc())
+        .where(or_(MediaItem.watch_count > 0, MediaItem.is_watched == True))
+        .order_by(MediaItem.watch_count.desc(), MediaItem.last_watched_at.desc())
         .limit(limit)
     )
     most_watched = most_watched_result.scalars().all()
 
-    # Recently watched items
+    # Recently watched items (prefer items with last_watched_at, fall back to is_watched)
     recently_watched_result = await db.execute(
         select(MediaItem)
         .options(joinedload(MediaItem.service_connection), joinedload(MediaItem.library))
-        .where(MediaItem.last_watched_at.isnot(None))
-        .order_by(MediaItem.last_watched_at.desc())
+        .where(or_(MediaItem.last_watched_at.isnot(None), MediaItem.is_watched == True))
+        .order_by(MediaItem.last_watched_at.desc().nullslast())
         .limit(limit)
     )
     recently_watched = recently_watched_result.scalars().all()

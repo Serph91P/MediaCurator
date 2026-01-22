@@ -2,9 +2,9 @@
 
 Intelligently curate and manage your media library with automated cleanup rules. A Docker-optimized application for Sonarr, Radarr, Emby, and Jellyfin that helps you maintain a clean, organized media collection.
 
-![License](https://img.shields.io/github/license/Serph91P/MediaCurator)
-![Docker Pulls](https://img.shields.io/docker/pulls/ghcr.io/serph91p/MediaCurator)
-![GitHub release](https://img.shields.io/github/v/release/Serph91P/MediaCurator)
+[![License](https://img.shields.io/github/license/Serph91P/MediaCurator)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/Serph91P/MediaCurator?include_prereleases)](https://github.com/Serph91P/MediaCurator/releases)
+[![GitHub last commit](https://img.shields.io/github/last-commit/Serph91P/MediaCurator)](https://github.com/Serph91P/MediaCurator/commits)
 
 ## Features
 

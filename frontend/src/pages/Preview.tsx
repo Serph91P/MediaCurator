@@ -21,6 +21,8 @@ interface PreviewItem {
   media_type: string
   path: string | null
   size_bytes: number | null
+  season_count?: number
+  episode_count?: number
   would_delete: boolean
   action: string
   reasons: string[]
@@ -62,6 +64,8 @@ interface GroupedSeries {
   seriesTitle: string
   totalSize: number
   isEntireSeries: boolean  // True when the entire series is marked for deletion
+  seasonCount: number  // From backend for "entire series" items
+  episodeCount: number  // From backend for "entire series" items
   seasons: Map<number, {
     seasonNumber: number
     episodes: PreviewItem[]
@@ -145,25 +149,25 @@ export default function Preview() {
     const seriesMap = new Map<string, GroupedSeries>()
 
     // First add series items (the parent series being deleted = "Entire Series")
-    // For these, we need to find ALL episodes belonging to this series to show details
+    // Backend now provides season_count, episode_count, and total size_bytes for series items
     for (const item of seriesItems) {
       const seriesName = item.title
       if (!seriesMap.has(seriesName)) {
         const seriesEntry: GroupedSeries = {
           seriesTitle: seriesName,
-          totalSize: item.size_bytes || 0,
+          totalSize: item.size_bytes || 0,  // Backend calculates total from episodes
           isEntireSeries: true,
+          seasonCount: item.season_count || 0,
+          episodeCount: item.episode_count || 0,
           seasons: new Map(),
           reasons: item.reasons,
           ruleName: item.rule_name
         }
         
-        // Find all episodes of this series from ALL items to calculate size and show details
+        // Still try to find episodes for expandable details (if they're in the response)
         for (const ep of allEpisodes) {
           const { seriesName: epSeriesName, seasonNumber } = parseEpisodeTitle(ep.title)
           if (epSeriesName === seriesName) {
-            seriesEntry.totalSize += ep.size_bytes || 0
-            
             const season = seasonNumber || 0
             if (!seriesEntry.seasons.has(season)) {
               seriesEntry.seasons.set(season, {
@@ -197,6 +201,8 @@ export default function Preview() {
           seriesTitle: seriesName,
           totalSize: 0,
           isEntireSeries: false,
+          seasonCount: 0,
+          episodeCount: 0,
           seasons: new Map(),
           reasons: item.reasons,
           ruleName: item.rule_name
@@ -218,6 +224,14 @@ export default function Preview() {
       const seasonData = series.seasons.get(season)!
       seasonData.episodes.push(item)
       seasonData.totalSize += item.size_bytes || 0
+    }
+    
+    // Calculate seasonCount and episodeCount for non-entire-series entries
+    for (const series of seriesMap.values()) {
+      if (!series.isEntireSeries) {
+        series.seasonCount = series.seasons.size
+        series.episodeCount = Array.from(series.seasons.values()).reduce((sum, s) => sum + s.episodes.length, 0)
+      }
     }
 
     // Sort series by title
@@ -455,9 +469,9 @@ export default function Preview() {
                             {series.isEntireSeries ? (
                               <span className="inline-flex items-center gap-1.5 text-red-500 dark:text-red-400 font-medium">
                                 Entire Series
-                                {series.seasons.size > 0 && (
+                                {(series.seasonCount > 0 || series.seasons.size > 0) && (
                                   <span className="text-gray-400 dark:text-dark-500 font-normal">
-                                    ({series.seasons.size} seasons)
+                                    ({series.seasonCount || series.seasons.size} seasons, {series.episodeCount || Array.from(series.seasons.values()).reduce((sum, s) => sum + s.episodes.length, 0)} episodes)
                                   </span>
                                 )}
                               </span>

@@ -436,7 +436,7 @@ class CleanupEngine:
             rule_items = [i for i in all_items if i.media_type in rule.media_types and i.id not in processed_item_ids]
             
             for item in rule_items:
-                evaluation = await self._evaluate_item_for_preview(item, rule, conditions, disk_info)
+                evaluation = await self._evaluate_item_for_preview(item, rule, conditions, disk_info, all_items)
                 evaluation["rule_name"] = rule.name
                 evaluation["rule_id"] = rule.id
                 preview_results.append(evaluation)
@@ -465,15 +465,32 @@ class CleanupEngine:
         item: MediaItem,
         rule: CleanupRule,
         conditions: RuleConditions,
-        disk_info: Optional[Dict[str, Any]]
+        disk_info: Optional[Dict[str, Any]],
+        all_items: Optional[list] = None
     ) -> Dict[str, Any]:
         """Evaluate a single item and return detailed reasoning."""
+        # For series items, calculate total size from all episodes
+        size_bytes = item.size_bytes or 0
+        season_count = 0
+        episode_count = 0
+        
+        if item.media_type == MediaType.SERIES and all_items:
+            # Find all episodes of this series and sum their sizes
+            episodes = [i for i in all_items if i.media_type == MediaType.EPISODE and i.series_id == item.external_id]
+            if episodes:
+                size_bytes = sum(ep.size_bytes or 0 for ep in episodes)
+                seasons = set(ep.season_number for ep in episodes if ep.season_number is not None)
+                season_count = len(seasons)
+                episode_count = len(episodes)
+        
         result = {
             "item_id": item.id,
             "title": item.title,
             "media_type": item.media_type.value if hasattr(item.media_type, 'value') else str(item.media_type),
             "path": item.path,
-            "size_bytes": item.size_bytes,
+            "size_bytes": size_bytes,
+            "season_count": season_count,
+            "episode_count": episode_count,
             "would_delete": True,
             "action": rule.action.value if hasattr(rule.action, 'value') else str(rule.action),
             "reasons": [],

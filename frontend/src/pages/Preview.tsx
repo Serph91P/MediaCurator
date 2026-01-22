@@ -61,6 +61,7 @@ interface PreviewResponse {
 interface GroupedSeries {
   seriesTitle: string
   totalSize: number
+  isEntireSeries: boolean  // True when the entire series is marked for deletion
   seasons: Map<number, {
     seasonNumber: number
     episodes: PreviewItem[]
@@ -130,37 +131,72 @@ export default function Preview() {
     }
 
     const items = showSkipped ? preview.items : preview.items.filter(i => i.would_delete)
+    const allItems = preview.items // All items for looking up episodes of a series
     
     // Separate movies and episodes/series
     const movieItems = items.filter(i => i.media_type === 'movie')
     const episodeItems = items.filter(i => i.media_type === 'episode')
     const seriesItems = items.filter(i => i.media_type === 'series')
 
+    // Get all episodes from the full list (for "entire series" lookups)
+    const allEpisodes = allItems.filter(i => i.media_type === 'episode')
+
     // Group episodes by series
     const seriesMap = new Map<string, GroupedSeries>()
 
-    // First add series items (the parent series being deleted)
+    // First add series items (the parent series being deleted = "Entire Series")
+    // For these, we need to find ALL episodes belonging to this series to show details
     for (const item of seriesItems) {
       const seriesName = item.title
       if (!seriesMap.has(seriesName)) {
-        seriesMap.set(seriesName, {
+        const seriesEntry: GroupedSeries = {
           seriesTitle: seriesName,
           totalSize: item.size_bytes || 0,
+          isEntireSeries: true,
           seasons: new Map(),
           reasons: item.reasons,
           ruleName: item.rule_name
-        })
+        }
+        
+        // Find all episodes of this series from ALL items to calculate size and show details
+        for (const ep of allEpisodes) {
+          const { seriesName: epSeriesName, seasonNumber } = parseEpisodeTitle(ep.title)
+          if (epSeriesName === seriesName) {
+            seriesEntry.totalSize += ep.size_bytes || 0
+            
+            const season = seasonNumber || 0
+            if (!seriesEntry.seasons.has(season)) {
+              seriesEntry.seasons.set(season, {
+                seasonNumber: season,
+                episodes: [],
+                totalSize: 0
+              })
+            }
+            
+            const seasonData = seriesEntry.seasons.get(season)!
+            seasonData.episodes.push(ep)
+            seasonData.totalSize += ep.size_bytes || 0
+          }
+        }
+        
+        seriesMap.set(seriesName, seriesEntry)
       }
     }
 
-    // Then add episodes
+    // Then add episodes (only those not already part of an "entire series")
     for (const item of episodeItems) {
       const { seriesName, seasonNumber } = parseEpisodeTitle(item.title)
+      
+      // Skip if this series is already marked as "entire series"
+      if (seriesMap.has(seriesName) && seriesMap.get(seriesName)!.isEntireSeries) {
+        continue
+      }
       
       if (!seriesMap.has(seriesName)) {
         seriesMap.set(seriesName, {
           seriesTitle: seriesName,
           totalSize: 0,
+          isEntireSeries: false,
           seasons: new Map(),
           reasons: item.reasons,
           ruleName: item.rule_name
@@ -395,15 +431,19 @@ export default function Preview() {
                       <>
                         <tr 
                           key={series.seriesTitle}
-                          className="hover:bg-gray-50 dark:hover:bg-dark-700/30 cursor-pointer"
-                          onClick={() => toggleSeriesExpanded(series.seriesTitle)}
+                          className={`hover:bg-gray-50 dark:hover:bg-dark-700/30 ${series.seasons.size > 0 ? 'cursor-pointer' : ''}`}
+                          onClick={() => series.seasons.size > 0 && toggleSeriesExpanded(series.seriesTitle)}
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              {expandedSeries.has(series.seriesTitle) ? (
-                                <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+                              {series.seasons.size > 0 ? (
+                                expandedSeries.has(series.seriesTitle) ? (
+                                  <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+                                ) : (
+                                  <ChevronRightIcon className="w-4 h-4 text-gray-400" />
+                                )
                               ) : (
-                                <ChevronRightIcon className="w-4 h-4 text-gray-400" />
+                                <div className="w-4 h-4" /> /* Spacer when no seasons */
                               )}
                               <TvIcon className="w-5 h-5 text-primary-500" />
                               <span className="font-medium text-gray-900 dark:text-white">
@@ -412,7 +452,16 @@ export default function Preview() {
                             </div>
                           </td>
                           <td className="px-6 py-4 text-gray-600 dark:text-dark-300">
-                            {series.seasons.size > 0 ? (
+                            {series.isEntireSeries ? (
+                              <span className="inline-flex items-center gap-1.5 text-red-500 dark:text-red-400 font-medium">
+                                Entire Series
+                                {series.seasons.size > 0 && (
+                                  <span className="text-gray-400 dark:text-dark-500 font-normal">
+                                    ({series.seasons.size} seasons)
+                                  </span>
+                                )}
+                              </span>
+                            ) : series.seasons.size > 0 ? (
                               <span>
                                 {Array.from(series.seasons.keys())
                                   .sort((a, b) => a - b)
@@ -420,7 +469,7 @@ export default function Preview() {
                                   .join(', ')}
                               </span>
                             ) : (
-                              <span className="text-gray-400 dark:text-dark-500">Entire Series</span>
+                              <span className="text-gray-400 dark:text-dark-500">No episodes</span>
                             )}
                           </td>
                           <td className="px-6 py-4 text-gray-600 dark:text-dark-300">

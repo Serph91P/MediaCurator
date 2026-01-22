@@ -26,6 +26,7 @@ class MediaType(str, Enum):
 
 class RuleActionType(str, Enum):
     DELETE = "delete"
+    DELETE_AND_UNMONITOR = "delete_and_unmonitor"
     NOTIFY_ONLY = "notify_only"
     MOVE_TO_TRASH = "move_to_trash"
     UNMONITOR = "unmonitor"
@@ -49,6 +50,42 @@ class SeriesDeleteMode(str, Enum):
     EPISODE = "episode"
     SEASON = "season"
     SERIES = "series"
+
+
+class SeriesEvaluationMode(str, Enum):
+    """How to evaluate series for cleanup rules.
+    
+    WHOLE_SERIES: Evaluate entire series as one unit
+    SEASON: Evaluate each season separately  
+    EPISODE: Evaluate each episode separately
+    """
+    WHOLE_SERIES = "whole_series"
+    SEASON = "season"
+    EPISODE = "episode"
+
+
+class SeriesDeleteTarget(str, Enum):
+    """What to delete when a series matches cleanup rules.
+    
+    WHOLE_SERIES: Delete the entire series
+    MATCHED_SEASON: Delete only the matched season
+    MATCHED_EPISODE: Delete only the matched episode
+    PREVIOUS_SEASONS: Delete all previous seasons
+    FOLLOWING_SEASONS: Delete all following seasons
+    PREVIOUS_EPISODES: Delete all previous episodes in season
+    FOLLOWING_EPISODES: Delete all following episodes in season
+    UNWATCHED_EPISODES_IN_SEASON: Delete unwatched episodes in matched season
+    UNWATCHED_SEASONS: Delete all unwatched seasons
+    """
+    WHOLE_SERIES = "whole_series"
+    MATCHED_SEASON = "matched_season"
+    MATCHED_EPISODE = "matched_episode"
+    PREVIOUS_SEASONS = "previous_seasons"
+    FOLLOWING_SEASONS = "following_seasons"
+    PREVIOUS_EPISODES = "previous_episodes"
+    FOLLOWING_EPISODES = "following_episodes"
+    UNWATCHED_EPISODES_IN_SEASON = "unwatched_episodes_in_season"
+    UNWATCHED_SEASONS = "unwatched_seasons"
 
 
 # ==================== Auth Schemas ====================
@@ -216,7 +253,9 @@ class RuleConditions(BaseModel):
     min_age_days: Optional[int] = Field(None, ge=0)
     exclude_favorited: bool = True
     exclude_watched_within_days: Optional[int] = Field(None, ge=0)  # Exclude items watched within last X days
-    series_delete_mode: SeriesDeleteMode = SeriesDeleteMode.EPISODE
+    series_delete_mode: SeriesDeleteMode = SeriesDeleteMode.EPISODE  # Legacy field
+    series_evaluation_mode: SeriesEvaluationMode = SeriesEvaluationMode.EPISODE  # How to evaluate series
+    series_delete_target: SeriesDeleteTarget = SeriesDeleteTarget.MATCHED_EPISODE  # What to delete when matched
     min_episodes_watched_percent: Optional[int] = Field(None, ge=0, le=100)
     exclude_genres: List[str] = []
     exclude_tags: List[str] = []

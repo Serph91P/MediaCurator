@@ -292,3 +292,22 @@ async def migrate_database(db: AsyncSession):
         
         await db.commit()
         logger.info("Migration completed: template and retry columns added to notification_channels")
+
+    # Check if staging_library_name column exists in libraries table
+    result = await db.execute(text("""
+        SELECT COUNT(*) as count 
+        FROM pragma_table_info('libraries') 
+        WHERE name='staging_library_name'
+    """))
+    has_staging_library_name = result.scalar() > 0
+    
+    if not has_staging_library_name:
+        logger.info("Migrating libraries: adding staging_library_name column")
+        
+        await db.execute(text("""
+            ALTER TABLE libraries 
+            ADD COLUMN staging_library_name VARCHAR(200)
+        """))
+        
+        await db.commit()
+        logger.info("Migration completed: staging_library_name column added to libraries")

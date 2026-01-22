@@ -45,13 +45,36 @@ services:
       # Application logs - using named volume
       - mediacurator_logs:/app/logs
       
-      # Media mount - REQUIRED: Point to your actual media location
-      # Mount as read-only (:ro) for safety
+      # ═══════════════════════════════════════════════════════════════════
+      # MEDIA MOUNT - CRITICAL: Path must match Emby/Jellyfin configuration!
+      # ═══════════════════════════════════════════════════════════════════
+      # The path INSIDE this container must match what Emby sees.
+      # 
+      # Example: If Emby uses /data/movies for its library path:
+      #   - /mnt/storage/movies:/data/movies
+      #
+      # Example: If Emby uses /media for all media:
+      #   - ${MEDIA_PATH:-/media}:/media
+      #
+      # IMPORTANT: The right side (container path) must be the SAME
+      #     path that Emby/Jellyfin uses when it reports file locations!
+      #     Otherwise file operations (delete, move to staging) will fail.
+      #
+      # For read-only safety (recommended for initial testing):
+      #   - ${MEDIA_PATH:-/media}:/media:ro
+      #
+      # For staging/delete operations, you need write access:
+      #   - ${MEDIA_PATH:-/media}:/media
+      # ═══════════════════════════════════════════════════════════════════
       - ${MEDIA_PATH:-/media}:/media:ro
       
-      # Optional: Additional media paths
-      # - /mnt/movies:/media/movies:ro
-      # - /mnt/tv:/media/tv:ro
+      # Staging directory - must be writable for staging system
+      # This should also match the staging path configured in MediaCurator
+      # - /mnt/storage/staging:/media/staging
+      
+      # Optional: Additional media paths (must match Emby library paths)
+      # - /mnt/movies:/data/movies
+      # - /mnt/tv:/data/tv
     
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]

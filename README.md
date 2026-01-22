@@ -162,6 +162,41 @@ Das Projekt nutzt [Semantic Versioning](https://semver.org/):
 
 Note: Named volumes are used for application data and logs, managed automatically by Docker. For development, use bind mounts via `docker-compose.dev.yml`.
 
+### Media Path Mapping (Critical!)
+
+**The media path inside MediaCurator must match the path that Emby/Jellyfin uses!**
+
+When Emby reports a file location like `/data/movies/Movie.mkv`, MediaCurator needs to access that exact same path. If the paths don't match, file operations (delete, move to staging) will fail.
+
+**Example scenarios:**
+
+| Emby sees | MediaCurator mount | Works? |
+|-----------|-------------------|--------|
+| `/data/movies/...` | `-v /mnt/storage/movies:/data/movies` | Yes |
+| `/media/...` | `-v /mnt/storage:/media` | Yes |
+| `/data/movies/...` | `-v /mnt/storage/movies:/media/movies` | No - paths don't match! |
+
+**Correct setup example:**
+
+If your Emby docker-compose looks like this:
+```yaml
+# Emby container
+volumes:
+  - /mnt/storage/movies:/data/movies
+  - /mnt/storage/tv:/data/tv
+```
+
+Then MediaCurator should use the **same container paths**:
+```yaml
+# MediaCurator container  
+volumes:
+  - /mnt/storage/movies:/data/movies      # Same path as Emby!
+  - /mnt/storage/tv:/data/tv              # Same path as Emby!
+  - /mnt/storage/staging:/data/staging    # For staging system (needs write access)
+```
+
+**For staging/delete operations:** Remove `:ro` (read-only) flag to allow MediaCurator to move/delete files.
+
 ## Usage
 
 ### Initial Setup
@@ -264,7 +299,7 @@ docker compose -f docker-compose.dev.yml up
 
 ## Roadmap & TODOs
 
-### 🔧 Testing & Deployment
+### Testing & Deployment
 - [ ] Activate `tests.yml` workflow for automated testing
 - [ ] Add pytest unit tests for backend services
 - [ ] Add Vitest tests for frontend components
@@ -273,7 +308,7 @@ docker compose -f docker-compose.dev.yml up
 - [x] Create production-optimized Docker image (multi-stage build)
 - [x] Add health checks and monitoring endpoints
 
-### ⚡ Performance & Optimization
+### Performance & Optimization
 - [x] Implement in-memory caching for Emby API calls (library items, watch status)
 - [x] Optimize TanStack Query staleTime/gcTime (5-10 minutes for rarely-changed data)
 - [x] Add SQLAlchemy eager loading where appropriate (reduce N+1 queries)
@@ -282,7 +317,7 @@ docker compose -f docker-compose.dev.yml up
 - [x] Implement debouncing for search/filter inputs
 - [x] Collapsible sidebar to maximize content area
 
-### 🎨 UI/UX Improvements
+### UI/UX Improvements
 - [x] Redesign sidebar with proper icon positioning and hover states
 - [x] Mobile-responsive layout with hamburger menu
 - [x] Create ResponsiveTable component for mobile-friendly data display
@@ -295,23 +330,23 @@ docker compose -f docker-compose.dev.yml up
 - [x] Dark/Light theme toggle with system preference support
 - [x] Mobile First Design
 
-### 🔔 Notifications & Integration
+### Notifications & Integration
 - [x] Migrate to Apprise URL-schema for 90+ notification services
 - [x] Add notification preview/test button
 - [x] Implement notification templates (customize message format)
 - [x] Add webhook retry logic with exponential backoff
 - [x] Support multiple notification channels per event type
 
-### 🔒 Security & Auth
+### Security & Auth
 - [x] Add rate limiting for API endpoints
 - [x] Implement session management with refresh tokens
 - [x] Add audit logging for admin actions
 
-### 📊 Monitoring & Observability
+### Monitoring & Observability
 - [ ] Implement structured logging with correlation IDs
 - [ ] Add performance monitoring for slow queries
 
-### 🚀 Features & Enhancements
+### Features & Enhancements
 - [x] Bulk operations for rules (enable/disable multiple)
 - [x] Export/import rules as JSON
 - [x] Per-library staging settings (with global fallback)

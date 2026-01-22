@@ -263,6 +263,8 @@ jobs:
           # For develop: create vdev.X.X.X tag
           # For main: create vX.X.X tag
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', needs.prepare.outputs.version) }}
+          # CRITICAL: Create tag on the current commit, not the default branch
+          target_commitish: ${{ github.sha }}
           name: ${{ github.ref_name == 'develop' && format('Development Build {0}', needs.prepare.outputs.version) || format('Release {0}', needs.prepare.outputs.version) }}
           body_path: release_notes.md
           draft: false

@@ -105,7 +105,7 @@ export default function Notifications() {
             setEditingChannel(null)
             setIsModalOpen(true)
           }}
-          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-900 dark:text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <PlusIcon className="w-5 h-5" />
           Add Channel
@@ -196,13 +196,13 @@ export default function Notifications() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => toggleMutation.mutate(channel.id)}
-                      className={`w-12 h-6 rounded-full transition-colors ${
-                        channel.is_enabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-dark-800 ${
+                        channel.is_enabled ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-600'
                       }`}
                     >
-                      <div
-                        className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                          channel.is_enabled ? 'translate-x-6' : 'translate-x-0.5'
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+                          channel.is_enabled ? 'translate-x-6' : 'translate-x-1'
                         }`}
                       />
                     </button>
@@ -213,7 +213,7 @@ export default function Notifications() {
                   <button
                     onClick={() => testMutation.mutate(channel.id)}
                     disabled={testMutation.isPending}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <CheckCircleIcon className="w-4 h-4" />
                     Test
@@ -223,13 +223,13 @@ export default function Notifications() {
                       setEditingChannel(channel)
                       setIsModalOpen(true)
                     }}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-gray-800 dark:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-dark-400 hover:text-white"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-500 dark:text-dark-300 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 hover:text-gray-700 dark:hover:text-white focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => deleteMutation.mutate(channel.id)}
-                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-gray-800 dark:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-red-400 hover:text-red-300"
+                    className="inline-flex items-center justify-center p-2 text-sm font-medium text-red-400 rounded-lg hover:bg-red-500/10 hover:text-red-300 focus:outline-2 focus:outline-offset-2 focus:outline-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <TrashIcon className="w-5 h-5" />
                   </button>
@@ -286,6 +286,7 @@ function NotificationModal({
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [templatePreview, setTemplatePreview] = useState<TemplatePreviewResponse | null>(null)
+  const [testPending, setTestPending] = useState(false)
   
   const [formData, setFormData] = useState<NotificationChannelCreate>({
     name: channel?.name || '',
@@ -367,6 +368,24 @@ function NotificationModal({
       message_template: formData.message_template || undefined,
       event_type: 'media_deleted',
     })
+  }
+
+  const handleTestUrls = async () => {
+    const validUrls = urls.filter(url => url.trim())
+    if (validUrls.length === 0) {
+      toast.error('Please add at least one URL to test')
+      return
+    }
+    
+    setTestPending(true)
+    try {
+      await api.post('/notifications/test-apprise', { urls: validUrls })
+      toast.success('Test notification sent successfully!')
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Test failed')
+    } finally {
+      setTestPending(false)
+    }
   }
 
   return (
@@ -638,13 +657,24 @@ function NotificationModal({
             </div>
           </div>
 
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-dark-700 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-              Cancel
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-dark-700 flex justify-between">
+            <button
+              type="button"
+              onClick={handleTestUrls}
+              disabled={testPending || urls.filter(u => u.trim()).length === 0}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <CheckCircleIcon className="w-4 h-4" />
+              {testPending ? 'Testing...' : 'Test URLs'}
             </button>
-            <button type="submit" disabled={isLoading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-900 dark:text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-              {isLoading ? 'Saving...' : channel ? 'Update' : 'Create'}
-            </button>
+            <div className="flex gap-3">
+              <button type="button" onClick={onClose} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                Cancel
+              </button>
+              <button type="submit" disabled={isLoading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                {isLoading ? 'Saving...' : channel ? 'Update' : 'Create'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

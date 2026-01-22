@@ -185,7 +185,7 @@ export default function Rules() {
               className="hidden"
             />
           </label>
-          <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-900 dark:text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2">
+          <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             <PlusIcon className="w-5 h-5" />
             Add Rule
           </button>
@@ -294,13 +294,13 @@ export default function Rules() {
                       />
                       <button
                         onClick={() => toggleMutation.mutate(rule.id)}
-                        className={`w-12 h-6 rounded-full transition-colors ${
-                          rule.is_enabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-dark-800 ${
+                          rule.is_enabled ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-600'
                         }`}
                       >
-                        <div
-                          className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                            rule.is_enabled ? 'translate-x-6' : 'translate-x-0.5'
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+                            rule.is_enabled ? 'translate-x-6' : 'translate-x-1'
                           }`}
                         />
                       </button>
@@ -339,7 +339,7 @@ export default function Rules() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setRuleToDelete(rule)}
-                      className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-gray-800 dark:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-red-400 hover:text-red-300"
+                      className="inline-flex items-center justify-center p-2 text-sm font-medium text-red-400 rounded-lg hover:bg-red-500/10 hover:text-red-300 focus:outline-2 focus:outline-offset-2 focus:outline-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <TrashIcon className="w-5 h-5" />
                     </button>

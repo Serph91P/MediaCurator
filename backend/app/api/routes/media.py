@@ -58,8 +58,12 @@ async def get_media_stats(
     )
     flagged_size = flagged_size_result.scalar() or 0
     
-    # Per-service breakdown
-    services_result = await db.execute(select(ServiceConnection))
+    # Per-service breakdown (only include services that can have media items)
+    services_result = await db.execute(
+        select(ServiceConnection).where(
+            ServiceConnection.service_type.in_([ServiceType.SONARR, ServiceType.RADARR])
+        )
+    )
     services = services_result.scalars().all()
     
     service_stats = []

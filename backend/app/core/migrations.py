@@ -242,3 +242,53 @@ async def migrate_database(db: AsyncSession):
         
         await db.commit()
         logger.info("Migration completed: per-library staging columns added")
+
+    # Check if event_types column exists in notification_channels
+    result = await db.execute(text("""
+        SELECT COUNT(*) as count 
+        FROM pragma_table_info('notification_channels') 
+        WHERE name='event_types'
+    """))
+    has_event_types = result.scalar() > 0
+    
+    if not has_event_types:
+        logger.info("Migrating notification_channels: adding event_types column")
+        
+        await db.execute(text("""
+            ALTER TABLE notification_channels 
+            ADD COLUMN event_types TEXT
+        """))
+        
+        await db.commit()
+        logger.info("Migration completed: event_types column added to notification_channels")
+
+    # Check if title_template column exists in notification_channels
+    result = await db.execute(text("""
+        SELECT COUNT(*) as count 
+        FROM pragma_table_info('notification_channels') 
+        WHERE name='title_template'
+    """))
+    has_title_template = result.scalar() > 0
+    
+    if not has_title_template:
+        logger.info("Migrating notification_channels: adding template and retry columns")
+        
+        await db.execute(text("""
+            ALTER TABLE notification_channels 
+            ADD COLUMN title_template VARCHAR(500)
+        """))
+        await db.execute(text("""
+            ALTER TABLE notification_channels 
+            ADD COLUMN message_template TEXT
+        """))
+        await db.execute(text("""
+            ALTER TABLE notification_channels 
+            ADD COLUMN max_retries INTEGER DEFAULT 3
+        """))
+        await db.execute(text("""
+            ALTER TABLE notification_channels 
+            ADD COLUMN retry_backoff_base INTEGER DEFAULT 2
+        """))
+        
+        await db.commit()
+        logger.info("Migration completed: template and retry columns added to notification_channels")

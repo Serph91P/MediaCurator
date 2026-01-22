@@ -42,6 +42,56 @@ class TemplatePreviewResponse(BaseModel):
     rendered_message: str
 
 
+class TestAppriseRequest(BaseModel):
+    """Request model for testing Apprise URLs."""
+    urls: List[str]
+
+
+@router.post("/test-apprise")
+@limiter.limit(RateLimits.TEST_OPERATION)
+async def test_apprise_urls(
+    request: Request,
+    data: TestAppriseRequest,
+    current_user = Depends(get_current_user)
+):
+    """Test Apprise URLs by sending a test notification.
+    
+    This endpoint allows testing URLs before creating a notification channel.
+    """
+    import apprise
+    
+    if not data.urls:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one URL is required"
+        )
+    
+    # Create Apprise instance
+    apobj = apprise.Apprise()
+    
+    # Add all URLs
+    for url in data.urls:
+        if not apobj.add(url):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid Apprise URL format: {url}"
+            )
+    
+    # Send test notification
+    success = apobj.notify(
+        title="MediaCleanup Test",
+        body="This is a test notification from MediaCleanup. If you're seeing this, your notification URL is working correctly!",
+    )
+    
+    if success:
+        return {"success": True, "message": "Test notification sent successfully"}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send test notification. Please check your URLs."
+        )
+
+
 @router.get("/event-types", response_model=EventTypesResponse)
 @limiter.limit(RateLimits.API_READ)
 async def list_event_types(

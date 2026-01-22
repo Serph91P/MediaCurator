@@ -144,7 +144,7 @@ export default function Libraries() {
       </div>
 
       {!hasMediaServers && (
-        <div className="bg-dark-800 rounded-xl border border-amber-500/30 shadow-lg bg-amber-500/10">
+        <div className="rounded-xl border border-amber-500/30 shadow-lg bg-amber-500/10">
           <div className="p-6">
             <p className="text-amber-400">
               No Emby or Jellyfin services configured. Add a media server in the Services section to sync libraries.
@@ -181,7 +181,7 @@ export default function Libraries() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white">{library.name}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-dark-400">
+                      <p className="text-sm text-gray-500 dark:text-dark-400">
                         {getServiceName(library.service_connection_id)}
                       </p>
                     </div>
@@ -189,14 +189,14 @@ export default function Libraries() {
                   <button
                     onClick={() => toggleMutation.mutate(library.id)}
                     disabled={toggleMutation.isPending}
-                    className={`relative w-12 h-6 rounded-full transition-colors ${
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-dark-800 ${
                       library.is_enabled ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-600'
                     }`}
                     title={library.is_enabled ? 'Click to disable' : 'Click to enable'}
                   >
-                    <div
-                      className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        library.is_enabled ? 'translate-x-6' : 'translate-x-0.5'
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+                        library.is_enabled ? 'translate-x-6' : 'translate-x-1'
                       }`}
                     />
                   </button>

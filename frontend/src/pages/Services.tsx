@@ -164,7 +164,7 @@ export default function Services() {
                               setEditingService(service)
                               setIsModalOpen(true)
                             }}
-                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-gray-800 dark:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="inline-flex items-center justify-center p-2 text-sm font-medium text-gray-500 dark:text-dark-300 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 hover:text-gray-700 dark:hover:text-white focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             title="Edit"
                           >
                             <PencilIcon className="w-5 h-5" />
@@ -172,7 +172,7 @@ export default function Services() {
                           <button
                             onClick={() => testMutation.mutate(service.id)}
                             disabled={testMutation.isPending}
-                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-gray-800 dark:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="inline-flex items-center justify-center p-2 text-sm font-medium text-gray-500 dark:text-dark-300 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 hover:text-gray-700 dark:hover:text-white focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             title="Test Connection"
                           >
                             <CheckCircleIcon className="w-5 h-5" />
@@ -180,7 +180,7 @@ export default function Services() {
                           <button
                             onClick={() => syncMutation.mutate(service.id)}
                             disabled={syncMutation.isPending}
-                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-dark-300 rounded-lg hover:bg-dark-800 hover:text-gray-800 dark:text-dark-100 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="inline-flex items-center justify-center p-2 text-sm font-medium text-gray-500 dark:text-dark-300 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 hover:text-gray-700 dark:hover:text-white focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             title="Sync"
                           >
                             <ArrowPathIcon className={`w-5 h-5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
@@ -188,7 +188,7 @@ export default function Services() {
                           <button
                             onClick={() => deleteMutation.mutate(service.id)}
                             disabled={deleteMutation.isPending}
-                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-transparent text-red-400 rounded-lg hover:bg-dark-800 hover:text-red-300 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="inline-flex items-center justify-center p-2 text-sm font-medium text-red-400 rounded-lg hover:bg-red-500/10 hover:text-red-300 focus:outline-2 focus:outline-offset-2 focus:outline-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             title="Delete"
                           >
                             <TrashIcon className="w-5 h-5" />

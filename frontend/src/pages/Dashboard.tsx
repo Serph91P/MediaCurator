@@ -230,7 +230,7 @@ export default function Dashboard() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-dark-700">
                 {mediaStats.service_breakdown.map((service) => (
-                  <tr key={service.service_id} className="hover:bg-gray-100 dark:bg-dark-700/30">
+                  <tr key={service.service_id} className="hover:bg-gray-50 dark:hover:bg-dark-700/50">
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">{service.service_name}</div>
                     </td>
@@ -284,7 +284,7 @@ export default function Dashboard() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-dark-700">
                 {importStats.by_service.map((service: any) => (
-                  <tr key={service.service_id} className="hover:bg-gray-100 dark:bg-dark-700/30">
+                  <tr key={service.service_id} className="hover:bg-gray-50 dark:hover:bg-dark-700/50">
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">{service.service_name}</div>
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-500/20 text-primary-400 mt-1">
@@ -323,7 +323,7 @@ export default function Dashboard() {
               {watchStats.most_watched && watchStats.most_watched.length > 0 ? (
                 <div className="space-y-3">
                   {watchStats.most_watched.slice(0, 5).map((item: any) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 bg-gray-100 dark:bg-dark-700/50 rounded-lg hover:bg-gray-100 dark:bg-dark-700 transition-colors">
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <h3 className="font-medium text-gray-900 dark:text-white truncate">{item.title}</h3>
@@ -368,7 +368,7 @@ export default function Dashboard() {
               {watchStats.recently_watched && watchStats.recently_watched.length > 0 ? (
                 <div className="space-y-3">
                   {watchStats.recently_watched.slice(0, 5).map((item: any) => (
-                    <div key={item.id} className="flex items-start justify-between p-3 bg-gray-100 dark:bg-dark-700/50 rounded-lg hover:bg-gray-100 dark:bg-dark-700 transition-colors">
+                    <div key={item.id} className="flex items-start justify-between p-3 bg-gray-50 dark:bg-dark-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors">
                       <div className="flex-1 min-w-0">
                         <h3 className="font-medium text-gray-900 dark:text-white truncate">{item.title}</h3>
                         <div className="flex items-center gap-2 mt-1">
@@ -410,7 +410,7 @@ export default function Dashboard() {
           <div className="p-6">
             <div className="space-y-3">
               {recentActivity.logs.slice(0, 8).map((log: any) => (
-                <div key={log.id} className="flex items-start gap-3 p-3 bg-gray-100 dark:bg-dark-700/50 rounded-lg hover:bg-gray-100 dark:bg-dark-700 transition-colors">
+                <div key={log.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-dark-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors">
                   <div className={`mt-0.5 font-bold ${
                     log.status === 'success' ? 'text-green-400' :
                     log.status === 'failed' ? 'text-red-400' :
@@ -458,7 +458,7 @@ export default function Dashboard() {
               onClick={async () => {
                 await api.post('/system/sync/run')
               }}
-              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2 py-4"
+              className="inline-flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-dark-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <PlayIcon className="w-5 h-5" />
               Sync All Services
@@ -467,7 +467,7 @@ export default function Dashboard() {
               onClick={async () => {
                 await api.post('/system/cleanup/run', null, { params: { dry_run: true } })
               }}
-              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-dark-100 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-600 focus:outline-2 focus:outline-offset-2 focus:outline-dark-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2 py-4"
+              className="inline-flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-dark-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ExclamationTriangleIcon className="w-5 h-5" />
               Preview Cleanup
@@ -476,7 +476,7 @@ export default function Dashboard() {
               onClick={async () => {
                 await api.post('/system/cleanup/run')
               }}
-              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-red-600 text-gray-900 dark:text-white rounded-lg hover:bg-red-700 focus:outline-2 focus:outline-offset-2 focus:outline-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2 py-4"
+              className="inline-flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-dark-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <TrashIcon className="w-5 h-5" />
               Run Cleanup Now

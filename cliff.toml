@@ -30,7 +30,7 @@ trim = true
 
 [git]
 conventional_commits = true
-filter_unconventional = true
+filter_unconventional = false
 split_commits = false
 commit_preprocessors = []
 commit_parsers = [
@@ -46,6 +46,8 @@ commit_parsers = [
     { message = "^chore", group = "Miscellaneous" },
     { message = "^ci", group = "CI/CD" },
     { body = ".*security", group = "Security" },
+    # Catch-all for non-conventional commits
+    { message = ".*", group = "Other Changes" },
 ]
 protect_breaking_commits = false
 filter_commits = false

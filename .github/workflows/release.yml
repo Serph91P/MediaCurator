@@ -122,16 +122,58 @@ jobs:
 
       - name: Generate Changelog
         id: changelog
-        uses: orhun/git-cliff-action@v4
-        with:
-          config: cliff.toml
-          # Always use --latest to get changes since the previous tag
-          # This works for both develop (vdev.0.0.X) and main (v0.0.X) releases
-          args: --latest --strip header
-        env:
-          OUTPUT: CHANGELOG.md
-          # Match both stable tags (v1.2.3) and dev tags (vdev.0.0.85)
-          GIT_CLIFF__GIT__TAG_PATTERN: "v(dev\\.)?[0-9].*"
+        run: |
+          # Install git-cliff
+          curl -sSL https://github.com/orhun/git-cliff/releases/download/v2.11.0/git-cliff-2.11.0-x86_64-unknown-linux-gnu.tar.gz | tar -xz
+          chmod +x git-cliff-2.11.0/git-cliff
+          
+          # Get the previous tag for comparison
+          CURRENT_VERSION="${{ needs.prepare.outputs.version }}"
+          
+          # Find the last tag that exists
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          echo "Current version: $CURRENT_VERSION"
+          echo "Last tag found: $LAST_TAG"
+          
+          if [ -n "$LAST_TAG" ]; then
+            # Generate changelog from last tag to HEAD
+            echo "Generating changelog from $LAST_TAG to HEAD..."
+            ./git-cliff-2.11.0/git-cliff --config cliff.toml "$LAST_TAG"..HEAD --strip header > CHANGELOG_CONTENT.md || true
+          else
+            # No tags exist, generate full changelog
+            echo "No previous tags found, generating full changelog..."
+            ./git-cliff-2.11.0/git-cliff --config cliff.toml --strip header > CHANGELOG_CONTENT.md || true
+          fi
+          
+          # Check if changelog has content
+          if [ -s CHANGELOG_CONTENT.md ]; then
+            echo "Changelog generated successfully:"
+            cat CHANGELOG_CONTENT.md
+            # Remove the version header line that git-cliff adds (## [version] - date)
+            CONTENT=$(cat CHANGELOG_CONTENT.md | sed '/^## \[/d' | sed '/^$/N;/^\n$/d')
+            echo "content<<EOF" >> $GITHUB_OUTPUT
+            echo "$CONTENT" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "No changelog content generated, using commit messages..."
+            # Fallback: use git log for changes since last tag
+            if [ -n "$LAST_TAG" ]; then
+              COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges 2>/dev/null || echo "")
+            else
+              COMMITS=$(git log --pretty=format:"- %s" --no-merges -20 2>/dev/null || echo "")
+            fi
+            
+            if [ -n "$COMMITS" ]; then
+              echo "content<<EOF" >> $GITHUB_OUTPUT
+              echo "### Changes" >> $GITHUB_OUTPUT
+              echo "" >> $GITHUB_OUTPUT
+              echo "$COMMITS" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+            else
+              echo "content=No changes recorded for this release." >> $GITHUB_OUTPUT
+            fi
+          fi
 
       - name: Create release notes
         id: notes

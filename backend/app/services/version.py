@@ -42,6 +42,12 @@ class VersionService:
         if env_version and env_version != "unknown":
             info["full_version"] = f"{env_version}-{env_commit}" if env_commit else env_version
             info["base_version"] = env_version
+            # Create user-friendly display version
+            if env_version.startswith("dev."):
+                version_number = env_version[4:]
+                info["display_version"] = f"Develop Version {version_number}"
+            else:
+                info["display_version"] = f"Latest Version {env_version}"
             logger.info(f"Using version from environment: {info['full_version']}")
             self._cached_version_info = info
             return info
@@ -185,12 +191,30 @@ class VersionService:
             
             info["full_version"] = "-".join(version_parts)
             info["base_version"] = info["version"]  # Store base version separately
+            
+            # Create user-friendly display version
+            # "dev.0.0.89" -> "Develop Version 0.0.89"
+            # "0.0.89" -> "Latest Version 0.0.89"
+            version_str = info["version"]
+            if version_str.startswith("dev."):
+                version_number = version_str[4:]  # Remove "dev." prefix
+                info["display_version"] = f"Develop Version {version_number}"
+            else:
+                info["display_version"] = f"Latest Version {version_str}"
+            
             logger.info(f"Version info collected: {info['full_version']}")
             
         except Exception as e:
             logger.warning(f"Failed to get Git info: {e}")
             # Set fallback full_version
             info["full_version"] = f"{info['version']}-{info['commit_short']}"
+            # Set fallback display_version
+            version_str = info["version"]
+            if version_str.startswith("dev."):
+                version_number = version_str[4:]
+                info["display_version"] = f"Develop Version {version_number}"
+            else:
+                info["display_version"] = f"Latest Version {version_str}"
         
         self._cached_version_info = info
         return info

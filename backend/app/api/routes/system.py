@@ -83,7 +83,7 @@ async def health_check(
     
     return HealthCheck(
         status="healthy" if db_status == "healthy" else "degraded",
-        version=version_info.get("full_version", settings.app_version),
+        version=version_info.get("display_version", version_info.get("full_version", settings.app_version)),
         database=db_status,
         scheduler="running"  # Would need actual scheduler check
     )

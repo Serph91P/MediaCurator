@@ -32,6 +32,7 @@ class MediaType(str, Enum):
 class RuleActionType(str, Enum):
     """Rule action type enumeration."""
     DELETE = "delete"
+    DELETE_AND_UNMONITOR = "delete_and_unmonitor"  # Delete files but keep series/movie unmonitored
     NOTIFY_ONLY = "notify_only"
     MOVE_TO_TRASH = "move_to_trash"
     UNMONITOR = "unmonitor"

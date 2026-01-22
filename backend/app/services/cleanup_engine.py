@@ -223,6 +223,23 @@ class CleanupEngine:
                                 except Exception as e:
                                     logger.warning(f"Failed to add import exclusion for {item.title}: {e}")
                 
+                elif action == RuleActionType.DELETE_AND_UNMONITOR:
+                    # Delete files but keep the series/movie in arr as unmonitored
+                    if service_connection.service_type == ServiceType.RADARR:
+                        # First unmonitor, then delete files only (not the movie entry)
+                        await client.unmonitor_movie(int(item.external_id))
+                        # Delete the movie file but keep the movie entry
+                        await client.delete_movie(int(item.external_id), delete_files=True, add_exclusion=False)
+                    elif service_connection.service_type == ServiceType.SONARR:
+                        if item.media_type == MediaType.EPISODE:
+                            # Unmonitor the episode then delete the file
+                            await client.unmonitor_episode(int(item.external_id))
+                            await client.delete_episode_file(int(item.external_id))
+                        else:
+                            # For series: unmonitor and delete files, but keep series entry
+                            await client.unmonitor_series(int(item.external_id))
+                            await client.delete_series(int(item.external_id), delete_files=True)
+                
                 elif action == RuleActionType.UNMONITOR:
                     if service_connection.service_type == ServiceType.RADARR:
                         await client.unmonitor_movie(int(item.external_id))
@@ -250,7 +267,7 @@ class CleanupEngine:
                 self.db.add(log_entry)
                 
                 # Update item status
-                if action == RuleActionType.DELETE:
+                if action in (RuleActionType.DELETE, RuleActionType.DELETE_AND_UNMONITOR):
                     await self.db.delete(item)
                 else:
                     item.flagged_for_cleanup = False

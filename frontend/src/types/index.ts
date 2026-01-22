@@ -28,7 +28,7 @@ export interface Session {
 
 export type ServiceType = 'sonarr' | 'radarr' | 'emby' | 'jellyfin' | 'jellystat'
 export type MediaType = 'movie' | 'series' | 'episode' | 'season'
-export type RuleActionType = 'delete' | 'notify_only' | 'move_to_trash' | 'unmonitor'
+export type RuleActionType = 'delete' | 'delete_and_unmonitor' | 'notify_only' | 'move_to_trash' | 'unmonitor'
 export type NotificationType = 'webhook' | 'discord' | 'slack' | 'email' | 'apprise'
 export type NotificationEventType = 
   | 'media_flagged' 

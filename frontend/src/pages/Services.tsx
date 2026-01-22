@@ -97,6 +97,18 @@ export default function Services() {
     onError: () => toast.error('Sync failed'),
   })
 
+  const syncAllMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/system/sync/run')
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'All services synced successfully!')
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+    },
+    onError: () => toast.error('Sync all failed. Check the logs for details.'),
+  })
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -104,10 +116,20 @@ export default function Services() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Services</h1>
           <p className="text-gray-500 dark:text-dark-400 mt-1">Manage Sonarr, Radarr, Emby connections</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2">
-          <PlusIcon className="w-5 h-5" />
-          Add Service
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => syncAllMutation.mutate()}
+            disabled={syncAllMutation.isPending}
+            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-2 focus:outline-offset-2 focus:outline-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2"
+          >
+            <ArrowPathIcon className={`w-5 h-5 ${syncAllMutation.isPending ? 'animate-spin' : ''}`} />
+            {syncAllMutation.isPending ? 'Syncing...' : 'Sync All'}
+          </button>
+          <button onClick={() => setIsModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-2 focus:outline-offset-2 focus:outline-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors gap-2">
+            <PlusIcon className="w-5 h-5" />
+            Add Service
+          </button>
+        </div>
       </div>
 
       {isLoading ? (

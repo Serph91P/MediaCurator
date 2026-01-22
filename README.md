@@ -304,7 +304,7 @@ docker compose -f docker-compose.dev.yml up
 ### 🔒 Security & Auth
 - [x] Add rate limiting for API endpoints
 - [x] Implement session management with refresh tokens
-- [ ] Add audit logging for admin actions
+- [x] Add audit logging for admin actions
 
 ### 📊 Monitoring & Observability
 - [ ] Implement structured logging with correlation IDs
@@ -313,6 +313,7 @@ docker compose -f docker-compose.dev.yml up
 ### 🚀 Features & Enhancements
 - [x] Bulk operations for rules (enable/disable multiple)
 - [x] Export/import rules as JSON
+- [x] Per-library staging settings (with global fallback)
 - [ ] Advanced scheduling (different schedules per rule)
 - [ ] Dry-run per rule (not just global)
 - [ ] Media tags auto-management based on watch patterns

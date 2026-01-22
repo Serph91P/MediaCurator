@@ -178,7 +178,12 @@ class RefreshToken(Base):
     def is_expired(self) -> bool:
         """Check if token is expired."""
         from datetime import datetime, timezone
-        return datetime.now(timezone.utc) > self.expires_at
+        now = datetime.now(timezone.utc)
+        expires = self.expires_at
+        # Handle timezone-naive datetimes by assuming UTC
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        return now > expires
     
     @property
     def is_revoked(self) -> bool:

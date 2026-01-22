@@ -439,6 +439,11 @@ class CleanupEngine:
                 evaluation = await self._evaluate_item_for_preview(item, rule, conditions, disk_info, all_items)
                 evaluation["rule_name"] = rule.name
                 evaluation["rule_id"] = rule.id
+                
+                # Skip items with no local files (0 bytes) - nothing to delete
+                if evaluation["size_bytes"] == 0:
+                    continue
+                
                 preview_results.append(evaluation)
                 
                 if evaluation["would_delete"]:

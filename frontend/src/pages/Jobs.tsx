@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { PlayIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ArrowPathIcon, MinusCircleIcon } from '@heroicons/react/24/outline'
+import { PlayIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ArrowPathIcon, MinusCircleIcon, PencilIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 import { formatDateTime } from '../lib/utils'
@@ -10,6 +10,10 @@ interface Job {
   name: string
   next_run_time: string | null
   trigger: string
+  interval_minutes: number | null
+  interval_hours: number | null
+  is_running: boolean
+  running_since: string | null
 }
 
 interface JobExecution {
@@ -27,6 +31,9 @@ interface JobExecution {
 export default function Jobs() {
   const queryClient = useQueryClient()
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
+  const [editingJob, setEditingJob] = useState<Job | null>(null)
+  const [editIntervalValue, setEditIntervalValue] = useState<number>(60)
+  const [editIntervalUnit, setEditIntervalUnit] = useState<'minutes' | 'hours'>('minutes')
 
   const { data: jobsData, isLoading: jobsLoading } = useQuery({
     queryKey: ['jobs'],
@@ -67,6 +74,46 @@ export default function Jobs() {
     },
     onError: () => toast.error('Failed to trigger job'),
   })
+
+  const updateIntervalMutation = useMutation({
+    mutationFn: async ({ jobId, intervalMinutes, intervalHours }: { jobId: string, intervalMinutes?: number, intervalHours?: number }) => {
+      const res = await api.put(`/jobs/${jobId}/interval`, {
+        interval_minutes: intervalMinutes,
+        interval_hours: intervalHours
+      })
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      toast.success('Job interval updated successfully')
+      setEditingJob(null)
+    },
+    onError: () => toast.error('Failed to update job interval'),
+  })
+
+  const openEditDialog = (job: Job) => {
+    setEditingJob(job)
+    if (job.interval_hours && job.interval_hours >= 1) {
+      setEditIntervalValue(job.interval_hours)
+      setEditIntervalUnit('hours')
+    } else if (job.interval_minutes) {
+      setEditIntervalValue(job.interval_minutes)
+      setEditIntervalUnit('minutes')
+    } else {
+      setEditIntervalValue(60)
+      setEditIntervalUnit('minutes')
+    }
+  }
+
+  const handleSaveInterval = () => {
+    if (!editingJob) return
+    
+    if (editIntervalUnit === 'hours') {
+      updateIntervalMutation.mutate({ jobId: editingJob.id, intervalHours: editIntervalValue })
+    } else {
+      updateIntervalMutation.mutate({ jobId: editingJob.id, intervalMinutes: editIntervalValue })
+    }
+  }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -153,37 +200,60 @@ export default function Jobs() {
           ) : jobsData?.jobs && jobsData.jobs.length > 0 ? (
             <div className="space-y-4">
               {jobsData.jobs.map((job) => (
-                <div key={job.id} className="bg-gray-100 dark:bg-dark-700/50 rounded-lg p-4">
+                <div key={job.id} className={`bg-gray-100 dark:bg-dark-700/50 rounded-lg p-4 ${job.is_running ? 'ring-2 ring-blue-500' : ''}`}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <h3 className="font-semibold text-gray-900 dark:text-white">{job.name}</h3>
                         <span className="text-xs text-gray-500 dark:text-dark-400 font-mono">{job.id}</span>
+                        {job.is_running && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400">
+                            <ArrowPathIcon className="w-3 h-3 animate-spin" />
+                            Running
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-500 dark:text-dark-400">
                         <div className="flex items-center gap-1">
                           <ClockIcon className="w-4 h-4" />
-                          Next run: <span className="text-gray-700 dark:text-dark-200">{formatNextRun(job.next_run_time)}</span>
+                          {job.is_running ? (
+                            <>Started: <span className="text-blue-400">{formatDateTime(job.running_since)}</span></>
+                          ) : (
+                            <>Next run: <span className="text-gray-700 dark:text-dark-200">{formatNextRun(job.next_run_time)}</span></>
+                          )}
                         </div>
-                        <span>•</span>
-                        <span>{formatDateTime(job.next_run_time)}</span>
+                        {!job.is_running && (
+                          <>
+                            <span>•</span>
+                            <span>{formatDateTime(job.next_run_time)}</span>
+                          </>
+                        )}
                       </div>
-                      <div className="text-xs text-dark-500 mt-1">Trigger: {job.trigger}</div>
+                      <div className="text-xs text-dark-500 mt-1">
+                        Interval: {job.interval_hours ? `${job.interval_hours}h` : job.interval_minutes ? `${job.interval_minutes}m` : job.trigger}
+                      </div>
                     </div>
                     <div className="flex gap-2">
+                      <button
+                        onClick={() => openEditDialog(job)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-200 dark:bg-dark-600 text-gray-700 dark:text-dark-200 rounded-lg hover:bg-dark-500 transition-colors"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                        Edit
+                      </button>
                       <button
                         onClick={() => setSelectedJobId(job.id)}
                         className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-dark-600 text-gray-700 dark:text-dark-200 rounded-lg hover:bg-dark-500 transition-colors"
                       >
-                        View History
+                        History
                       </button>
                       <button
                         onClick={() => triggerMutation.mutate(job.id)}
-                        disabled={triggerMutation.isPending}
+                        disabled={triggerMutation.isPending || job.is_running}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-primary-600 text-gray-900 dark:text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
                       >
                         <PlayIcon className="w-4 h-4" />
-                        Trigger Now
+                        {job.is_running ? 'Running...' : 'Trigger'}
                       </button>
                     </div>
                   </div>
@@ -267,10 +337,62 @@ export default function Jobs() {
           </table>
         </div>
       </div>
+
+      {/* Edit Interval Modal */}
+      {editingJob && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 w-full max-w-md mx-4 border border-gray-200 dark:border-dark-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Edit Job Interval: {editingJob.name}
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
+                  Run every
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    value={editIntervalValue}
+                    onChange={(e) => setEditIntervalValue(parseInt(e.target.value) || 1)}
+                    className="flex-1 px-3 py-2 bg-gray-100 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                  />
+                  <select
+                    value={editIntervalUnit}
+                    onChange={(e) => setEditIntervalUnit(e.target.value as 'minutes' | 'hours')}
+                    className="px-3 py-2 bg-gray-100 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="minutes">Minutes</option>
+                    <option value="hours">Hours</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="text-sm text-gray-500 dark:text-dark-400">
+                Current: {editingJob.interval_hours ? `${editingJob.interval_hours} hours` : editingJob.interval_minutes ? `${editingJob.interval_minutes} minutes` : editingJob.trigger}
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setEditingJob(null)}
+                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-dark-600 text-gray-700 dark:text-dark-200 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-500 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveInterval}
+                disabled={updateIntervalMutation.isPending}
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+              >
+                {updateIntervalMutation.isPending ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-
-
-
-

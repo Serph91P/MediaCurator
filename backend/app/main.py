@@ -48,9 +48,12 @@ async def lifespan(app: FastAPI):
     logger.info("Database migrations completed")
     
     # Start scheduler
-    from .scheduler import start_scheduler, stop_scheduler
+    from .scheduler import start_scheduler, stop_scheduler, load_saved_job_intervals
     start_scheduler()
     logger.info("Scheduler started")
+    
+    # Load saved job intervals from database
+    await load_saved_job_intervals()
     
     yield
     

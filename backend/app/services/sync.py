@@ -361,25 +361,25 @@ async def _sync_emby(
             
             updated_paths.add(path)
         
-        # Fetch watch data for a single user (will be run in parallel)
-        async def fetch_user_watch_data(user: dict) -> tuple[str, list, list, list]:
+        # Fetch watch data for a single user (will be run with limited concurrency)
+        async def fetch_user_watch_data(user: dict, semaphore: asyncio.Semaphore) -> tuple[str, list, list, list]:
             user_id = user["Id"]
             user_name = user.get("Name", "Unknown")
-            try:
-                # Fetch all three types in parallel for this user
-                movies, series, episodes = await asyncio.gather(
-                    client.get_items_with_watch_data(user_id=user_id, include_item_types=["Movie"]),
-                    client.get_items_with_watch_data(user_id=user_id, include_item_types=["Series"]),
-                    client.get_items_with_watch_data(user_id=user_id, include_item_types=["Episode"]),
-                )
-                return (user_name, movies, series, episodes)
-            except Exception as e:
-                logger.warning(f"Failed to get watch data for user {user_name}: {e}")
-                return (user_name, [], [], [])
+            async with semaphore:  # Limit concurrent requests
+                try:
+                    # Fetch all three types sequentially for this user (to not overload Emby)
+                    movies = await client.get_items_with_watch_data(user_id=user_id, include_item_types=["Movie"])
+                    series = await client.get_items_with_watch_data(user_id=user_id, include_item_types=["Series"])
+                    episodes = await client.get_items_with_watch_data(user_id=user_id, include_item_types=["Episode"])
+                    return (user_name, movies, series, episodes)
+                except Exception as e:
+                    logger.warning(f"Failed to get watch data for user {user_name}: {e}")
+                    return (user_name, [], [], [])
         
-        # Process ALL users in parallel for faster sync
-        logger.info(f"Fetching watch data from {len(users)} users in parallel...")
-        user_results = await asyncio.gather(*[fetch_user_watch_data(u) for u in users])
+        # Limit to 3 concurrent user syncs to prevent overloading Emby
+        semaphore = asyncio.Semaphore(3)
+        logger.info(f"Fetching watch data from {len(users)} users (max 3 concurrent)...")
+        user_results = await asyncio.gather(*[fetch_user_watch_data(u, semaphore) for u in users])
         
         # Process the results
         for user_name, movies, series, episodes in user_results:

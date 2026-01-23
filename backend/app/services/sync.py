@@ -338,9 +338,15 @@ async def _sync_emby(
                 return
             
             play_count = user_data.get("PlayCount", 0) or 0
+            is_played = user_data.get("Played", False)
+            
+            # If marked as played but PlayCount is 0, count it as at least 1 play
+            if is_played and play_count == 0:
+                play_count = 1
+            
             max_watch_counts[path] = max(max_watch_counts.get(path, 0), play_count)
             
-            if user_data.get("Played", False):
+            if is_played:
                 watched_paths.add(path)
             
             if user_data.get("IsFavorite", False):

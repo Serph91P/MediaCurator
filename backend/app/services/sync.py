@@ -278,11 +278,13 @@ async def _sync_emby(
     service: ServiceConnection
 ) -> Dict[str, Any]:
     """Sync watch data from Emby/Jellyfin."""
+    # Use at least 120s timeout for large library queries
+    timeout = max(service.timeout or 30, 120)
     client = EmbyClient(
         url=service.url,
         api_key=service.api_key,
         verify_ssl=service.verify_ssl,
-        timeout=service.timeout
+        timeout=timeout
     )
     
     updated = 0

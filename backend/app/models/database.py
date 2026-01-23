@@ -485,7 +485,7 @@ class ImportStats(Base):
     __tablename__ = "import_stats"
     
     id = Column(Integer, primary_key=True, index=True)
-    service_connection_id = Column(Integer, ForeignKey("service_connections.id"), nullable=False, index=True)
+    service_connection_id = Column(Integer, ForeignKey("service_connections.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Import counts
     items_added = Column(Integer, default=0)

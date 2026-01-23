@@ -23,7 +23,7 @@ class BaseServiceClient(ABC):
         url: str,
         api_key: str,
         verify_ssl: bool = True,
-        timeout: int = 30
+        timeout: int = 120  # Increased from 30s for large library queries
     ):
         self.base_url = url.rstrip('/')
         self.api_key = api_key
@@ -40,6 +40,7 @@ class BaseServiceClient(ABC):
                 timeout=self.timeout,
                 headers=self._get_headers()
             )
+        return self._client
         return self._client
     
     @abstractmethod

@@ -258,7 +258,7 @@ export default function Layout() {
                     )}
                   </p>
                   <p className="text-xs text-primary-100">
-                    Aktuelle Version: {updateData.current_version || updateData.current_commit} → Neueste: {updateData.latest_version || updateData.latest_commit}
+                    Aktuelle Version: {updateData.current_version?.split('-')[0] || updateData.current_commit} → Neueste: {updateData.latest_version || updateData.latest_commit}
                   </p>
                 </div>
               </div>

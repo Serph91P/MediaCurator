@@ -329,6 +329,8 @@ docker compose -f docker-compose.dev.yml up
 - [x] Add confirmation dialogs for destructive actions
 - [x] Dark/Light theme toggle with system preference support
 - [x] Mobile First Design
+- [x] Jellystat-style Dashboard with Watch Statistics (Most Viewed/Popular Movies & Series)
+- [x] Jellystat-style Libraries page with detailed per-library stats cards
 
 ### Notifications & Integration
 - [x] Migrate to Apprise URL-schema for 90+ notification services
@@ -350,6 +352,10 @@ docker compose -f docker-compose.dev.yml up
 - [x] Bulk operations for rules (enable/disable multiple)
 - [x] Export/import rules as JSON
 - [x] Per-library staging settings (with global fallback)
+- [x] User tracking from Emby (MediaServerUser, UserWatchHistory models)
+- [x] Most Popular Movies/Series by unique users (popularity stats)
+- [x] Most Active Users statistics
+- [x] Detailed library statistics API (/libraries/stats)
 - [ ] Advanced scheduling (different schedules per rule)
 - [ ] Dry-run per rule (not just global)
 - [ ] Media tags auto-management based on watch patterns

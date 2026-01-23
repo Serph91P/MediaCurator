@@ -4,5 +4,6 @@ from .database import (
     MediaItem, NotificationChannel, CleanupLog, SystemSettings,
     ServiceType, MediaType, RuleActionType, NotificationType,
     SeriesEvaluationMode, SeriesDeleteTarget, AuditActionType,
-    JobExecutionLog, ImportStats, AuditLog
+    JobExecutionLog, ImportStats, AuditLog,
+    MediaServerUser, UserWatchHistory
 )

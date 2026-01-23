@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from loguru import logger
 
-from ..models import ServiceConnection, MediaItem, ServiceType, MediaType, ImportStats
+from ..models import ServiceConnection, MediaItem, ServiceType, MediaType, ImportStats, MediaServerUser, UserWatchHistory
 from .sonarr import SonarrClient
 from .radarr import RadarrClient
 from .emby import EmbyClient
@@ -278,7 +278,7 @@ async def _sync_emby(
     db: AsyncSession,
     service: ServiceConnection
 ) -> Dict[str, Any]:
-    """Sync watch data from Emby/Jellyfin."""
+    """Sync watch data from Emby/Jellyfin including per-user tracking."""
     # Use at least 120s timeout for large library queries
     timeout = max(service.timeout or 30, 120)
     client = EmbyClient(
@@ -289,6 +289,7 @@ async def _sync_emby(
     )
     
     updated = 0
+    users_synced = 0
     
     try:
         # Get users - we'll aggregate watch data across ALL users
@@ -298,7 +299,42 @@ async def _sync_emby(
             logger.warning("No users found in Emby")
             return {"success": True, "message": "No users found", "added": 0, "updated": 0}
         
-        logger.info(f"Found {len(users)} users in Emby, aggregating watch data from all")
+        logger.info(f"Found {len(users)} users in Emby, syncing users and aggregating watch data")
+        
+        # === SYNC EMBY USERS TO DATABASE ===
+        user_id_map: Dict[str, int] = {}  # Emby user ID -> DB user ID
+        
+        for emby_user in users:
+            emby_user_id = emby_user["Id"]
+            emby_user_name = emby_user.get("Name", "Unknown")
+            is_admin = emby_user.get("Policy", {}).get("IsAdministrator", False)
+            
+            # Get or create user in database
+            result = await db.execute(
+                select(MediaServerUser).where(
+                    MediaServerUser.external_id == emby_user_id,
+                    MediaServerUser.service_connection_id == service.id
+                )
+            )
+            db_user = result.scalar_one_or_none()
+            
+            if db_user:
+                db_user.name = emby_user_name
+                db_user.is_admin = is_admin
+            else:
+                db_user = MediaServerUser(
+                    external_id=emby_user_id,
+                    service_connection_id=service.id,
+                    name=emby_user_name,
+                    is_admin=is_admin
+                )
+                db.add(db_user)
+                await db.flush()  # Get the ID
+            
+            user_id_map[emby_user_id] = db_user.id
+            users_synced += 1
+        
+        logger.info(f"Synced {users_synced} users to database")
         
         # Get active sessions to mark currently watching
         sessions = await client.get_sessions()
@@ -329,16 +365,23 @@ async def _sync_emby(
         max_progress: dict[str, float] = {}
         last_watched: dict[str, datetime] = {}
         
+        # Track unique users who watched each item (for "Most Popular by Users")
+        users_who_watched: dict[str, set[int]] = {}  # path -> set of db_user_ids
+        
+        # Track per-user watch data for UserWatchHistory
+        user_watch_data: dict[tuple[int, str], dict] = {}  # (db_user_id, path) -> watch_data
+        
         # Track which items were updated
         updated_paths = set()
         
         # Helper function to track max values across users
-        def track_watch_data(path: str, user_data: dict):
+        def track_watch_data(path: str, user_data: dict, db_user_id: int):
             if not path:
                 return
             
             play_count = user_data.get("PlayCount", 0) or 0
             is_played = user_data.get("Played", False)
+            is_favorite = user_data.get("IsFavorite", False)
             
             # If marked as played but PlayCount is 0, count it as at least 1 play
             if is_played and play_count == 0:
@@ -348,22 +391,37 @@ async def _sync_emby(
             
             if is_played:
                 watched_paths.add(path)
+                # Track unique users who watched
+                if path not in users_who_watched:
+                    users_who_watched[path] = set()
+                users_who_watched[path].add(db_user_id)
             
-            if user_data.get("IsFavorite", False):
+            if is_favorite:
                 favorited_paths.add(path)
             
             progress = user_data.get("PlayedPercentage", 0) or 0
             max_progress[path] = max(max_progress.get(path, 0), progress)
             
+            last_played_date = None
             if user_data.get("LastPlayedDate"):
                 try:
-                    last_played = datetime.fromisoformat(
+                    last_played_date = datetime.fromisoformat(
                         user_data["LastPlayedDate"].replace("Z", "+00:00")
                     )
-                    if path not in last_watched or last_played > last_watched[path]:
-                        last_watched[path] = last_played
+                    if path not in last_watched or last_played_date > last_watched[path]:
+                        last_watched[path] = last_played_date
                 except:
                     pass
+            
+            # Store per-user watch data for UserWatchHistory
+            if is_played or play_count > 0 or is_favorite or progress > 0:
+                user_watch_data[(db_user_id, path)] = {
+                    "play_count": play_count,
+                    "is_played": is_played,
+                    "is_favorite": is_favorite,
+                    "progress": progress,
+                    "last_played_at": last_played_date
+                }
             
             updated_paths.add(path)
         
@@ -371,44 +429,56 @@ async def _sync_emby(
         logger.info(f"Fetching watch data from {len(users)} users sequentially...")
         
         for i, user in enumerate(users, 1):
-            user_id = user["Id"]
+            emby_user_id = user["Id"]
             user_name = user.get("Name", "Unknown")
+            db_user_id = user_id_map.get(emby_user_id)
+            
+            if not db_user_id:
+                continue
             
             try:
                 logger.debug(f"Processing user {i}/{len(users)}: {user_name}")
                 
                 # Fetch and process movies immediately (don't hold in memory)
                 emby_movies = await client.get_items_with_watch_data(
-                    user_id=user_id, 
+                    user_id=emby_user_id, 
                     include_item_types=["Movie"]
                 )
                 for emby_item in emby_movies:
                     path = emby_item.get("Path")
                     if path and path in path_to_item:
-                        track_watch_data(path, emby_item.get("UserData", {}))
+                        track_watch_data(path, emby_item.get("UserData", {}), db_user_id)
                 del emby_movies  # Free memory immediately
                 
                 # Fetch and process series immediately
                 emby_series = await client.get_items_with_watch_data(
-                    user_id=user_id,
+                    user_id=emby_user_id,
                     include_item_types=["Series"]
                 )
                 for emby_item in emby_series:
                     path = emby_item.get("Path")
                     if path and path in path_to_item:
-                        track_watch_data(path, emby_item.get("UserData", {}))
+                        track_watch_data(path, emby_item.get("UserData", {}), db_user_id)
                 del emby_series  # Free memory immediately
                 
                 # Fetch and process episodes immediately (this is the big one)
                 emby_episodes = await client.get_items_with_watch_data(
-                    user_id=user_id,
+                    user_id=emby_user_id,
                     include_item_types=["Episode"]
                 )
                 for emby_item in emby_episodes:
                     path = emby_item.get("Path")
                     if path and path in path_to_item:
-                        track_watch_data(path, emby_item.get("UserData", {}))
+                        track_watch_data(path, emby_item.get("UserData", {}), db_user_id)
                 del emby_episodes  # Free memory immediately
+                
+                # Update user's last activity
+                db_user_result = await db.execute(
+                    select(MediaServerUser).where(MediaServerUser.id == db_user_id)
+                )
+                db_user = db_user_result.scalar_one_or_none()
+                if db_user:
+                    db_user.last_activity_at = datetime.utcnow()
                 
                 logger.debug(f"Completed user {i}/{len(users)}: {user_name}")
                 
@@ -432,22 +502,72 @@ async def _sync_emby(
                 item.last_watched_at = last_watched[path]
                 item.last_progress_update = datetime.utcnow()
         
-        # Set currently watching from active sessions
-        for path, item in path_to_item.items():
-            # Check if item's emby_id is in currently_watching
-            # We need to track emby IDs separately - for now just mark based on sessions
-            pass
-        
         updated = len(updated_paths)
+        
+        # === SAVE USER WATCH HISTORY ===
+        logger.info(f"Saving {len(user_watch_data)} user watch history records...")
+        history_saved = 0
+        
+        for (db_user_id, path), watch_data in user_watch_data.items():
+            if path not in path_to_item:
+                continue
+            
+            media_item = path_to_item[path]
+            
+            # Get or create watch history record
+            result = await db.execute(
+                select(UserWatchHistory).where(
+                    UserWatchHistory.user_id == db_user_id,
+                    UserWatchHistory.media_item_id == media_item.id
+                )
+            )
+            history = result.scalar_one_or_none()
+            
+            if history:
+                history.play_count = watch_data["play_count"]
+                history.is_played = watch_data["is_played"]
+                history.is_favorite = watch_data["is_favorite"]
+                history.played_percentage = watch_data["progress"]
+                if watch_data["last_played_at"]:
+                    history.last_played_at = watch_data["last_played_at"]
+            else:
+                history = UserWatchHistory(
+                    user_id=db_user_id,
+                    media_item_id=media_item.id,
+                    play_count=watch_data["play_count"],
+                    is_played=watch_data["is_played"],
+                    is_favorite=watch_data["is_favorite"],
+                    played_percentage=watch_data["progress"],
+                    last_played_at=watch_data["last_played_at"]
+                )
+                db.add(history)
+            
+            history_saved += 1
+        
+        # Update user total plays
+        for emby_user_id, db_user_id in user_id_map.items():
+            user_plays = sum(
+                data["play_count"] 
+                for (uid, _), data in user_watch_data.items() 
+                if uid == db_user_id
+            )
+            result = await db.execute(
+                select(MediaServerUser).where(MediaServerUser.id == db_user_id)
+            )
+            db_user = result.scalar_one_or_none()
+            if db_user:
+                db_user.total_plays = user_plays
+        
         await db.commit()
-        logger.info(f"Updated watch data for {updated} items from Emby (max values from {len(users)} users)")
+        logger.info(f"Updated watch data for {updated} items from Emby (max values from {len(users)} users), saved {history_saved} watch history records")
         
     finally:
         await client.close()
     
     return {
         "success": True,
-        "message": f"Updated watch data for {updated} items",
+        "message": f"Updated watch data for {updated} items, synced {users_synced} users",
         "added": 0,
-        "updated": updated
+        "updated": updated,
+        "users_synced": users_synced
     }

@@ -506,6 +506,67 @@ class ImportStats(Base):
     service_connection = relationship("ServiceConnection", backref="import_stats")
 
 
+class MediaServerUser(Base):
+    """User from Emby/Jellyfin media server for tracking watch statistics."""
+    __tablename__ = "media_server_users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    external_id = Column(String(100), nullable=False)  # User ID from Emby/Jellyfin
+    service_connection_id = Column(Integer, ForeignKey("service_connections.id", ondelete="CASCADE"), nullable=False)
+    
+    # User info
+    name = Column(String(200), nullable=False)
+    is_admin = Column(Boolean, default=False)
+    is_hidden = Column(Boolean, default=False)  # Hide from statistics
+    
+    # Watch statistics (aggregated)
+    total_plays = Column(Integer, default=0)
+    total_watch_time_seconds = Column(Integer, default=0)
+    last_activity_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Unique constraint
+    __table_args__ = (
+        UniqueConstraint('external_id', 'service_connection_id', name='uq_media_server_user'),
+    )
+    
+    # Relationships
+    service_connection = relationship("ServiceConnection", backref="media_server_users")
+    watch_history = relationship("UserWatchHistory", back_populates="user", cascade="all, delete-orphan")
+
+
+class UserWatchHistory(Base):
+    """Track which user watched which media item for 'Most Popular by Users' statistics."""
+    __tablename__ = "user_watch_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("media_server_users.id", ondelete="CASCADE"), nullable=False, index=True)
+    media_item_id = Column(Integer, ForeignKey("media_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    # Watch data per user per item
+    play_count = Column(Integer, default=0)
+    is_played = Column(Boolean, default=False)
+    is_favorite = Column(Boolean, default=False)
+    last_played_at = Column(DateTime(timezone=True), nullable=True)
+    played_percentage = Column(Float, default=0)  # 0-100
+    
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Unique constraint: one record per user per media item
+    __table_args__ = (
+        UniqueConstraint('user_id', 'media_item_id', name='uq_user_watch_history'),
+    )
+    
+    # Relationships
+    user = relationship("MediaServerUser", back_populates="watch_history")
+    media_item = relationship("MediaItem", backref="user_watch_history")
+
+
 class AuditLog(Base):
     """Audit log for tracking admin actions."""
     __tablename__ = "audit_logs"

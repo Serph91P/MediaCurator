@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { 
   FilmIcon, 
@@ -6,12 +7,18 @@ import {
   ExclamationTriangleIcon,
   TrashIcon,
   CircleStackIcon,
-  ServerStackIcon
+  ServerStackIcon,
+  UserGroupIcon,
+  HeartIcon,
+  ClockIcon,
+  ChartBarIcon,
+  StarIcon
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import { formatBytes, formatDateTime } from '../lib/utils'
 import type { SystemStats, MediaStats } from '../types'
 
+// Stat Card Component
 function StatCard({ 
   title, 
   value, 
@@ -23,24 +30,26 @@ function StatCard({
   value: string | number
   subtitle?: string
   icon: React.ComponentType<{ className?: string }>
-  color?: 'primary' | 'green' | 'yellow' | 'red'
+  color?: 'primary' | 'green' | 'yellow' | 'red' | 'purple' | 'cyan'
 }) {
   const colorClasses = {
     primary: 'bg-primary-500/20 text-primary-400',
     green: 'bg-green-500/20 text-green-400',
     yellow: 'bg-yellow-500/20 text-yellow-400',
     red: 'bg-red-500/20 text-red-400',
+    purple: 'bg-purple-500/20 text-purple-400',
+    cyan: 'bg-cyan-500/20 text-cyan-400',
   }
 
   return (
     <div className="bg-white dark:bg-dark-800 rounded-lg sm:rounded-xl border border-gray-200 dark:border-dark-700 shadow-sm sm:shadow-lg">
-      <div className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4">
+      <div className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
         <div className={`p-2.5 sm:p-3 rounded-lg ${colorClasses[color]}`}>
           <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs sm:text-sm text-gray-500 dark:text-dark-400 truncate">{title}</p>
-          <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-dark-100">{value}</p>
+          <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-dark-100">{value}</p>
           {subtitle && <p className="text-xs text-gray-400 dark:text-dark-500 truncate">{subtitle}</p>}
         </div>
       </div>
@@ -48,6 +57,7 @@ function StatCard({
   )
 }
 
+// Disk Usage Bar Component
 function DiskUsageBar({ 
   path, 
   usedPercent, 
@@ -84,7 +94,82 @@ function DiskUsageBar({
   )
 }
 
+// Top List Item Component (Jellystat-style)
+function TopListItem({ 
+  rank, 
+  title, 
+  value, 
+  valueLabel = 'Plays',
+  isFavorite = false 
+}: { 
+  rank: number
+  title: string
+  value: number
+  valueLabel?: string
+  isFavorite?: boolean
+}) {
+  return (
+    <div className="flex items-center gap-3 py-2 px-3 hover:bg-gray-50 dark:hover:bg-dark-700/50 rounded-lg transition-colors">
+      <span className="text-lg font-bold text-gray-400 dark:text-dark-500 w-6 text-center">{rank}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{title}</span>
+          {isFavorite && <HeartIcon className="w-4 h-4 text-red-400 shrink-0" />}
+        </div>
+      </div>
+      <div className="text-right shrink-0">
+        <span className="text-sm font-bold text-primary-400">{value}</span>
+        <span className="text-xs text-gray-400 dark:text-dark-500 ml-1">{valueLabel}</span>
+      </div>
+    </div>
+  )
+}
+
+// Stats Panel Component (for Watch Statistics)
+function StatsPanel({ 
+  title, 
+  icon: Icon, 
+  iconColor,
+  items,
+  valueLabel = 'Plays',
+  emptyMessage = 'No data'
+}: { 
+  title: string
+  icon: React.ComponentType<{ className?: string }>
+  iconColor: string
+  items: Array<{ id: number; title: string; watch_count?: number; user_count?: number; is_favorited?: boolean }>
+  valueLabel?: string
+  emptyMessage?: string
+}) {
+  return (
+    <div className="p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className={`w-5 h-5 ${iconColor}`} />
+        <h3 className="font-semibold text-gray-900 dark:text-white text-sm uppercase tracking-wider">{title}</h3>
+      </div>
+      {items?.length > 0 ? (
+        <div className="space-y-1">
+          {items.map((item, idx) => (
+            <TopListItem
+              key={item.id}
+              rank={idx + 1}
+              title={item.title}
+              value={item.watch_count ?? item.user_count ?? 0}
+              valueLabel={valueLabel}
+              isFavorite={item.is_favorited}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-gray-500 dark:text-dark-400 text-center py-4">{emptyMessage}</p>
+      )}
+    </div>
+  )
+}
+
 export default function Dashboard() {
+  const [statsDays, setStatsDays] = useState(30)
+
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['systemStats'],
     queryFn: async () => {
@@ -101,18 +186,11 @@ export default function Dashboard() {
     },
   })
 
-  const { data: importStats } = useQuery({
-    queryKey: ['importStats'],
+  // Dashboard stats (Jellystat-style with user tracking)
+  const { data: dashboardStats } = useQuery({
+    queryKey: ['dashboardStats', statsDays],
     queryFn: async () => {
-      const res = await api.get('/media/import-stats?days=7')
-      return res.data
-    },
-  })
-
-  const { data: watchStats } = useQuery({
-    queryKey: ['watchStats'],
-    queryFn: async () => {
-      const res = await api.get('/media/watch-stats?limit=10')
+      const res = await api.get(`/media/dashboard-stats?days=${statsDays}&limit=5`)
       return res.data
     },
   })
@@ -120,7 +198,7 @@ export default function Dashboard() {
   const { data: recentActivity } = useQuery({
     queryKey: ['recentActivity'],
     queryFn: async () => {
-      const res = await api.get('/media/audit-log?limit=10&offset=0')
+      const res = await api.get('/media/audit-log?limit=8&offset=0')
       return res.data
     },
     refetchInterval: 30000,
@@ -136,47 +214,253 @@ export default function Dashboard() {
         <p className="text-sm sm:text-base text-gray-500 dark:text-dark-400 mt-1">Overview of your media library</p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Main Stats Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
+          {[...Array(6)].map((_, i) => (
             <div key={i} className="bg-white dark:bg-dark-800 rounded-lg sm:rounded-xl border border-gray-200 dark:border-dark-700 shadow-sm sm:shadow-lg animate-pulse">
-              <div className="p-4 sm:p-6 h-20 sm:h-24" />
+              <div className="p-4 sm:p-5 h-20" />
             </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
           <StatCard
-            title="Total Movies"
-            value={mediaStats?.movies || 0}
-            subtitle={formatBytes(stats?.space_freed_bytes || 0) + ' total'}
+            title="Movies"
+            value={(dashboardStats?.global_stats?.total_movies || mediaStats?.movies || 0).toLocaleString()}
+            subtitle={`${(dashboardStats?.global_stats?.movie_plays || 0).toLocaleString()} plays`}
             icon={FilmIcon}
             color="primary"
           />
           <StatCard
-            title="Total Series"
-            value={mediaStats?.series || 0}
-            subtitle={`${mediaStats?.episodes || 0} episodes`}
+            title="Series"
+            value={(dashboardStats?.global_stats?.total_series || mediaStats?.series || 0).toLocaleString()}
+            subtitle={`${(dashboardStats?.global_stats?.total_episodes || mediaStats?.episodes || 0).toLocaleString()} eps`}
             icon={TvIcon}
             color="green"
           />
           <StatCard
-            title="Flagged for Cleanup"
+            title="Total Plays"
+            value={(dashboardStats?.global_stats?.total_plays || 0).toLocaleString()}
+            subtitle={`${(dashboardStats?.global_stats?.total_watched || 0).toLocaleString()} watched`}
+            icon={PlayIcon}
+            color="purple"
+          />
+          <StatCard
+            title="Users"
+            value={(dashboardStats?.global_stats?.total_users || 0).toLocaleString()}
+            subtitle="active users"
+            icon={UserGroupIcon}
+            color="cyan"
+          />
+          <StatCard
+            title="Flagged"
             value={mediaStats?.flagged_items || 0}
             subtitle={formatBytes(mediaStats?.flagged_size_bytes || 0)}
             icon={ExclamationTriangleIcon}
             color="yellow"
           />
           <StatCard
-            title="Deleted (30 days)"
+            title="Deleted"
             value={stats?.deleted_last_30_days || 0}
-            subtitle={formatBytes(stats?.space_freed_bytes || 0) + ' freed'}
+            subtitle={formatBytes(stats?.space_freed_bytes || 0)}
             icon={TrashIcon}
             color="red"
           />
         </div>
       )}
+
+      {/* Watch Statistics Section (Jellystat-style) */}
+      <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-dark-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <ChartBarIcon className="w-5 h-5" />
+            Watch Statistics
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-dark-400">Last</span>
+            <select 
+              value={statsDays}
+              onChange={(e) => setStatsDays(Number(e.target.value))}
+              className="rounded-lg border border-gray-300 dark:border-dark-600 bg-white dark:bg-dark-700 text-gray-900 dark:text-white text-sm px-3 py-1.5 focus:ring-2 focus:ring-primary-500"
+            >
+              <option value={7}>7</option>
+              <option value={14}>14</option>
+              <option value={30}>30</option>
+              <option value={90}>90</option>
+              <option value={365}>365</option>
+            </select>
+            <span className="text-sm text-gray-500 dark:text-dark-400">Days</span>
+          </div>
+        </div>
+        
+        {/* Movies Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-dark-700 border-b border-gray-200 dark:border-dark-700">
+          <StatsPanel
+            title="Most Viewed Movies"
+            icon={FilmIcon}
+            iconColor="text-primary-400"
+            items={dashboardStats?.most_viewed_movies || []}
+            valueLabel="Plays"
+            emptyMessage="No movie plays yet"
+          />
+          <StatsPanel
+            title="Most Popular Movies"
+            icon={StarIcon}
+            iconColor="text-yellow-400"
+            items={dashboardStats?.most_popular_movies || []}
+            valueLabel="Users"
+            emptyMessage="No user data yet"
+          />
+        </div>
+        
+        {/* Series Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-dark-700 border-b border-gray-200 dark:border-dark-700">
+          <StatsPanel
+            title="Most Viewed Series"
+            icon={TvIcon}
+            iconColor="text-green-400"
+            items={dashboardStats?.most_viewed_series || []}
+            valueLabel="Plays"
+            emptyMessage="No series plays yet"
+          />
+          <StatsPanel
+            title="Most Popular Series"
+            icon={StarIcon}
+            iconColor="text-yellow-400"
+            items={dashboardStats?.most_popular_series || []}
+            valueLabel="Users"
+            emptyMessage="No user data yet"
+          />
+        </div>
+        
+        {/* Users & Recent Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-dark-700">
+          {/* Most Active Users */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <UserGroupIcon className="w-5 h-5 text-cyan-400" />
+              <h3 className="font-semibold text-gray-900 dark:text-white text-sm uppercase tracking-wider">Most Active Users</h3>
+            </div>
+            {dashboardStats?.most_active_users?.length > 0 ? (
+              <div className="space-y-1">
+                {dashboardStats.most_active_users.map((user: any, idx: number) => (
+                  <div key={user.id} className="flex items-center gap-3 py-2 px-3 hover:bg-gray-50 dark:hover:bg-dark-700/50 rounded-lg transition-colors">
+                    <span className="text-lg font-bold text-gray-400 dark:text-dark-500 w-6 text-center">{idx + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white truncate block">{user.name}</span>
+                      {user.is_admin && (
+                        <span className="text-xs text-primary-400">Admin</span>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-sm font-bold text-cyan-400">{user.total_plays}</span>
+                      <span className="text-xs text-gray-400 dark:text-dark-500 ml-1">Plays</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-dark-400 text-center py-4">No user activity yet</p>
+            )}
+          </div>
+          
+          {/* Recently Added */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <ClockIcon className="w-5 h-5 text-purple-400" />
+              <h3 className="font-semibold text-gray-900 dark:text-white text-sm uppercase tracking-wider">Recently Added</h3>
+            </div>
+            {dashboardStats?.recently_added?.length > 0 ? (
+              <div className="space-y-1">
+                {dashboardStats.recently_added.slice(0, 5).map((item: any, idx: number) => (
+                  <div key={item.id} className="flex items-center gap-3 py-2 px-3 hover:bg-gray-50 dark:hover:bg-dark-700/50 rounded-lg transition-colors">
+                    <span className="text-lg font-bold text-gray-400 dark:text-dark-500 w-6 text-center">{idx + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white truncate block">{item.title}</span>
+                      <span className="text-xs text-gray-400 dark:text-dark-500">{item.year || ''}</span>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
+                      item.media_type === 'movie' ? 'bg-primary-500/20 text-primary-400' : 'bg-green-500/20 text-green-400'
+                    }`}>
+                      {item.media_type}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-dark-400 text-center py-4">No recent additions</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Library Overview (Jellystat-style) */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <ServerStackIcon className="w-5 h-5" />
+          Library Overview
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Movie Libraries */}
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">
+            <div className="px-4 py-3 bg-linear-to-r from-primary-600 to-primary-500 flex items-center gap-2">
+              <FilmIcon className="w-5 h-5 text-white" />
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Movie Libraries</h3>
+            </div>
+            <div className="p-4">
+              {dashboardStats?.library_overview?.movie_libraries?.length > 0 ? (
+                <div className="space-y-2">
+                  {dashboardStats.library_overview.movie_libraries.map((lib: any, idx: number) => (
+                    <div key={lib.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-dark-700 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500 dark:text-dark-400">{idx + 1}</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">{lib.name}</span>
+                      </div>
+                      <span className="text-sm font-bold text-primary-400">{lib.count.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-dark-400 text-center py-4">No movie libraries</p>
+              )}
+            </div>
+          </div>
+          
+          {/* TV Libraries */}
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">
+            <div className="px-4 py-3 bg-linear-to-r from-green-600 to-green-500 flex items-center gap-2">
+              <TvIcon className="w-5 h-5 text-white" />
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Show Libraries</h3>
+            </div>
+            <div className="p-4">
+              {dashboardStats?.library_overview?.tv_libraries?.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-4 gap-2 text-xs text-gray-500 dark:text-dark-400 uppercase tracking-wider pb-2 border-b border-gray-200 dark:border-dark-700">
+                    <span></span>
+                    <span className="text-right">Series</span>
+                    <span className="text-right">Seasons</span>
+                    <span className="text-right">Episodes</span>
+                  </div>
+                  {dashboardStats.library_overview.tv_libraries.map((lib: any, idx: number) => (
+                    <div key={lib.id} className="grid grid-cols-4 gap-2 items-center py-2 border-b border-gray-100 dark:border-dark-700 last:border-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm text-gray-500 dark:text-dark-400 shrink-0">{idx + 1}</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{lib.name}</span>
+                      </div>
+                      <span className="text-sm font-bold text-green-400 text-right">{lib.series.toLocaleString()}</span>
+                      <span className="text-sm text-gray-600 dark:text-dark-300 text-right">{lib.seasons.toLocaleString()}</span>
+                      <span className="text-sm text-gray-600 dark:text-dark-300 text-right">{lib.episodes.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-dark-400 text-center py-4">No TV libraries</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Disk Usage */}
       <div className="bg-white dark:bg-dark-800 rounded-lg sm:rounded-xl border border-gray-200 dark:border-dark-700 shadow-sm sm:shadow-lg">
@@ -202,203 +486,6 @@ export default function Dashboard() {
           )}
         </div>
       </div>
-
-      {/* Service Breakdown */}
-      {mediaStats?.service_breakdown && mediaStats.service_breakdown.length > 0 && (
-        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <ServerStackIcon className="w-5 h-5" />
-              Media by Service
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-dark-400 mt-1">
-              Compare media counts across different services
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100 dark:bg-dark-700/50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Service</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Movies</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Series</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Episodes</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Last Sync</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-dark-700">
-                {mediaStats.service_breakdown.map((service) => (
-                  <tr key={service.service_id} className="hover:bg-gray-50 dark:hover:bg-dark-700/50">
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{service.service_name}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400">
-                        {service.service_type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-600 dark:text-dark-300">{service.movies.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-600 dark:text-dark-300">{service.series.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-600 dark:text-dark-300">{service.episodes.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right text-sm font-medium text-gray-900 dark:text-white">{service.total_items.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-dark-400">
-                      {service.last_sync 
-                        ? formatDateTime(service.last_sync)
-                        : 'Never'
-                      }
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Import Statistics (Last 7 Days) */}
-      {importStats && importStats.by_service && importStats.by_service.length > 0 && (
-        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <PlayIcon className="w-5 h-5" />
-              Import Activity (Last 7 Days)
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-dark-400 mt-1">
-              {importStats.total_syncs} syncs • {importStats.total_added} items added • {importStats.total_updated} updated
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100 dark:bg-dark-700/50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Service</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Syncs</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Added</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Updated</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Movies</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Series</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">Episodes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-dark-700">
-                {importStats.by_service.map((service: any) => (
-                  <tr key={service.service_id} className="hover:bg-gray-50 dark:hover:bg-dark-700/50">
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{service.service_name}</div>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-500/20 text-primary-400 mt-1">
-                        {service.service_type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-600 dark:text-dark-300">{service.sync_count}</td>
-                    <td className="px-6 py-4 text-right text-sm font-medium text-green-400">+{service.total_added}</td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-500 dark:text-dark-400">{service.total_updated}</td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-600 dark:text-dark-300">{service.movies_added}</td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-600 dark:text-dark-300">{service.series_added}</td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-600 dark:text-dark-300">{service.episodes_added}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Watch Statistics */}
-      {watchStats && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Most Watched */}
-          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <TvIcon className="w-5 h-5" />
-                Most Watched
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-dark-400 mt-1">
-                Total: {watchStats.summary?.total_watches?.toLocaleString()} plays • {watchStats.summary?.watched_items} items watched
-              </p>
-            </div>
-            <div className="p-6">
-              {watchStats.most_watched && watchStats.most_watched.length > 0 ? (
-                <div className="space-y-3">
-                  {watchStats.most_watched.slice(0, 5).map((item: any) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-gray-900 dark:text-white truncate">{item.title}</h3>
-                          {item.is_favorited && (
-                            <span className="text-yellow-400 text-xs font-bold">Fav</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-500/20 text-primary-400">
-                            {item.media_type}
-                          </span>
-                          {item.rating && (
-                            <span className="text-xs text-gray-500 dark:text-dark-400">{item.rating.toFixed(1)}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right ml-4">
-                        <div className="text-lg font-bold text-primary-400">{item.watch_count}</div>
-                        <div className="text-xs text-gray-400 dark:text-dark-500">plays</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-gray-500 dark:text-dark-400 py-4">No watch data available</p>
-              )}
-            </div>
-          </div>
-
-          {/* Recently Watched */}
-          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <PlayIcon className="w-5 h-5" />
-                Recently Watched
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-dark-400 mt-1">
-                Movies: {watchStats.summary?.movies_watches?.toLocaleString()} plays • Episodes: {watchStats.summary?.episodes_watches?.toLocaleString()} plays
-              </p>
-            </div>
-            <div className="p-6">
-              {watchStats.recently_watched && watchStats.recently_watched.length > 0 ? (
-                <div className="space-y-3">
-                  {watchStats.recently_watched.slice(0, 5).map((item: any) => (
-                    <div key={item.id} className="flex items-start justify-between p-3 bg-gray-50 dark:bg-dark-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 dark:text-white truncate">{item.title}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-500/20 text-primary-400">
-                            {item.media_type}
-                          </span>
-                          {item.genres && item.genres.length > 0 && (
-                            <span className="text-xs text-gray-500 dark:text-dark-400">{item.genres[0]}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right ml-4">
-                        <div className="text-xs text-gray-500 dark:text-dark-400">
-                          {item.last_watched_at
-                            ? new Date(item.last_watched_at).toLocaleDateString('de-DE', { month: 'short', day: 'numeric' })
-                            : '-'
-                          }
-                        </div>
-                        <div className="text-xs text-gray-400 dark:text-dark-500">{item.watch_count}× watched</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-gray-500 dark:text-dark-400 py-4">No recent watches</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Recent Cleanup Activity */}
       {recentActivity && recentActivity.logs && recentActivity.logs.length > 0 && (

@@ -1,6 +1,7 @@
 """
 Sync service for fetching media items from services.
 """
+import asyncio
 from typing import Dict, Any
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -332,7 +333,7 @@ async def _sync_emby(
         updated_paths = set()
         
         # Helper function to track max values across users
-        def track_watch_data(path: str, user_data: dict, emby_id: str):
+        def track_watch_data(path: str, user_data: dict):
             if not path:
                 return
             
@@ -360,50 +361,44 @@ async def _sync_emby(
             
             updated_paths.add(path)
         
-        # Process watch data from ALL users
-        for user in users:
+        # Fetch watch data for a single user (will be run in parallel)
+        async def fetch_user_watch_data(user: dict) -> tuple[str, list, list, list]:
             user_id = user["Id"]
             user_name = user.get("Name", "Unknown")
-            
             try:
-                # Get movies with watch data for this user
-                emby_movies = await client.get_items_with_watch_data(
-                    user_id=user_id,
-                    include_item_types=["Movie"]
+                # Fetch all three types in parallel for this user
+                movies, series, episodes = await asyncio.gather(
+                    client.get_items_with_watch_data(user_id=user_id, include_item_types=["Movie"]),
+                    client.get_items_with_watch_data(user_id=user_id, include_item_types=["Series"]),
+                    client.get_items_with_watch_data(user_id=user_id, include_item_types=["Episode"]),
                 )
-                
-                for emby_item in emby_movies:
-                    path = emby_item.get("Path")
-                    if path and path in path_to_item:
-                        track_watch_data(path, emby_item.get("UserData", {}), emby_item.get("Id"))
-                
-                # Get series with watch data
-                emby_series = await client.get_items_with_watch_data(
-                    user_id=user_id,
-                    include_item_types=["Series"]
-                )
-                
-                for emby_item in emby_series:
-                    path = emby_item.get("Path")
-                    if path and path in path_to_item:
-                        track_watch_data(path, emby_item.get("UserData", {}), emby_item.get("Id"))
-                
-                # Get episodes with watch data
-                emby_episodes = await client.get_items_with_watch_data(
-                    user_id=user_id,
-                    include_item_types=["Episode"]
-                )
-                
-                for emby_item in emby_episodes:
-                    path = emby_item.get("Path")
-                    if path and path in path_to_item:
-                        track_watch_data(path, emby_item.get("UserData", {}), emby_item.get("Id"))
-                
-                logger.debug(f"Processed watch data for user: {user_name}")
-                
+                return (user_name, movies, series, episodes)
             except Exception as e:
                 logger.warning(f"Failed to get watch data for user {user_name}: {e}")
-                continue
+                return (user_name, [], [], [])
+        
+        # Process ALL users in parallel for faster sync
+        logger.info(f"Fetching watch data from {len(users)} users in parallel...")
+        user_results = await asyncio.gather(*[fetch_user_watch_data(u) for u in users])
+        
+        # Process the results
+        for user_name, movies, series, episodes in user_results:
+            for emby_item in movies:
+                path = emby_item.get("Path")
+                if path and path in path_to_item:
+                    track_watch_data(path, emby_item.get("UserData", {}))
+            
+            for emby_item in series:
+                path = emby_item.get("Path")
+                if path and path in path_to_item:
+                    track_watch_data(path, emby_item.get("UserData", {}))
+            
+            for emby_item in episodes:
+                path = emby_item.get("Path")
+                if path and path in path_to_item:
+                    track_watch_data(path, emby_item.get("UserData", {}))
+            
+            logger.debug(f"Processed watch data for user: {user_name}")
         
         # Now apply the aggregated data to items
         for path in updated_paths:

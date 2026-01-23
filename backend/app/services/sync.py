@@ -361,44 +361,54 @@ async def _sync_emby(
             
             updated_paths.add(path)
         
-        # Fetch watch data for a single user (will be run with limited concurrency)
-        async def fetch_user_watch_data(user: dict, semaphore: asyncio.Semaphore) -> tuple[str, list, list, list]:
+        # Process users ONE BY ONE to save memory (no parallel fetching)
+        logger.info(f"Fetching watch data from {len(users)} users sequentially...")
+        
+        for i, user in enumerate(users, 1):
             user_id = user["Id"]
             user_name = user.get("Name", "Unknown")
-            async with semaphore:  # Limit concurrent requests
-                try:
-                    # Fetch all three types sequentially for this user (to not overload Emby)
-                    movies = await client.get_items_with_watch_data(user_id=user_id, include_item_types=["Movie"])
-                    series = await client.get_items_with_watch_data(user_id=user_id, include_item_types=["Series"])
-                    episodes = await client.get_items_with_watch_data(user_id=user_id, include_item_types=["Episode"])
-                    return (user_name, movies, series, episodes)
-                except Exception as e:
-                    logger.warning(f"Failed to get watch data for user {user_name}: {e}")
-                    return (user_name, [], [], [])
-        
-        # Limit to 3 concurrent user syncs to prevent overloading Emby
-        semaphore = asyncio.Semaphore(3)
-        logger.info(f"Fetching watch data from {len(users)} users (max 3 concurrent)...")
-        user_results = await asyncio.gather(*[fetch_user_watch_data(u, semaphore) for u in users])
-        
-        # Process the results
-        for user_name, movies, series, episodes in user_results:
-            for emby_item in movies:
-                path = emby_item.get("Path")
-                if path and path in path_to_item:
-                    track_watch_data(path, emby_item.get("UserData", {}))
             
-            for emby_item in series:
-                path = emby_item.get("Path")
-                if path and path in path_to_item:
-                    track_watch_data(path, emby_item.get("UserData", {}))
-            
-            for emby_item in episodes:
-                path = emby_item.get("Path")
-                if path and path in path_to_item:
-                    track_watch_data(path, emby_item.get("UserData", {}))
-            
-            logger.debug(f"Processed watch data for user: {user_name}")
+            try:
+                logger.debug(f"Processing user {i}/{len(users)}: {user_name}")
+                
+                # Fetch and process movies immediately (don't hold in memory)
+                emby_movies = await client.get_items_with_watch_data(
+                    user_id=user_id, 
+                    include_item_types=["Movie"]
+                )
+                for emby_item in emby_movies:
+                    path = emby_item.get("Path")
+                    if path and path in path_to_item:
+                        track_watch_data(path, emby_item.get("UserData", {}))
+                del emby_movies  # Free memory immediately
+                
+                # Fetch and process series immediately
+                emby_series = await client.get_items_with_watch_data(
+                    user_id=user_id,
+                    include_item_types=["Series"]
+                )
+                for emby_item in emby_series:
+                    path = emby_item.get("Path")
+                    if path and path in path_to_item:
+                        track_watch_data(path, emby_item.get("UserData", {}))
+                del emby_series  # Free memory immediately
+                
+                # Fetch and process episodes immediately (this is the big one)
+                emby_episodes = await client.get_items_with_watch_data(
+                    user_id=user_id,
+                    include_item_types=["Episode"]
+                )
+                for emby_item in emby_episodes:
+                    path = emby_item.get("Path")
+                    if path and path in path_to_item:
+                        track_watch_data(path, emby_item.get("UserData", {}))
+                del emby_episodes  # Free memory immediately
+                
+                logger.debug(f"Completed user {i}/{len(users)}: {user_name}")
+                
+            except Exception as e:
+                logger.warning(f"Failed to get watch data for user {user_name}: {e}")
+                continue
         
         # Now apply the aggregated data to items
         for path in updated_paths:

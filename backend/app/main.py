@@ -12,7 +12,8 @@ import sys
 
 from .core.config import get_settings
 from .core.database import init_db, close_db
-from .api.routes import auth, services, rules, libraries, media, notifications, system
+from .core.rate_limit import setup_rate_limiting, limiter, RateLimits
+from .api.routes import auth, services, rules, libraries, notifications, system, jobs, media, staging, audit
 
 settings = get_settings()
 
@@ -35,6 +36,13 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     await init_db()
     logger.info("Database initialized")
+    
+    # Run migrations
+    from .core.database import async_session_maker
+    from .core.migrations import migrate_database
+    async with async_session_maker() as db:
+        await migrate_database(db)
+    logger.info("Database migrations completed")
     
     # Start scheduler
     from .scheduler import start_scheduler, stop_scheduler
@@ -68,20 +76,64 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Setup rate limiting
+setup_rate_limiting(app)
+
 # Include routers
 app.include_router(auth.router, prefix="/api")
 app.include_router(services.router, prefix="/api")
 app.include_router(rules.router, prefix="/api")
 app.include_router(libraries.router, prefix="/api")
-app.include_router(media.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(system.router, prefix="/api")
+app.include_router(jobs.router, prefix="/api")
+app.include_router(media.router, prefix="/api")
+app.include_router(staging.router, prefix="/api/staging", tags=["staging"])
 
 
 @app.get("/api/health")
-async def health():
+@limiter.limit(RateLimits.HEALTH_CHECK)
+async def health(request: Request):
     """Simple health check endpoint for Docker healthcheck."""
     return {"status": "healthy"}
+
+
+@app.get("/api/health/detailed")
+@limiter.limit(RateLimits.HEALTH_CHECK)
+async def health_detailed(request: Request):
+    """Detailed health check with component status."""
+    from .core.database import async_session_maker
+    from sqlalchemy import text
+    import time
+    
+    health_status = {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "version": settings.app_version,
+        "components": {}
+    }
+    
+    # Check database
+    try:
+        async with async_session_maker() as db:
+            await db.execute(text("SELECT 1"))
+        health_status["components"]["database"] = {"status": "healthy"}
+    except Exception as e:
+        health_status["components"]["database"] = {"status": "unhealthy", "error": str(e)}
+        health_status["status"] = "degraded"
+    
+    # Check scheduler
+    try:
+        from .scheduler import scheduler
+        if scheduler.running:
+            health_status["components"]["scheduler"] = {"status": "healthy", "jobs": len(scheduler.get_jobs())}
+        else:
+            health_status["components"]["scheduler"] = {"status": "stopped"}
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["components"]["scheduler"] = {"status": "unknown", "error": str(e)}
+    
+    return health_status
 
 
 # Mount static files for frontend assets (JS, CSS, etc.)

@@ -12,14 +12,37 @@ export interface User {
 
 export interface Token {
   access_token: string
+  refresh_token: string
   token_type: string
+  expires_in: number
+}
+
+export interface Session {
+  id: number
+  device_info: string | null
+  ip_address: string | null
+  created_at: string
+  expires_at: string
+  is_current: boolean
 }
 
 export type ServiceType = 'sonarr' | 'radarr' | 'emby' | 'jellyfin' | 'jellystat'
 export type MediaType = 'movie' | 'series' | 'episode' | 'season'
-export type RuleActionType = 'delete' | 'notify_only' | 'move_to_trash' | 'unmonitor'
+export type RuleActionType = 'delete' | 'delete_and_unmonitor' | 'notify_only' | 'move_to_trash' | 'unmonitor'
 export type NotificationType = 'webhook' | 'discord' | 'slack' | 'email' | 'apprise'
+export type NotificationEventType = 
+  | 'media_flagged' 
+  | 'media_deleted' 
+  | 'media_staged' 
+  | 'media_restored' 
+  | 'cleanup_started' 
+  | 'cleanup_completed' 
+  | 'sync_completed' 
+  | 'error' 
+  | 'test'
 export type SeriesDeleteMode = 'episode' | 'season' | 'series'
+export type SeriesEvaluationMode = 'whole_series' | 'season' | 'episode'
+export type SeriesDeleteTarget = 'whole_series' | 'matched_season' | 'matched_episode' | 'previous_seasons' | 'following_seasons' | 'previous_episodes' | 'following_episodes' | 'unwatched_episodes_in_season' | 'unwatched_seasons'
 
 export interface ServiceConnection {
   id: number
@@ -30,7 +53,6 @@ export interface ServiceConnection {
   is_enabled: boolean
   verify_ssl: boolean
   timeout: number
-  library_id: number | null
   created_at: string
   updated_at: string | null
   last_sync: string | null
@@ -44,28 +66,19 @@ export interface ServiceConnectionCreate {
   is_enabled?: boolean
   verify_ssl?: boolean
   timeout?: number
-  library_id?: number | null
 }
 
 export interface Library {
   id: number
   name: string
-  emby_service_id: number
-  emby_library_id: string
-  media_type: 'movie' | 'series'
+  description: string | null
+  media_type: MediaType
   path: string | null
+  external_id: string
+  service_connection_id: number
   is_enabled: boolean
+  last_synced_at: string | null
   created_at: string
-  updated_at: string | null
-}
-
-export interface LibraryCreate {
-  name: string
-  emby_service_id: number
-  emby_library_id: string
-  media_type: 'movie' | 'series'
-  path?: string | null
-  is_enabled?: boolean
 }
 
 export interface RuleConditions {
@@ -73,19 +86,19 @@ export interface RuleConditions {
   not_watched_days?: number | null
   min_age_days?: number | null
   exclude_favorited: boolean
-  exclude_currently_watching: boolean
-  series_delete_mode: SeriesDeleteMode
+  exclude_watched_within_days?: number | null  // Exclude items watched within last X days
+  series_delete_mode?: SeriesDeleteMode  // Legacy field
+  series_evaluation_mode?: SeriesEvaluationMode  // How to evaluate series
+  series_delete_target?: SeriesDeleteTarget  // What to delete when matched
   min_episodes_watched_percent?: number | null
   exclude_genres: string[]
   exclude_tags: string[]
   include_tags: string[]
   rating_below?: number | null
   max_items_per_run?: number | null
-  // Neue Optionen
-  add_import_exclusion?: boolean  // Zur Import-Exclusion-Liste hinzufügen
-  watched_progress_below?: number | null  // Nur löschen wenn Progress unter X%
-  exclude_recently_added_days?: number | null  // Kürzlich hinzugefügt ausschließen
-  exclude_in_progress?: boolean  // Medien mit Progress > 0 aber nicht fertig ausschließen
+  add_import_exclusion?: boolean  // Add to Import-Exclusion-List
+  watched_progress_below?: number | null  // Only delete if progress below X%
+  exclude_recently_added_days?: number | null  // Exclude recently added items
 }
 
 export interface CleanupRule {
@@ -94,7 +107,7 @@ export interface CleanupRule {
   description: string | null
   is_enabled: boolean
   priority: number
-  media_type: MediaType
+  media_types: MediaType[]  // Can target multiple types
   library_id: number | null
   conditions: RuleConditions
   action: RuleActionType
@@ -108,7 +121,7 @@ export interface CleanupRuleCreate {
   description?: string | null
   is_enabled?: boolean
   priority?: number
-  media_type: MediaType
+  media_types: MediaType[]  // Can target multiple types (movies + series + episodes)
   library_id?: number | null
   conditions: RuleConditions
   action?: RuleActionType
@@ -143,9 +156,16 @@ export interface NotificationChannel {
   notification_type: NotificationType
   is_enabled: boolean
   webhook_url: string | null
-  on_delete: boolean
-  on_warning: boolean
-  on_error: boolean
+  config: Record<string, unknown>
+  notify_on_deleted: boolean
+  notify_on_flagged: boolean
+  notify_on_error: boolean
+  // New template and retry fields
+  event_types: NotificationEventType[] | null
+  title_template: string | null
+  message_template: string | null
+  max_retries: number
+  retry_backoff_base: number
   created_at: string
   updated_at: string | null
 }
@@ -155,9 +175,34 @@ export interface NotificationChannelCreate {
   notification_type: NotificationType
   is_enabled?: boolean
   webhook_url?: string | null
-  on_delete?: boolean
-  on_warning?: boolean
-  on_error?: boolean
+  config?: Record<string, unknown>
+  notify_on_deleted?: boolean
+  notify_on_flagged?: boolean
+  notify_on_error?: boolean
+  // New template and retry fields
+  event_types?: NotificationEventType[] | null
+  title_template?: string | null
+  message_template?: string | null
+  max_retries?: number
+  retry_backoff_base?: number
+}
+
+export interface EventTypeInfo {
+  value: NotificationEventType
+  name: string
+  default_title: string
+  default_message: string
+}
+
+export interface TemplatePreviewRequest {
+  title_template?: string | null
+  message_template?: string | null
+  event_type?: string
+}
+
+export interface TemplatePreviewResponse {
+  rendered_title: string
+  rendered_message: string
 }
 
 export interface CleanupLog {
@@ -208,12 +253,24 @@ export interface MediaStats {
   flagged_items: number
   total_size_bytes: number
   flagged_size_bytes: number
+  service_breakdown: ServiceBreakdown[]
+}
+
+export interface ServiceBreakdown {
+  service_id: number
+  service_name: string
+  service_type: ServiceType
+  total_items: number
+  movies: number
+  series: number
+  episodes: number
+  last_sync: string | null
 }
 
 export interface RuleTemplate {
   name: string
   description: string
-  media_type: MediaType
+  media_types: MediaType[]  // Templates can also target multiple types
   conditions: Partial<RuleConditions>
   action: RuleActionType
   grace_period_days: number
@@ -236,4 +293,15 @@ export interface SystemSettingsUpdate {
   dry_run_mode?: boolean
   default_grace_period_days?: number
   max_deletions_per_run?: number
+}
+
+export interface SeriesOption {
+  value: string
+  label: string
+  description: string
+}
+
+export interface SeriesOptionsResponse {
+  evaluation_modes: SeriesOption[]
+  delete_targets: SeriesOption[]
 }

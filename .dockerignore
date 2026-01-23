@@ -1,0 +1,70 @@
+# Git
+.git
+.gitignore
+.github/prompts
+
+# Development
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
+**/.pytest_cache
+**/.coverage
+htmlcov
+.tox
+.venv
+venv
+env
+ENV
+
+# Frontend
+frontend/node_modules
+frontend/dist
+frontend/.vite
+frontend/coverage
+
+# Backend
+backend/**/__pycache__
+backend/.pytest_cache
+backend/data
+backend/logs
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+CHANGELOG.md
+docs/
+
+# Docker
+docker-compose*.yml
+Dockerfile.dev
+
+# Environment & Config
+.env
+.env.local
+.env.*.local
+
+# Misc
+*.log
+*.db
+*.sqlite
+*.sqlite3
+data/
+logs/
+github-action.log
+
+# Test files
+**/*test*.py
+**/test_*.py
+tests/

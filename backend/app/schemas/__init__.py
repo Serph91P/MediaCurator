@@ -26,6 +26,7 @@ class MediaType(str, Enum):
 
 class RuleActionType(str, Enum):
     DELETE = "delete"
+    DELETE_AND_UNMONITOR = "delete_and_unmonitor"
     NOTIFY_ONLY = "notify_only"
     MOVE_TO_TRASH = "move_to_trash"
     UNMONITOR = "unmonitor"
@@ -40,21 +41,97 @@ class NotificationType(str, Enum):
 
 
 class SeriesDeleteMode(str, Enum):
+    """How to handle series deletion when an episode is watched.
+    
+    EPISODE: Only the watched episode is kept (most aggressive)
+    SEASON: Entire season is kept if any episode was watched
+    SERIES: Entire series is kept if any episode was watched (most conservative)
+    """
     EPISODE = "episode"
     SEASON = "season"
     SERIES = "series"
 
 
+class SeriesEvaluationMode(str, Enum):
+    """How to evaluate series for cleanup rules.
+    
+    WHOLE_SERIES: Evaluate entire series as one unit
+    SEASON: Evaluate each season separately  
+    EPISODE: Evaluate each episode separately
+    """
+    WHOLE_SERIES = "whole_series"
+    SEASON = "season"
+    EPISODE = "episode"
+
+
+class SeriesDeleteTarget(str, Enum):
+    """What to delete when a series matches cleanup rules.
+    
+    WHOLE_SERIES: Delete the entire series
+    MATCHED_SEASON: Delete only the matched season
+    MATCHED_EPISODE: Delete only the matched episode
+    PREVIOUS_SEASONS: Delete all previous seasons
+    FOLLOWING_SEASONS: Delete all following seasons
+    PREVIOUS_EPISODES: Delete all previous episodes in season
+    FOLLOWING_EPISODES: Delete all following episodes in season
+    UNWATCHED_EPISODES_IN_SEASON: Delete unwatched episodes in matched season
+    UNWATCHED_SEASONS: Delete all unwatched seasons
+    """
+    WHOLE_SERIES = "whole_series"
+    MATCHED_SEASON = "matched_season"
+    MATCHED_EPISODE = "matched_episode"
+    PREVIOUS_SEASONS = "previous_seasons"
+    FOLLOWING_SEASONS = "following_seasons"
+    PREVIOUS_EPISODES = "previous_episodes"
+    FOLLOWING_EPISODES = "following_episodes"
+    UNWATCHED_EPISODES_IN_SEASON = "unwatched_episodes_in_season"
+    UNWATCHED_SEASONS = "unwatched_seasons"
+
+
 # ==================== Auth Schemas ====================
 
 class Token(BaseModel):
+    """Token response with access and refresh tokens."""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int  # Access token lifetime in seconds
+
+
+class TokenRefreshRequest(BaseModel):
+    """Request to refresh access token."""
+    refresh_token: str
+
+
+class TokenRefreshResponse(BaseModel):
+    """Response from token refresh."""
     access_token: str
     token_type: str = "bearer"
+    expires_in: int
 
 
 class TokenPayload(BaseModel):
     sub: Optional[int] = None
     username: Optional[str] = None
+
+
+class SessionInfo(BaseModel):
+    """Information about an active session."""
+    id: int
+    device_info: Optional[str] = None
+    ip_address: Optional[str] = None
+    created_at: datetime
+    expires_at: datetime
+    is_current: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class SessionListResponse(BaseModel):
+    """List of active sessions."""
+    sessions: List["SessionInfo"]
+    total: int
 
 
 class UserBase(BaseModel):
@@ -94,7 +171,6 @@ class ServiceConnectionBase(BaseModel):
     is_enabled: bool = True
     verify_ssl: bool = True
     timeout: int = Field(default=30, ge=5, le=300)
-    library_id: Optional[int] = None
 
     @field_validator('url')
     @classmethod
@@ -115,7 +191,6 @@ class ServiceConnectionUpdate(BaseModel):
     is_enabled: Optional[bool] = None
     verify_ssl: Optional[bool] = None
     timeout: Optional[int] = Field(None, ge=5, le=300)
-    library_id: Optional[int] = None
 
 
 class ServiceConnectionResponse(ServiceConnectionBase):
@@ -141,6 +216,9 @@ class LibraryBase(BaseModel):
     description: Optional[str] = None
     media_type: MediaType
     path: Optional[str] = None
+    external_id: str = Field(..., min_length=1, max_length=100)
+    service_connection_id: int
+    is_enabled: bool = True
 
 
 class LibraryCreate(LibraryBase):
@@ -148,18 +226,22 @@ class LibraryCreate(LibraryBase):
 
 
 class LibraryUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    description: Optional[str] = None
-    media_type: Optional[MediaType] = None
-    path: Optional[str] = None
+    is_enabled: Optional[bool] = None  # Only allow toggling enabled state
 
 
 class LibraryResponse(LibraryBase):
     id: int
+    last_synced_at: Optional[datetime] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class LibrarySyncResponse(BaseModel):
+    synced: int
+    removed: int
+    message: str
 
 
 # ==================== Cleanup Rule Schemas ====================
@@ -170,19 +252,20 @@ class RuleConditions(BaseModel):
     not_watched_days: Optional[int] = Field(None, ge=0)
     min_age_days: Optional[int] = Field(None, ge=0)
     exclude_favorited: bool = True
-    exclude_currently_watching: bool = True
-    series_delete_mode: SeriesDeleteMode = SeriesDeleteMode.EPISODE
+    exclude_watched_within_days: Optional[int] = Field(None, ge=0)  # Exclude items watched within last X days
+    series_delete_mode: SeriesDeleteMode = SeriesDeleteMode.EPISODE  # Legacy field
+    series_evaluation_mode: SeriesEvaluationMode = SeriesEvaluationMode.EPISODE  # How to evaluate series
+    series_delete_target: SeriesDeleteTarget = SeriesDeleteTarget.MATCHED_EPISODE  # What to delete when matched
     min_episodes_watched_percent: Optional[int] = Field(None, ge=0, le=100)
     exclude_genres: List[str] = []
     exclude_tags: List[str] = []
     include_tags: List[str] = []
     rating_below: Optional[float] = Field(None, ge=0, le=10)
     max_items_per_run: Optional[int] = Field(None, ge=1)
-    # Neue Optionen
-    add_import_exclusion: bool = True  # Zur Import-Exclusion-Liste hinzufügen beim Löschen
-    watched_progress_below: Optional[int] = Field(None, ge=0, le=100)  # Nur löschen wenn Progress unter X%
-    exclude_recently_added_days: Optional[int] = Field(None, ge=0)  # Kürzlich hinzugefügt ausschließen
-    exclude_in_progress: bool = True  # Medien mit Progress > 0 aber nicht fertig ausschließen
+    # Additional options
+    add_import_exclusion: bool = True  # Add to import exclusion list when deleting
+    watched_progress_below: Optional[int] = Field(None, ge=0, le=100)  # Only delete if progress below X%
+    exclude_recently_added_days: Optional[int] = Field(None, ge=0)  # Exclude recently added items
 
 
 class CleanupRuleBase(BaseModel):
@@ -190,7 +273,7 @@ class CleanupRuleBase(BaseModel):
     description: Optional[str] = None
     is_enabled: bool = True
     priority: int = Field(default=0, ge=0, le=100)
-    media_type: MediaType
+    media_types: List[MediaType] = Field(..., min_length=1)  # Can target multiple types (movies + series + episodes)
     library_id: Optional[int] = None
     conditions: RuleConditions
     action: RuleActionType = RuleActionType.DELETE
@@ -206,7 +289,7 @@ class CleanupRuleUpdate(BaseModel):
     description: Optional[str] = None
     is_enabled: Optional[bool] = None
     priority: Optional[int] = Field(None, ge=0, le=100)
-    media_type: Optional[MediaType] = None
+    media_types: Optional[List[MediaType]] = Field(None, min_length=1)
     library_id: Optional[int] = None
     conditions: Optional[RuleConditions] = None
     action: Optional[RuleActionType] = None
@@ -246,6 +329,12 @@ class NotificationChannelBase(BaseModel):
     notify_on_flagged: bool = True
     notify_on_deleted: bool = True
     notify_on_error: bool = True
+    # New fields for enhanced notifications
+    event_types: Optional[List[str]] = None
+    title_template: Optional[str] = Field(None, max_length=500)
+    message_template: Optional[str] = None
+    max_retries: int = Field(default=3, ge=0, le=10)
+    retry_backoff_base: int = Field(default=2, ge=1, le=60)
 
 
 class NotificationChannelCreate(NotificationChannelBase):
@@ -260,6 +349,12 @@ class NotificationChannelUpdate(BaseModel):
     notify_on_flagged: Optional[bool] = None
     notify_on_deleted: Optional[bool] = None
     notify_on_error: Optional[bool] = None
+    # New fields for enhanced notifications
+    event_types: Optional[List[str]] = None
+    title_template: Optional[str] = Field(None, max_length=500)
+    message_template: Optional[str] = None
+    max_retries: Optional[int] = Field(None, ge=0, le=10)
+    retry_backoff_base: Optional[int] = Field(None, ge=1, le=60)
 
 
 class NotificationChannelResponse(NotificationChannelBase):
@@ -374,3 +469,24 @@ class SystemSettingResponse(BaseModel):
 
 class SystemSettingUpdate(BaseModel):
     value: Any
+
+
+class SystemSettingsResponse(BaseModel):
+    """Full system settings object for the frontend."""
+    id: int = 1
+    cleanup_enabled: bool = True
+    cleanup_schedule: str = "0 3 * * *"
+    sync_schedule: str = "0 * * * *"
+    dry_run_mode: bool = True
+    default_grace_period_days: int = 7
+    max_deletions_per_run: int = 10
+
+
+class SystemSettingsUpdate(BaseModel):
+    """Update multiple system settings at once."""
+    cleanup_enabled: Optional[bool] = None
+    cleanup_schedule: Optional[str] = None
+    sync_schedule: Optional[str] = None
+    dry_run_mode: Optional[bool] = None
+    default_grace_period_days: Optional[int] = None
+    max_deletions_per_run: Optional[int] = None

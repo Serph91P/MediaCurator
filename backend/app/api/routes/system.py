@@ -4,18 +4,66 @@ System API routes (health, stats, settings).
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from typing import List
+from typing import List, Dict, Any
+from pydantic import BaseModel
 import os
 from datetime import datetime, timedelta
 
 from ...core.database import get_db
 from ...core.config import get_settings
 from ...models import MediaItem, CleanupLog, SystemSettings, MediaType
-from ...schemas import SystemStats, HealthCheck, DiskSpaceInfo, SystemSettingResponse, SystemSettingUpdate
+from ...schemas import SystemStats, HealthCheck, DiskSpaceInfo, SystemSettingResponse, SystemSettingUpdate, SystemSettingsResponse, SystemSettingsUpdate
+from ...services.version import version_service
 from ..deps import get_current_user, get_optional_user
 
 router = APIRouter(prefix="/system", tags=["System"])
 settings = get_settings()
+
+
+class VersionInfo(BaseModel):
+    """Version information response."""
+    version: str
+    base_version: str
+    branch: str
+    commit: str
+    commit_full: str
+    commit_date: str | None
+    is_dirty: bool
+    remote_url: str | None
+
+
+class UpdateInfo(BaseModel):
+    """Update check response."""
+    update_available: bool
+    latest_version: str | None
+    latest_commit: str | None
+    commits_behind: int
+    error: str | None
+    current_version: str
+    current_commit: str
+
+
+@router.get("/version", response_model=VersionInfo)
+async def get_version_info():
+    """Get detailed version information (no auth required)."""
+    return version_service.get_version_info()
+
+
+@router.get("/check-updates", response_model=UpdateInfo)
+async def check_for_updates():
+    """Check if updates are available on GitHub (no auth required)."""
+    git_info = version_service.get_git_info()
+    update_info = await version_service.check_for_updates()
+    
+    return UpdateInfo(
+        update_available=update_info.get("update_available", False),
+        latest_version=update_info.get("latest_version"),
+        latest_commit=update_info.get("latest_commit"),
+        commits_behind=update_info.get("commits_behind", 0),
+        error=update_info.get("error"),
+        current_version=git_info.get("full_version", "unknown"),
+        current_commit=git_info.get("commit_short", "unknown")
+    )
 
 
 @router.get("/health", response_model=HealthCheck)
@@ -30,9 +78,12 @@ async def health_check(
     except Exception:
         db_status = "unhealthy"
     
+    # Get version from version service
+    version_info = version_service.get_git_info()
+    
     return HealthCheck(
         status="healthy" if db_status == "healthy" else "degraded",
-        version=settings.app_version,
+        version=version_info.get("display_version", version_info.get("full_version", settings.app_version)),
         database=db_status,
         scheduler="running"  # Would need actual scheduler check
     )
@@ -88,24 +139,23 @@ async def get_system_stats(
     )
     space_freed = space_freed_result.scalar() or 0
     
-    # Disk space
+    # Disk space - only show media path
     disk_info = []
-    for path in [settings.media_path, settings.data_path]:
-        if os.path.exists(path):
-            try:
-                stat = os.statvfs(path)
-                total_bytes = stat.f_blocks * stat.f_frsize
-                free_bytes = stat.f_bavail * stat.f_frsize
-                used_bytes = total_bytes - free_bytes
-                disk_info.append(DiskSpaceInfo(
-                    path=path,
-                    total_bytes=total_bytes,
-                    used_bytes=used_bytes,
-                    free_bytes=free_bytes,
-                    used_percent=(used_bytes / total_bytes) * 100 if total_bytes > 0 else 0
-                ))
-            except Exception:
-                pass
+    if os.path.exists(settings.media_path):
+        try:
+            stat = os.statvfs(settings.media_path)
+            total_bytes = stat.f_blocks * stat.f_frsize
+            free_bytes = stat.f_bavail * stat.f_frsize
+            used_bytes = total_bytes - free_bytes
+            disk_info.append(DiskSpaceInfo(
+                path=settings.media_path,
+                total_bytes=total_bytes,
+                used_bytes=used_bytes,
+                free_bytes=free_bytes,
+                used_percent=(used_bytes / total_bytes) * 100 if total_bytes > 0 else 0
+            ))
+        except Exception:
+            pass
     
     return SystemStats(
         total_media_items=total,
@@ -119,25 +169,82 @@ async def get_system_stats(
     )
 
 
-@router.get("/settings", response_model=List[SystemSettingResponse])
+# Helper function to get or create a setting
+async def _get_setting_value(db: AsyncSession, key: str, default: Any) -> Any:
+    """Get a setting value from the database or return default."""
+    result = await db.execute(
+        select(SystemSettings).where(SystemSettings.key == key)
+    )
+    setting = result.scalar_one_or_none()
+    if setting:
+        return setting.value
+    return default
+
+
+async def _set_setting_value(db: AsyncSession, key: str, value: Any, description: str = None):
+    """Set a setting value in the database."""
+    result = await db.execute(
+        select(SystemSettings).where(SystemSettings.key == key)
+    )
+    setting = result.scalar_one_or_none()
+    
+    if setting:
+        setting.value = value
+    else:
+        setting = SystemSettings(key=key, value=value, description=description)
+        db.add(setting)
+
+
+@router.get("/settings", response_model=SystemSettingsResponse)
 async def get_system_settings(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get all system settings."""
-    result = await db.execute(select(SystemSettings))
-    settings_list = result.scalars().all()
+    """Get all system settings as a single object."""
+    return SystemSettingsResponse(
+        id=1,
+        cleanup_enabled=await _get_setting_value(db, "cleanup_enabled", True),
+        cleanup_schedule=await _get_setting_value(db, "cleanup_schedule", "0 3 * * *"),
+        sync_schedule=await _get_setting_value(db, "sync_schedule", "0 * * * *"),
+        dry_run_mode=await _get_setting_value(db, "dry_run_mode", True),
+        default_grace_period_days=await _get_setting_value(db, "default_grace_period_days", 7),
+        max_deletions_per_run=await _get_setting_value(db, "max_deletions_per_run", 10),
+    )
+
+
+@router.put("/settings", response_model=SystemSettingsResponse)
+async def update_system_settings(
+    settings_data: SystemSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Update multiple system settings at once."""
+    # Update only provided fields
+    if settings_data.cleanup_enabled is not None:
+        await _set_setting_value(db, "cleanup_enabled", settings_data.cleanup_enabled, "Enable automatic cleanup")
+    if settings_data.cleanup_schedule is not None:
+        await _set_setting_value(db, "cleanup_schedule", settings_data.cleanup_schedule, "Cron schedule for cleanup")
+    if settings_data.sync_schedule is not None:
+        await _set_setting_value(db, "sync_schedule", settings_data.sync_schedule, "Cron schedule for sync")
+    if settings_data.dry_run_mode is not None:
+        await _set_setting_value(db, "dry_run_mode", settings_data.dry_run_mode, "Only simulate cleanups without deleting")
+    if settings_data.default_grace_period_days is not None:
+        await _set_setting_value(db, "default_grace_period_days", settings_data.default_grace_period_days, "Default grace period in days")
+    if settings_data.max_deletions_per_run is not None:
+        await _set_setting_value(db, "max_deletions_per_run", settings_data.max_deletions_per_run, "Maximum deletions per cleanup run")
     
-    # Return defaults if no settings exist
-    if not settings_list:
-        return [
-            {"key": "cleanup_enabled", "value": True, "description": "Enable automatic cleanup"},
-            {"key": "cleanup_interval_hours", "value": 24, "description": "Hours between cleanup runs"},
-            {"key": "sync_interval_hours", "value": 6, "description": "Hours between media sync runs"},
-            {"key": "dry_run_mode", "value": False, "description": "Only simulate cleanups without deleting"},
-        ]
+    await db.commit()
     
-    return settings_list
+    # Return updated settings
+    return SystemSettingsResponse(
+        id=1,
+        cleanup_enabled=await _get_setting_value(db, "cleanup_enabled", True),
+        cleanup_schedule=await _get_setting_value(db, "cleanup_schedule", "0 3 * * *"),
+        sync_schedule=await _get_setting_value(db, "sync_schedule", "0 * * * *"),
+        dry_run_mode=await _get_setting_value(db, "dry_run_mode", True),
+        default_grace_period_days=await _get_setting_value(db, "default_grace_period_days", 7),
+        max_deletions_per_run=await _get_setting_value(db, "max_deletions_per_run", 10),
+    )
 
 
 @router.put("/settings/{key}", response_model=SystemSettingResponse)
@@ -147,21 +254,14 @@ async def update_system_setting(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update a system setting."""
-    result = await db.execute(
-        select(SystemSettings).where(SystemSettings.key == key)
-    )
-    setting = result.scalar_one_or_none()
-    
-    if setting:
-        setting.value = setting_data.value
-    else:
-        setting = SystemSettings(key=key, value=setting_data.value)
-        db.add(setting)
-    
+    """Update a single system setting by key."""
+    await _set_setting_value(db, key, setting_data.value)
     await db.commit()
-    await db.refresh(setting)
-    return setting
+    
+    return SystemSettingResponse(
+        key=key,
+        value=await _get_setting_value(db, key, setting_data.value)
+    )
 
 
 @router.post("/cleanup/run")

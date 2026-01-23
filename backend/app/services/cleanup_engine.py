@@ -2,7 +2,7 @@
 Cleanup engine - evaluates rules and performs cleanup actions.
 """
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime as dt, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
 from loguru import logger
@@ -68,20 +68,17 @@ class CleanupEngine:
                 return []
         
         for item in items:
-            # Skip if wrong media type
-            if item.media_type != rule.media_type:
+            # Skip if item's media type is not in rule's target media types
+            if item.media_type not in rule.media_types:
                 continue
             
-            # Skip if item is currently being watched (aktive Session)
-            if conditions.exclude_currently_watching and item.is_currently_watching:
-                logger.debug(f"Skipping {item.title} - currently being watched")
-                continue
-            
-            # Skip items in progress (angefangen aber nicht fertig)
-            if conditions.exclude_in_progress:
-                if item.progress_percent and 0 < item.progress_percent < 90:
-                    logger.debug(f"Skipping {item.title} - in progress ({item.progress_percent:.0f}%)")
-                    continue
+            # Skip items watched recently (within last X days)
+            if conditions.exclude_watched_within_days is not None:
+                if item.last_watched:
+                    cutoff_date = dt.now(timezone.utc) - timedelta(days=conditions.exclude_watched_within_days)
+                    if item.last_watched >= cutoff_date:
+                        logger.debug(f"Skipping {item.title} - watched within last {conditions.exclude_watched_within_days} days")
+                        continue
             
             # Check watched progress threshold
             if conditions.watched_progress_below is not None:
@@ -94,25 +91,25 @@ class CleanupEngine:
             
             # Skip recently added items
             if conditions.exclude_recently_added_days and item.added_at:
-                days_since_added = (datetime.utcnow() - item.added_at).days
+                days_since_added = (dt.utcnow() - item.added_at).days
                 if days_since_added < conditions.exclude_recently_added_days:
                     continue
             
             # Check not watched days
             if conditions.not_watched_days:
                 if item.last_watched_at:
-                    days_since_watched = (datetime.utcnow() - item.last_watched_at).days
+                    days_since_watched = (dt.utcnow() - item.last_watched_at).days
                     if days_since_watched < conditions.not_watched_days:
                         continue
                 elif item.added_at:
                     # Never watched - use added date
-                    days_since_added = (datetime.utcnow() - item.added_at).days
+                    days_since_added = (dt.utcnow() - item.added_at).days
                     if days_since_added < conditions.not_watched_days:
                         continue
             
             # Check minimum age
             if conditions.min_age_days and item.added_at:
-                days_since_added = (datetime.utcnow() - item.added_at).days
+                days_since_added = (dt.utcnow() - item.added_at).days
                 if days_since_added < conditions.min_age_days:
                     continue
             
@@ -144,7 +141,7 @@ class CleanupEngine:
         # Apply max items limit
         if conditions.max_items_per_run and len(matched_items) > conditions.max_items_per_run:
             # Sort by oldest last watched
-            matched_items.sort(key=lambda x: x.last_watched_at or datetime.min)
+            matched_items.sort(key=lambda x: x.last_watched_at or dt.min)
             matched_items = matched_items[:conditions.max_items_per_run]
         
         return matched_items
@@ -156,7 +153,7 @@ class CleanupEngine:
     ) -> int:
         """Flag items for cleanup with grace period."""
         flagged_count = 0
-        now = datetime.utcnow()
+        now = dt.utcnow()
         scheduled_at = now + timedelta(days=rule.grace_period_days)
         
         for item in items:
@@ -226,6 +223,23 @@ class CleanupEngine:
                                 except Exception as e:
                                     logger.warning(f"Failed to add import exclusion for {item.title}: {e}")
                 
+                elif action == RuleActionType.DELETE_AND_UNMONITOR:
+                    # Delete files but keep the series/movie in arr as unmonitored
+                    if service_connection.service_type == ServiceType.RADARR:
+                        # First unmonitor, then delete files only (not the movie entry)
+                        await client.unmonitor_movie(int(item.external_id))
+                        # Delete the movie file but keep the movie entry
+                        await client.delete_movie(int(item.external_id), delete_files=True, add_exclusion=False)
+                    elif service_connection.service_type == ServiceType.SONARR:
+                        if item.media_type == MediaType.EPISODE:
+                            # Unmonitor the episode then delete the file
+                            await client.unmonitor_episode(int(item.external_id))
+                            await client.delete_episode_file(int(item.external_id))
+                        else:
+                            # For series: unmonitor and delete files, but keep series entry
+                            await client.unmonitor_series(int(item.external_id))
+                            await client.delete_series(int(item.external_id), delete_files=True)
+                
                 elif action == RuleActionType.UNMONITOR:
                     if service_connection.service_type == ServiceType.RADARR:
                         await client.unmonitor_movie(int(item.external_id))
@@ -253,7 +267,7 @@ class CleanupEngine:
                 self.db.add(log_entry)
                 
                 # Update item status
-                if action == RuleActionType.DELETE:
+                if action in (RuleActionType.DELETE, RuleActionType.DELETE_AND_UNMONITOR):
                     await self.db.delete(item)
                 else:
                     item.flagged_for_cleanup = False
@@ -287,7 +301,7 @@ class CleanupEngine:
     
     async def run_scheduled_cleanups(self) -> Dict[str, Any]:
         """Run scheduled cleanups for flagged items past their grace period."""
-        now = datetime.utcnow()
+        now = dt.utcnow()
         
         # Get items due for cleanup
         result = await self.db.execute(
@@ -418,13 +432,18 @@ class CleanupEngine:
                 # Try to get disk info from library path or default media path
                 disk_info = await self.get_disk_space("/media")
             
-            # Filter items for this rule's media type
-            rule_items = [i for i in all_items if i.media_type == rule.media_type and i.id not in processed_item_ids]
+            # Filter items for this rule's media types
+            rule_items = [i for i in all_items if i.media_type in rule.media_types and i.id not in processed_item_ids]
             
             for item in rule_items:
-                evaluation = await self._evaluate_item_for_preview(item, rule, conditions, disk_info)
+                evaluation = await self._evaluate_item_for_preview(item, rule, conditions, disk_info, all_items)
                 evaluation["rule_name"] = rule.name
                 evaluation["rule_id"] = rule.id
+                
+                # Skip items with no local files (0 bytes) - nothing to delete
+                if evaluation["size_bytes"] == 0:
+                    continue
+                
                 preview_results.append(evaluation)
                 
                 if evaluation["would_delete"]:
@@ -451,15 +470,32 @@ class CleanupEngine:
         item: MediaItem,
         rule: CleanupRule,
         conditions: RuleConditions,
-        disk_info: Optional[Dict[str, Any]]
+        disk_info: Optional[Dict[str, Any]],
+        all_items: Optional[list] = None
     ) -> Dict[str, Any]:
         """Evaluate a single item and return detailed reasoning."""
+        # For series items, calculate total size from all episodes
+        size_bytes = item.size_bytes or 0
+        season_count = 0
+        episode_count = 0
+        
+        if item.media_type == MediaType.SERIES and all_items:
+            # Find all episodes of this series and sum their sizes
+            episodes = [i for i in all_items if i.media_type == MediaType.EPISODE and i.series_id == item.external_id]
+            if episodes:
+                size_bytes = sum(ep.size_bytes or 0 for ep in episodes)
+                seasons = set(ep.season_number for ep in episodes if ep.season_number is not None)
+                season_count = len(seasons)
+                episode_count = len(episodes)
+        
         result = {
             "item_id": item.id,
             "title": item.title,
             "media_type": item.media_type.value if hasattr(item.media_type, 'value') else str(item.media_type),
             "path": item.path,
-            "size_bytes": item.size_bytes,
+            "size_bytes": size_bytes,
+            "season_count": season_count,
+            "episode_count": episode_count,
             "would_delete": True,
             "action": rule.action.value if hasattr(rule.action, 'value') else str(rule.action),
             "reasons": [],
@@ -493,18 +529,16 @@ class CleanupEngine:
                     f"Disk usage ({disk_info['used_percent']:.1f}%) exceeds threshold ({conditions.disk_space_threshold_percent}%)"
                 )
         
-        # Check if currently being watched
-        if conditions.exclude_currently_watching and getattr(item, 'is_currently_watching', False):
-            result["would_delete"] = False
-            result["skip_reasons"].append("Currently being watched in active session")
-            return result
-        
-        # Check if in progress
-        if getattr(conditions, 'exclude_in_progress', True):
-            if item.progress_percent and 0 < item.progress_percent < 90:
-                result["would_delete"] = False
-                result["skip_reasons"].append(f"In progress ({item.progress_percent:.0f}% watched)")
-                return result
+        # Check if watched recently (within last X days)
+        if conditions.exclude_watched_within_days is not None:
+            if item.last_watched_at:
+                cutoff_date = dt.now(timezone.utc) - timedelta(days=conditions.exclude_watched_within_days)
+                if item.last_watched_at >= cutoff_date:
+                    result["would_delete"] = False
+                    result["skip_reasons"].append(
+                        f"Watched within last {conditions.exclude_watched_within_days} days (last watched: {item.last_watched_at.strftime('%Y-%m-%d')})"
+                    )
+                    return result
         
         # Check watched progress threshold
         if conditions.watched_progress_below is not None:
@@ -523,7 +557,7 @@ class CleanupEngine:
         
         # Check recently added
         if getattr(conditions, 'exclude_recently_added_days', None) and item.added_at:
-            days_since_added = (datetime.utcnow() - item.added_at).days
+            days_since_added = (dt.utcnow() - item.added_at).days
             if days_since_added < conditions.exclude_recently_added_days:
                 result["would_delete"] = False
                 result["skip_reasons"].append(
@@ -534,7 +568,7 @@ class CleanupEngine:
         # Check not watched days
         if conditions.not_watched_days:
             if item.last_watched_at:
-                days_since_watched = (datetime.utcnow() - item.last_watched_at).days
+                days_since_watched = (dt.utcnow() - item.last_watched_at).days
                 if days_since_watched < conditions.not_watched_days:
                     result["would_delete"] = False
                     result["skip_reasons"].append(
@@ -546,7 +580,7 @@ class CleanupEngine:
                         f"Not watched for {days_since_watched} days (threshold: {conditions.not_watched_days} days)"
                     )
             elif item.added_at:
-                days_since_added = (datetime.utcnow() - item.added_at).days
+                days_since_added = (dt.utcnow() - item.added_at).days
                 if days_since_added < conditions.not_watched_days:
                     result["would_delete"] = False
                     result["skip_reasons"].append(
@@ -560,7 +594,7 @@ class CleanupEngine:
         
         # Check minimum age
         if conditions.min_age_days and item.added_at:
-            days_since_added = (datetime.utcnow() - item.added_at).days
+            days_since_added = (dt.utcnow() - item.added_at).days
             if days_since_added < conditions.min_age_days:
                 result["would_delete"] = False
                 result["skip_reasons"].append(

@@ -8,11 +8,12 @@ import Dashboard from './pages/Dashboard'
 import Services from './pages/Services'
 import Rules from './pages/Rules'
 import Libraries from './pages/Libraries'
-import Media from './pages/Media'
 import Notifications from './pages/Notifications'
 import Settings from './pages/Settings'
 import History from './pages/History'
 import Preview from './pages/Preview'
+import Jobs from './pages/Jobs'
+import Staging from './pages/Staging'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -55,11 +56,12 @@ function App() {
         <Route path="services" element={<Services />} />
         <Route path="rules" element={<Rules />} />
         <Route path="libraries" element={<Libraries />} />
-        <Route path="media" element={<Media />} />
+        <Route path="jobs" element={<Jobs />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="settings" element={<Settings />} />
         <Route path="history" element={<History />} />
         <Route path="preview" element={<Preview />} />
+        <Route path="staging" element={<Staging />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

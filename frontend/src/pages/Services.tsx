@@ -379,7 +379,7 @@ function ServiceModal({
                 className="w-full px-4 py-2.5 bg-gray-50 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-dark-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-dark-400">
-                Timeout for API requests (120s recommended for large libraries)
+                Timeout for API requests (300s+ recommended for very large Emby libraries)
               </p>
             </div>
           </div>

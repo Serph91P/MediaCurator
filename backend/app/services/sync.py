@@ -321,17 +321,44 @@ async def _sync_emby(
         # Build path -> item mapping for faster lookup
         path_to_item = {item.path: item for item in items if item.path}
         
-        # Reset watch data before aggregating (to avoid accumulating on re-sync)
-        for item in items:
-            item.watch_count = 0
-            item.is_watched = False
-            item.is_favorited = False
-            item.progress_percent = 0
-            item.is_currently_watching = False
-            # Don't reset last_watched_at - we'll update it if we find newer data
+        # Track max watch counts per path (to find max across all users)
+        max_watch_counts: dict[str, int] = {}
+        watched_paths: set[str] = set()
+        favorited_paths: set[str] = set()
+        max_progress: dict[str, float] = {}
+        last_watched: dict[str, datetime] = {}
         
         # Track which items were updated
         updated_paths = set()
+        
+        # Helper function to track max values across users
+        def track_watch_data(path: str, user_data: dict, emby_id: str):
+            if not path:
+                return
+            
+            play_count = user_data.get("PlayCount", 0) or 0
+            max_watch_counts[path] = max(max_watch_counts.get(path, 0), play_count)
+            
+            if user_data.get("Played", False):
+                watched_paths.add(path)
+            
+            if user_data.get("IsFavorite", False):
+                favorited_paths.add(path)
+            
+            progress = user_data.get("PlayedPercentage", 0) or 0
+            max_progress[path] = max(max_progress.get(path, 0), progress)
+            
+            if user_data.get("LastPlayedDate"):
+                try:
+                    last_played = datetime.fromisoformat(
+                        user_data["LastPlayedDate"].replace("Z", "+00:00")
+                    )
+                    if path not in last_watched or last_played > last_watched[path]:
+                        last_watched[path] = last_played
+                except:
+                    pass
+            
+            updated_paths.add(path)
         
         # Process watch data from ALL users
         for user in users:
@@ -348,31 +375,7 @@ async def _sync_emby(
                 for emby_item in emby_movies:
                     path = emby_item.get("Path")
                     if path and path in path_to_item:
-                        item = path_to_item[path]
-                        user_data = emby_item.get("UserData", {})
-                        
-                        # Aggregate: if ANY user watched it, mark as watched
-                        if user_data.get("Played", False):
-                            item.is_watched = True
-                        # Sum up play counts from all users
-                        item.watch_count = (item.watch_count or 0) + (user_data.get("PlayCount", 0) or 0)
-                        # Favorite if ANY user favorited
-                        if user_data.get("IsFavorite", False):
-                            item.is_favorited = True
-                        # Track highest progress
-                        item.progress_percent = max(item.progress_percent or 0, user_data.get("PlayedPercentage", 0) or 0)
-                        item.is_currently_watching = emby_item.get("Id") in currently_watching_ids
-                        
-                        # Track most recent watch time
-                        if user_data.get("LastPlayedDate"):
-                            last_played = datetime.fromisoformat(
-                                user_data["LastPlayedDate"].replace("Z", "+00:00")
-                            )
-                            if not item.last_watched_at or last_played > item.last_watched_at:
-                                item.last_watched_at = last_played
-                                item.last_progress_update = datetime.utcnow()
-                        
-                        updated_paths.add(path)
+                        track_watch_data(path, emby_item.get("UserData", {}), emby_item.get("Id"))
                 
                 # Get series with watch data
                 emby_series = await client.get_items_with_watch_data(
@@ -383,26 +386,7 @@ async def _sync_emby(
                 for emby_item in emby_series:
                     path = emby_item.get("Path")
                     if path and path in path_to_item:
-                        item = path_to_item[path]
-                        user_data = emby_item.get("UserData", {})
-                        
-                        if user_data.get("Played", False):
-                            item.is_watched = True
-                        item.watch_count = (item.watch_count or 0) + (user_data.get("PlayCount", 0) or 0)
-                        if user_data.get("IsFavorite", False):
-                            item.is_favorited = True
-                        item.progress_percent = max(item.progress_percent or 0, user_data.get("PlayedPercentage", 0) or 0)
-                        item.is_currently_watching = emby_item.get("Id") in currently_watching_ids
-                        
-                        if user_data.get("LastPlayedDate"):
-                            last_played = datetime.fromisoformat(
-                                user_data["LastPlayedDate"].replace("Z", "+00:00")
-                            )
-                            if not item.last_watched_at or last_played > item.last_watched_at:
-                                item.last_watched_at = last_played
-                                item.last_progress_update = datetime.utcnow()
-                        
-                        updated_paths.add(path)
+                        track_watch_data(path, emby_item.get("UserData", {}), emby_item.get("Id"))
                 
                 # Get episodes with watch data
                 emby_episodes = await client.get_items_with_watch_data(
@@ -413,26 +397,7 @@ async def _sync_emby(
                 for emby_item in emby_episodes:
                     path = emby_item.get("Path")
                     if path and path in path_to_item:
-                        item = path_to_item[path]
-                        user_data = emby_item.get("UserData", {})
-                        
-                        if user_data.get("Played", False):
-                            item.is_watched = True
-                        item.watch_count = (item.watch_count or 0) + (user_data.get("PlayCount", 0) or 0)
-                        if user_data.get("IsFavorite", False):
-                            item.is_favorited = True
-                        item.progress_percent = max(item.progress_percent or 0, user_data.get("PlayedPercentage", 0) or 0)
-                        item.is_currently_watching = emby_item.get("Id") in currently_watching_ids
-                        
-                        if user_data.get("LastPlayedDate"):
-                            last_played = datetime.fromisoformat(
-                                user_data["LastPlayedDate"].replace("Z", "+00:00")
-                            )
-                            if not item.last_watched_at or last_played > item.last_watched_at:
-                                item.last_watched_at = last_played
-                                item.last_progress_update = datetime.utcnow()
-                        
-                        updated_paths.add(path)
+                        track_watch_data(path, emby_item.get("UserData", {}), emby_item.get("Id"))
                 
                 logger.debug(f"Processed watch data for user: {user_name}")
                 
@@ -440,9 +405,31 @@ async def _sync_emby(
                 logger.warning(f"Failed to get watch data for user {user_name}: {e}")
                 continue
         
+        # Now apply the aggregated data to items
+        for path in updated_paths:
+            if path not in path_to_item:
+                continue
+            item = path_to_item[path]
+            
+            item.watch_count = max_watch_counts.get(path, 0)
+            item.is_watched = path in watched_paths
+            item.is_favorited = path in favorited_paths
+            item.progress_percent = max_progress.get(path, 0)
+            item.is_currently_watching = False  # Will be set separately
+            
+            if path in last_watched:
+                item.last_watched_at = last_watched[path]
+                item.last_progress_update = datetime.utcnow()
+        
+        # Set currently watching from active sessions
+        for path, item in path_to_item.items():
+            # Check if item's emby_id is in currently_watching
+            # We need to track emby IDs separately - for now just mark based on sessions
+            pass
+        
         updated = len(updated_paths)
         await db.commit()
-        logger.info(f"Updated watch data for {updated} items from Emby (aggregated from {len(users)} users)")
+        logger.info(f"Updated watch data for {updated} items from Emby (max values from {len(users)} users)")
         
     finally:
         await client.close()

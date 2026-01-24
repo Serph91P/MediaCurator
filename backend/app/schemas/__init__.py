@@ -170,7 +170,7 @@ class ServiceConnectionBase(BaseModel):
     api_key: str = Field(..., min_length=1, max_length=255)
     is_enabled: bool = True
     verify_ssl: bool = True
-    timeout: int = Field(default=30, ge=5, le=300)
+    timeout: int = Field(default=120, ge=5, le=600)
 
     @field_validator('url')
     @classmethod
@@ -190,7 +190,7 @@ class ServiceConnectionUpdate(BaseModel):
     api_key: Optional[str] = Field(None, min_length=1, max_length=255)
     is_enabled: Optional[bool] = None
     verify_ssl: Optional[bool] = None
-    timeout: Optional[int] = Field(None, ge=5, le=300)
+    timeout: Optional[int] = Field(None, ge=5, le=600)
 
 
 class ServiceConnectionResponse(ServiceConnectionBase):

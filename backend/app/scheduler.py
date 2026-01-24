@@ -336,11 +336,48 @@ def start_scheduler():
     logger.info("Scheduler started with all jobs (sync, cleanup, staging cleanup, auto-restore)")
 
 
+async def load_saved_job_intervals():
+    """Load and apply saved job intervals from database."""
+    async with async_session_maker() as db:
+        result = await db.execute(
+            select(SystemSettings).where(SystemSettings.key == "job_intervals")
+        )
+        setting = result.scalar_one_or_none()
+        
+        if setting and setting.value:
+            job_intervals = setting.value
+            for job_id, interval_minutes in job_intervals.items():
+                try:
+                    reschedule_job(job_id, interval_minutes)
+                    logger.info(f"Restored saved interval for {job_id}: {interval_minutes} minutes")
+                except Exception as e:
+                    logger.warning(f"Failed to restore interval for {job_id}: {e}")
+
+
 def stop_scheduler():
     """Stop the scheduler."""
     if scheduler.running:
         scheduler.shutdown(wait=False)
         logger.info("Scheduler stopped")
+
+
+def reschedule_job(job_id: str, interval_minutes: int):
+    """Reschedule a job with a new interval."""
+    job = scheduler.get_job(job_id)
+    if not job:
+        logger.warning(f"Job {job_id} not found for rescheduling")
+        return
+    
+    if interval_minutes >= 60:
+        hours = interval_minutes // 60
+        remaining_minutes = interval_minutes % 60
+        trigger = IntervalTrigger(hours=hours, minutes=remaining_minutes)
+        logger.info(f"Rescheduling job {job_id} to run every {hours}h {remaining_minutes}m")
+    else:
+        trigger = IntervalTrigger(minutes=interval_minutes)
+        logger.info(f"Rescheduling job {job_id} to run every {interval_minutes} minutes")
+    
+    scheduler.reschedule_job(job_id, trigger=trigger)
 
 
 def get_scheduler_status():

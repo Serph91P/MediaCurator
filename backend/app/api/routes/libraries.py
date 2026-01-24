@@ -3,18 +3,191 @@ Libraries API routes - auto-synced from Emby/Jellyfin.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
-from typing import List
-from datetime import datetime
+from sqlalchemy import select, and_, func
+from typing import List, Dict, Any
+from datetime import datetime, timedelta
 from loguru import logger
 
 from ...core.database import get_db
-from ...models import Library, ServiceConnection, ServiceType, MediaType
+from ...models import Library, ServiceConnection, ServiceType, MediaType, MediaItem, UserWatchHistory
 from ...schemas import LibraryUpdate, LibraryResponse, LibrarySyncResponse
 from ...services import EmbyClient
 from ..deps import get_current_user
 
 router = APIRouter(prefix="/libraries", tags=["Libraries"])
+
+
+@router.get("/stats")
+async def get_library_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+) -> List[Dict[str, Any]]:
+    """Get detailed statistics for all libraries (Jellystat-style)."""
+    
+    result = await db.execute(
+        select(Library).order_by(Library.media_type, Library.name)
+    )
+    libraries = result.scalars().all()
+    
+    # Get service info
+    services_result = await db.execute(select(ServiceConnection))
+    services = {s.id: s for s in services_result.scalars().all()}
+    
+    stats = []
+    for lib in libraries:
+        service = services.get(lib.service_connection_id)
+        
+        # Count items by type
+        if lib.media_type == MediaType.MOVIE:
+            # Movie library
+            total_files = await db.execute(
+                select(func.count(MediaItem.id)).where(
+                    and_(MediaItem.library_id == lib.id, MediaItem.media_type == MediaType.MOVIE)
+                )
+            )
+            total_files_count = total_files.scalar() or 0
+            
+            # Total size
+            total_size = await db.execute(
+                select(func.sum(MediaItem.size_bytes)).where(
+                    and_(MediaItem.library_id == lib.id, MediaItem.media_type == MediaType.MOVIE)
+                )
+            )
+            total_size_bytes = int(total_size.scalar() or 0)
+            
+            # Total plays
+            total_plays = await db.execute(
+                select(func.sum(MediaItem.watch_count)).where(
+                    and_(MediaItem.library_id == lib.id, MediaItem.media_type == MediaType.MOVIE)
+                )
+            )
+            total_plays_count = int(total_plays.scalar() or 0)
+            
+            # Last played item
+            last_played = await db.execute(
+                select(MediaItem.title, MediaItem.last_watched_at)
+                .where(
+                    and_(
+                        MediaItem.library_id == lib.id,
+                        MediaItem.last_watched_at.isnot(None)
+                    )
+                )
+                .order_by(MediaItem.last_watched_at.desc())
+                .limit(1)
+            )
+            last_played_row = last_played.first()
+            
+            # Last activity
+            last_activity = await db.execute(
+                select(func.max(MediaItem.last_watched_at)).where(
+                    MediaItem.library_id == lib.id
+                )
+            )
+            last_activity_at = last_activity.scalar()
+            
+            stats.append({
+                "id": lib.id,
+                "name": lib.name,
+                "type": "Movies",
+                "media_type": lib.media_type.value,
+                "is_enabled": lib.is_enabled,
+                "service_name": service.name if service else None,
+                "total_files": total_files_count,
+                "total_size_bytes": total_size_bytes,
+                "total_plays": total_plays_count,
+                "total_playback_seconds": 0,  # We don't track this yet
+                "last_played": last_played_row.title if last_played_row else None,
+                "last_activity_at": last_activity_at.isoformat() if last_activity_at else None,
+                "movies": total_files_count,
+                "series": 0,
+                "seasons": 0,
+                "episodes": 0,
+                "path": lib.path,
+                "last_synced_at": lib.last_synced_at.isoformat() if lib.last_synced_at else None
+            })
+        else:
+            # Series library
+            series_count = await db.execute(
+                select(func.count(MediaItem.id)).where(
+                    and_(MediaItem.library_id == lib.id, MediaItem.media_type == MediaType.SERIES)
+                )
+            )
+            series_count_val = series_count.scalar() or 0
+            
+            season_count = await db.execute(
+                select(func.count(MediaItem.id)).where(
+                    and_(MediaItem.library_id == lib.id, MediaItem.media_type == MediaType.SEASON)
+                )
+            )
+            season_count_val = season_count.scalar() or 0
+            
+            episode_count = await db.execute(
+                select(func.count(MediaItem.id)).where(
+                    and_(MediaItem.library_id == lib.id, MediaItem.media_type == MediaType.EPISODE)
+                )
+            )
+            episode_count_val = episode_count.scalar() or 0
+            
+            # Total size (sum of all items in library)
+            total_size = await db.execute(
+                select(func.sum(MediaItem.size_bytes)).where(
+                    MediaItem.library_id == lib.id
+                )
+            )
+            total_size_bytes = int(total_size.scalar() or 0)
+            
+            # Total plays (from episodes)
+            total_plays = await db.execute(
+                select(func.sum(MediaItem.watch_count)).where(
+                    and_(MediaItem.library_id == lib.id, MediaItem.media_type == MediaType.EPISODE)
+                )
+            )
+            total_plays_count = int(total_plays.scalar() or 0)
+            
+            # Last played item
+            last_played = await db.execute(
+                select(MediaItem.title, MediaItem.last_watched_at)
+                .where(
+                    and_(
+                        MediaItem.library_id == lib.id,
+                        MediaItem.last_watched_at.isnot(None)
+                    )
+                )
+                .order_by(MediaItem.last_watched_at.desc())
+                .limit(1)
+            )
+            last_played_row = last_played.first()
+            
+            # Last activity
+            last_activity = await db.execute(
+                select(func.max(MediaItem.last_watched_at)).where(
+                    MediaItem.library_id == lib.id
+                )
+            )
+            last_activity_at = last_activity.scalar()
+            
+            stats.append({
+                "id": lib.id,
+                "name": lib.name,
+                "type": "Series",
+                "media_type": lib.media_type.value,
+                "is_enabled": lib.is_enabled,
+                "service_name": service.name if service else None,
+                "total_files": episode_count_val,
+                "total_size_bytes": total_size_bytes,
+                "total_plays": total_plays_count,
+                "total_playback_seconds": 0,
+                "last_played": last_played_row.title if last_played_row else None,
+                "last_activity_at": last_activity_at.isoformat() if last_activity_at else None,
+                "movies": 0,
+                "series": series_count_val,
+                "seasons": season_count_val,
+                "episodes": episode_count_val,
+                "path": lib.path,
+                "last_synced_at": lib.last_synced_at.isoformat() if lib.last_synced_at else None
+            })
+    
+    return stats
 
 
 @router.get("/", response_model=List[LibraryResponse])

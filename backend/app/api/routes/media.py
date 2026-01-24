@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 
 from ...core.database import get_db
-from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats, CleanupLog
+from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats, CleanupLog, MediaServerUser, UserWatchHistory
 from ...schemas import CleanupLogResponse
 from ..deps import get_current_user
 
@@ -214,10 +214,14 @@ async def get_import_stats(
 @router.get("/watch-stats")
 async def get_watch_stats(
     limit: int = Query(default=20, ge=1, le=100),
+    days: int = Query(default=30, ge=1, le=365, description="Filter by last N days"),
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Get watch statistics (most watched items, recently watched, etc.)."""
+    
+    # Calculate date filter
+    cutoff_date = datetime.utcnow() - timedelta(days=days)
     
     # Most watched items - prioritize items with actual watch counts
     from sqlalchemy.orm import joinedload
@@ -325,6 +329,351 @@ async def get_watch_stats(
         "most_watched": [format_media_item(item) for item in most_watched],
         "recently_watched": [format_media_item(item) for item in recently_watched],
         "currently_watching": [format_media_item(item) for item in currently_watching]
+    }
+
+
+@router.get("/dashboard-stats")
+async def get_dashboard_stats(
+    days: int = Query(default=30, ge=1, le=365, description="Filter watch stats by last N days"),
+    limit: int = Query(default=5, ge=1, le=20, description="Number of items per category"),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Get comprehensive dashboard statistics similar to Jellystat.
+    Includes: most viewed movies/series, library overview, watch trends.
+    """
+    
+    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    
+    # Get service info for enrichment
+    services_result = await db.execute(select(ServiceConnection))
+    services = {s.id: s for s in services_result.scalars().all()}
+    
+    def format_item(item: MediaItem) -> dict:
+        service = services.get(item.service_connection_id)
+        return {
+            "id": item.id,
+            "title": item.title,
+            "media_type": item.media_type.value,
+            "year": item.year,
+            "watch_count": item.watch_count or 0,
+            "is_favorited": item.is_favorited,
+            "rating": item.rating,
+            "service_name": service.name if service else None,
+            "last_watched_at": item.last_watched_at.isoformat() if item.last_watched_at else None,
+            "library_id": item.library_id
+        }
+    
+    # === MOST VIEWED MOVIES (by plays) ===
+    most_viewed_movies_result = await db.execute(
+        select(MediaItem)
+        .options(joinedload(MediaItem.service_connection))
+        .where(
+            and_(
+                MediaItem.media_type == MediaType.MOVIE,
+                MediaItem.watch_count > 0
+            )
+        )
+        .order_by(MediaItem.watch_count.desc())
+        .limit(limit)
+    )
+    most_viewed_movies = [format_item(m) for m in most_viewed_movies_result.scalars().all()]
+    
+    # === MOST VIEWED SERIES (aggregate episode plays per series) ===
+    # Get series with most total episode plays
+    series_plays_result = await db.execute(
+        select(
+            MediaItem.parent_id,
+            func.sum(MediaItem.watch_count).label('total_plays')
+        )
+        .where(
+            and_(
+                MediaItem.media_type == MediaType.EPISODE,
+                MediaItem.parent_id.isnot(None),
+                MediaItem.watch_count > 0
+            )
+        )
+        .group_by(MediaItem.parent_id)
+        .order_by(func.sum(MediaItem.watch_count).desc())
+        .limit(limit)
+    )
+    series_plays = series_plays_result.all()
+    
+    # Get the actual series info
+    most_viewed_series = []
+    for row in series_plays:
+        if row.parent_id:
+            series_result = await db.execute(
+                select(MediaItem)
+                .options(joinedload(MediaItem.service_connection))
+                .where(MediaItem.id == row.parent_id)
+            )
+            series = series_result.scalar_one_or_none()
+            if series:
+                item_data = format_item(series)
+                item_data['watch_count'] = int(row.total_plays)
+                most_viewed_series.append(item_data)
+    
+    # Fallback: if no episode aggregation, show series with watch_count
+    if not most_viewed_series:
+        series_direct_result = await db.execute(
+            select(MediaItem)
+            .options(joinedload(MediaItem.service_connection))
+            .where(
+                and_(
+                    MediaItem.media_type == MediaType.SERIES,
+                    MediaItem.watch_count > 0
+                )
+            )
+            .order_by(MediaItem.watch_count.desc())
+            .limit(limit)
+        )
+        most_viewed_series = [format_item(s) for s in series_direct_result.scalars().all()]
+    
+    # === RECENTLY ADDED (last 30 days) ===
+    recently_added_result = await db.execute(
+        select(MediaItem)
+        .options(joinedload(MediaItem.service_connection))
+        .where(
+            and_(
+                MediaItem.added_at >= cutoff_date,
+                MediaItem.media_type.in_([MediaType.MOVIE, MediaType.SERIES])
+            )
+        )
+        .order_by(MediaItem.added_at.desc())
+        .limit(10)
+    )
+    recently_added = [format_item(m) for m in recently_added_result.scalars().all()]
+    
+    # === LIBRARY OVERVIEW ===
+    # Movie libraries
+    from ...models import Library as LibraryModel
+    
+    movie_libs_result = await db.execute(
+        select(
+            LibraryModel.id,
+            LibraryModel.name,
+            func.count(MediaItem.id).label('item_count')
+        )
+        .outerjoin(MediaItem, and_(
+            MediaItem.library_id == LibraryModel.id,
+            MediaItem.media_type == MediaType.MOVIE
+        ))
+        .where(LibraryModel.media_type == MediaType.MOVIE)
+        .group_by(LibraryModel.id, LibraryModel.name)
+        .order_by(func.count(MediaItem.id).desc())
+    )
+    movie_libraries = [
+        {"id": row.id, "name": row.name, "count": row.item_count, "type": "movie"}
+        for row in movie_libs_result.all()
+    ]
+    
+    # TV libraries with series/season/episode counts
+    tv_libs_result = await db.execute(
+        select(LibraryModel)
+        .where(LibraryModel.media_type.in_([MediaType.SERIES, MediaType.EPISODE]))
+    )
+    tv_libraries_raw = tv_libs_result.scalars().all()
+    
+    tv_libraries = []
+    for lib in tv_libraries_raw:
+        # Count series
+        series_count = await db.execute(
+            select(func.count(MediaItem.id))
+            .where(and_(MediaItem.library_id == lib.id, MediaItem.media_type == MediaType.SERIES))
+        )
+        # Count seasons
+        season_count = await db.execute(
+            select(func.count(MediaItem.id))
+            .where(and_(MediaItem.library_id == lib.id, MediaItem.media_type == MediaType.SEASON))
+        )
+        # Count episodes
+        episode_count = await db.execute(
+            select(func.count(MediaItem.id))
+            .where(and_(MediaItem.library_id == lib.id, MediaItem.media_type == MediaType.EPISODE))
+        )
+        
+        tv_libraries.append({
+            "id": lib.id,
+            "name": lib.name,
+            "series": series_count.scalar() or 0,
+            "seasons": season_count.scalar() or 0,
+            "episodes": episode_count.scalar() or 0,
+            "type": "tv"
+        })
+    
+    # === GLOBAL STATS ===
+    # Total movies
+    total_movies = await db.execute(
+        select(func.count(MediaItem.id)).where(MediaItem.media_type == MediaType.MOVIE)
+    )
+    
+    # Total series
+    total_series = await db.execute(
+        select(func.count(MediaItem.id)).where(MediaItem.media_type == MediaType.SERIES)
+    )
+    
+    # Total episodes
+    total_episodes = await db.execute(
+        select(func.count(MediaItem.id)).where(MediaItem.media_type == MediaType.EPISODE)
+    )
+    
+    # Total plays
+    total_plays = await db.execute(select(func.sum(MediaItem.watch_count)))
+    
+    # Total watched items
+    total_watched = await db.execute(
+        select(func.count(MediaItem.id)).where(MediaItem.is_watched == True)
+    )
+    
+    # Total favorited
+    total_favorited = await db.execute(
+        select(func.count(MediaItem.id)).where(MediaItem.is_favorited == True)
+    )
+    
+    # Movie plays
+    movie_plays = await db.execute(
+        select(func.sum(MediaItem.watch_count)).where(MediaItem.media_type == MediaType.MOVIE)
+    )
+    
+    # Episode plays
+    episode_plays = await db.execute(
+        select(func.sum(MediaItem.watch_count)).where(MediaItem.media_type == MediaType.EPISODE)
+    )
+    
+    # === MOST POPULAR MOVIES (by unique users) ===
+    popular_movies_result = await db.execute(
+        select(
+            MediaItem.id,
+            MediaItem.title,
+            MediaItem.year,
+            MediaItem.is_favorited,
+            MediaItem.rating,
+            func.count(func.distinct(UserWatchHistory.user_id)).label('user_count')
+        )
+        .join(UserWatchHistory, UserWatchHistory.media_item_id == MediaItem.id)
+        .where(
+            and_(
+                MediaItem.media_type == MediaType.MOVIE,
+                UserWatchHistory.is_played == True
+            )
+        )
+        .group_by(MediaItem.id, MediaItem.title, MediaItem.year, MediaItem.is_favorited, MediaItem.rating)
+        .order_by(func.count(func.distinct(UserWatchHistory.user_id)).desc())
+        .limit(limit)
+    )
+    most_popular_movies = [
+        {
+            "id": row.id,
+            "title": row.title,
+            "year": row.year,
+            "is_favorited": row.is_favorited,
+            "rating": row.rating,
+            "user_count": row.user_count,
+            "media_type": "movie"
+        }
+        for row in popular_movies_result.all()
+    ]
+    
+    # === MOST POPULAR SERIES (by unique users) ===
+    # Get series where users have watched episodes
+    popular_series_result = await db.execute(
+        select(
+            MediaItem.series_id,
+            func.count(func.distinct(UserWatchHistory.user_id)).label('user_count')
+        )
+        .join(UserWatchHistory, UserWatchHistory.media_item_id == MediaItem.id)
+        .where(
+            and_(
+                MediaItem.media_type == MediaType.EPISODE,
+                MediaItem.series_id.isnot(None),
+                UserWatchHistory.is_played == True
+            )
+        )
+        .group_by(MediaItem.series_id)
+        .order_by(func.count(func.distinct(UserWatchHistory.user_id)).desc())
+        .limit(limit)
+    )
+    popular_series_raw = popular_series_result.all()
+    
+    most_popular_series = []
+    for row in popular_series_raw:
+        if row.series_id:
+            # Find the series by series_id (external_id)
+            series_result = await db.execute(
+                select(MediaItem)
+                .where(
+                    and_(
+                        MediaItem.external_id == row.series_id,
+                        MediaItem.media_type == MediaType.SERIES
+                    )
+                )
+            )
+            series = series_result.scalar_one_or_none()
+            if series:
+                most_popular_series.append({
+                    "id": series.id,
+                    "title": series.title,
+                    "year": series.year,
+                    "is_favorited": series.is_favorited,
+                    "rating": series.rating,
+                    "user_count": row.user_count,
+                    "media_type": "series"
+                })
+    
+    # === MOST ACTIVE USERS ===
+    active_users_result = await db.execute(
+        select(
+            MediaServerUser.id,
+            MediaServerUser.name,
+            MediaServerUser.total_plays,
+            MediaServerUser.last_activity_at,
+            MediaServerUser.is_admin
+        )
+        .where(MediaServerUser.is_hidden == False)
+        .order_by(MediaServerUser.total_plays.desc())
+        .limit(limit)
+    )
+    most_active_users = [
+        {
+            "id": row.id,
+            "name": row.name,
+            "total_plays": row.total_plays or 0,
+            "last_activity_at": row.last_activity_at.isoformat() if row.last_activity_at else None,
+            "is_admin": row.is_admin
+        }
+        for row in active_users_result.all()
+    ]
+    
+    # Total users count
+    total_users = await db.execute(
+        select(func.count(MediaServerUser.id)).where(MediaServerUser.is_hidden == False)
+    )
+    
+    return {
+        "period_days": days,
+        "global_stats": {
+            "total_movies": total_movies.scalar() or 0,
+            "total_series": total_series.scalar() or 0,
+            "total_episodes": total_episodes.scalar() or 0,
+            "total_plays": int(total_plays.scalar() or 0),
+            "total_watched": total_watched.scalar() or 0,
+            "total_favorited": total_favorited.scalar() or 0,
+            "movie_plays": int(movie_plays.scalar() or 0),
+            "episode_plays": int(episode_plays.scalar() or 0),
+            "total_users": total_users.scalar() or 0
+        },
+        "most_viewed_movies": most_viewed_movies,
+        "most_viewed_series": most_viewed_series,
+        "most_popular_movies": most_popular_movies,
+        "most_popular_series": most_popular_series,
+        "most_active_users": most_active_users,
+        "recently_added": recently_added,
+        "library_overview": {
+            "movie_libraries": movie_libraries,
+            "tv_libraries": tv_libraries
+        }
     }
 
 

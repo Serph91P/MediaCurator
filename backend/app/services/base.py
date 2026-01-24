@@ -23,7 +23,7 @@ class BaseServiceClient(ABC):
         url: str,
         api_key: str,
         verify_ssl: bool = True,
-        timeout: int = 30
+        timeout: int = 120  # Increased from 30s for large library queries
     ):
         self.base_url = url.rstrip('/')
         self.api_key = api_key
@@ -40,6 +40,7 @@ class BaseServiceClient(ABC):
                 timeout=self.timeout,
                 headers=self._get_headers()
             )
+        return self._client
         return self._client
     
     @abstractmethod
@@ -78,8 +79,11 @@ class BaseServiceClient(ABC):
                 status_code=e.response.status_code
             )
         except httpx.RequestError as e:
-            logger.error(f"Request error: {str(e)}")
-            raise ServiceClientError(f"Connection error: {str(e)}")
+            # Get more details about the connection error
+            error_type = type(e).__name__
+            error_msg = str(e) or repr(e)
+            logger.error(f"Request error ({error_type}): {error_msg} - URL: {self.base_url}{endpoint}")
+            raise ServiceClientError(f"Connection error ({error_type}): {error_msg}")
     
     async def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Make a GET request."""

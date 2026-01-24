@@ -275,7 +275,7 @@ function ServiceModal({
     api_key: initialData?.api_key || '',
     is_enabled: initialData?.is_enabled ?? true,
     verify_ssl: initialData?.verify_ssl ?? true,
-    timeout: initialData?.timeout || 30,
+    timeout: initialData?.timeout || 120,
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -364,6 +364,23 @@ function ServiceModal({
                 />
                 <span className="text-sm text-dark-200">Verify SSL</span>
               </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">
+                Timeout (seconds)
+              </label>
+              <input
+                type="number"
+                min="30"
+                max="600"
+                value={formData.timeout || 120}
+                onChange={(e) => setFormData({ ...formData, timeout: parseInt(e.target.value) || 120 })}
+                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg text-gray-900 dark:text-dark-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-dark-400">
+                Timeout for API requests (300s+ recommended for very large Emby libraries)
+              </p>
             </div>
           </div>
 

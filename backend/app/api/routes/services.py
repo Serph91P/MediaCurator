@@ -3,13 +3,13 @@ Service connections API routes (Sonarr, Radarr, Emby, etc.).
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from typing import List
 from datetime import datetime
 
 from ...core.database import get_db
 from ...core.rate_limit import limiter, RateLimits
-from ...models import ServiceConnection, ServiceType
+from ...models import ServiceConnection, ServiceType, ImportStats
 from ...schemas import (
     ServiceConnectionCreate, ServiceConnectionUpdate, 
     ServiceConnectionResponse, ServiceConnectionTest
@@ -146,6 +146,11 @@ async def delete_service(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Service connection not found"
         )
+    
+    # Delete related import_stats first (no cascade in older DBs)
+    await db.execute(
+        delete(ImportStats).where(ImportStats.service_connection_id == service_id)
+    )
     
     await db.delete(service)
     await db.commit()

@@ -329,6 +329,8 @@ docker compose -f docker-compose.dev.yml up
 - [x] Add confirmation dialogs for destructive actions
 - [x] Dark/Light theme toggle with system preference support
 - [x] Mobile First Design
+- [x] Dashboard with Watch Statistics (Most Viewed/Popular Movies & Series)
+- [x] Libraries page with detailed per-library stats cards
 
 ### Notifications & Integration
 - [x] Migrate to Apprise URL-schema for 90+ notification services
@@ -350,9 +352,31 @@ docker compose -f docker-compose.dev.yml up
 - [x] Bulk operations for rules (enable/disable multiple)
 - [x] Export/import rules as JSON
 - [x] Per-library staging settings (with global fallback)
+- [x] User tracking from Emby (MediaServerUser, UserWatchHistory models)
+- [x] Most Popular Movies/Series by unique users (popularity stats)
+- [x] Most Active Users statistics
+- [x] Detailed library statistics API (/libraries/stats)
 - [ ] Advanced scheduling (different schedules per rule)
 - [ ] Dry-run per rule (not just global)
 - [ ] Media tags auto-management based on watch patterns
+
+### Statistics & Analytics (Planned)
+- [ ] Library Detail View (Overview, Media Browser, Activity Log per library)
+- [ ] Users Page (list all users with stats, last watched, watch time, last seen)
+- [ ] User Detail View (Overview, Activity, Timeline per user)
+- [ ] Global Activity Log (all playback sessions with filtering)
+- [ ] Statistics Dashboard with Charts (Daily Play Count, Play by Day/Hour)
+- [ ] Genre Distribution Charts (by duration and play count)
+- [ ] User Activity Timeline (when each user watched what)
+- [ ] Watch Patterns/Heatmap (peak hours and days)
+- [ ] Concurrent Streams Analysis (how many users watch simultaneously)
+- [ ] Watch Duration Stats (average session length)
+- [ ] Completion Rate Analytics (how often content is finished)
+- [ ] Binge-Watch Detection (detect series marathon sessions)
+- [ ] Shared vs. Solo Content (which content is watched by multiple users)
+- [ ] Cleanup Rules per User ("Delete only if NO user watched in X days")
+
+> **Note:** See [PLANNED_FEATURES.md](PLANNED_FEATURES.md) for detailed descriptions of planned features.
 
 ## Contributing
 

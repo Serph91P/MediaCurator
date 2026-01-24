@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     
     # Paths
     data_path: str = "/data"
-    media_path: str = "/media"
+    media_path: str = "/data"  # Must match your container mount point
     
     # Scheduler
     cleanup_check_interval_minutes: int = 60  # Check every hour

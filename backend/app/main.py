@@ -32,8 +32,11 @@ logger.add(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
-    # Startup
-    logger.info(f"Starting {settings.app_name} v{settings.app_version}")
+    # Startup - get dynamic version
+    from .services.version import version_service
+    version_info = version_service.get_version_info()
+    display_version = version_info.get("version", settings.app_version)
+    logger.info(f"Starting {settings.app_name} {display_version}")
     await init_db()
     logger.info("Database initialized")
     
@@ -45,9 +48,12 @@ async def lifespan(app: FastAPI):
     logger.info("Database migrations completed")
     
     # Start scheduler
-    from .scheduler import start_scheduler, stop_scheduler
+    from .scheduler import start_scheduler, stop_scheduler, load_saved_job_intervals
     start_scheduler()
     logger.info("Scheduler started")
+    
+    # Load saved job intervals from database
+    await load_saved_job_intervals()
     
     yield
     

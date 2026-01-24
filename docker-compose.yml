@@ -50,23 +50,24 @@ services:
       # ═══════════════════════════════════════════════════════════════════
       # The path INSIDE this container must match what Emby sees.
       # 
-      # Example: If Emby uses /data/movies for its library path:
-      #   - /mnt/storage/movies:/data/movies
+      # Example: If Emby uses /data for all media:
+      #   - /mnt/storage/data:/data
       #
-      # Example: If Emby uses /media for all media:
-      #   - ${MEDIA_PATH:-/media}:/media
+      # Example: If Emby uses /data/movies and /data/tv:
+      #   - /mnt/movies:/data/movies
+      #   - /mnt/tv:/data/tv
       #
       # IMPORTANT: The right side (container path) must be the SAME
       #     path that Emby/Jellyfin uses when it reports file locations!
       #     Otherwise file operations (delete, move to staging) will fail.
       #
       # For read-only safety (recommended for initial testing):
-      #   - ${MEDIA_PATH:-/media}:/media:ro
+      #   - /mnt/storage/data:/data:ro
       #
       # For staging/delete operations, you need write access:
-      #   - ${MEDIA_PATH:-/media}:/media
+      #   - /mnt/storage/data:/data
       # ═══════════════════════════════════════════════════════════════════
-      - ${MEDIA_PATH:-/media}:/media:ro
+      - ${MEDIA_PATH:-/data}:/data:ro
       
       # Staging directory - must be writable for staging system
       # This should also match the staging path configured in MediaCurator
@@ -88,10 +89,10 @@ services:
       resources:
         limits:
           cpus: '2.0'
-          memory: 1G
+          memory: 2G
         reservations:
           cpus: '0.5'
-          memory: 256M
+          memory: 512M
 
 volumes:
   mediacurator_config:

@@ -83,9 +83,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -100,7 +97,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ needs.prepare.outputs.docker_tags }}
           labels: ${{ needs.prepare.outputs.docker_labels }}
@@ -220,7 +217,7 @@ jobs:
           
           ## Docker Images
           
-          This release is available as multi-architecture Docker images (amd64, arm64):
+          This release is available as a Docker image for amd64 architecture:
           
           ### Pull the image:
           \`\`\`bash
@@ -250,7 +247,9 @@ jobs:
           | Registry | GitHub Container Registry (ghcr.io) |
           | Image | \`ghcr.io/${REPO_OWNER}/mediacurator\` |
           | Version | \`${VERSION}\` |
-          | Architectures | linux/amd64, linux/arm64 |
+          | Architecture | linux/amd64 |
+          
+          > **Note:** ARM64 builds are not currently provided. Open a feature request if you need ARM support.
           
           ## Documentation
           

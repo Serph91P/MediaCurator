@@ -23,13 +23,17 @@ import {
   SunIcon,
   MoonIcon,
   ComputerDesktopIcon,
+  UsersIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
+  { name: 'Libraries', href: '/libraries', icon: FolderIcon },
+  { name: 'Users', href: '/users', icon: UsersIcon },
+  { name: 'Activity', href: '/activity', icon: ChartBarIcon },
   { name: 'Services', href: '/services', icon: ServerStackIcon },
   { name: 'Rules', href: '/rules', icon: ClipboardDocumentListIcon },
-  { name: 'Libraries', href: '/libraries', icon: FolderIcon },
   { name: 'Preview', href: '/preview', icon: EyeIcon },
   { name: 'Staging', href: '/staging', icon: ArchiveBoxIcon },
   { name: 'Jobs', href: '/jobs', icon: CpuChipIcon },

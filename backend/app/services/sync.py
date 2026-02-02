@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from loguru import logger
 
-from ..models import ServiceConnection, MediaItem, ServiceType, MediaType, ImportStats, MediaServerUser, UserWatchHistory
+from ..models import ServiceConnection, MediaItem, ServiceType, MediaType, ImportStats, MediaServerUser, UserWatchHistory, PlaybackActivity, Library
 from .sonarr import SonarrClient
 from .radarr import RadarrClient
 from .emby import EmbyClient
@@ -561,6 +561,9 @@ async def _sync_emby(
         await db.commit()
         logger.info(f"Updated watch data for {updated} items from Emby (max values from {len(users)} users), saved {history_saved} watch history records")
         
+        # === SYNC ACTIVE SESSIONS ===
+        await _sync_active_sessions(db, client, service, user_id_map, path_to_item)
+        
     finally:
         await client.close()
     
@@ -571,3 +574,120 @@ async def _sync_emby(
         "updated": updated,
         "users_synced": users_synced
     }
+
+
+async def _sync_active_sessions(
+    db: AsyncSession,
+    client: EmbyClient,
+    service: ServiceConnection,
+    user_id_map: Dict[str, int],
+    path_to_item: Dict[str, MediaItem]
+):
+    """Sync active and recent playback sessions from Emby."""
+    try:
+        # Get active sessions
+        sessions = await client.get_sessions()
+        
+        # Mark all existing active sessions as inactive first
+        result = await db.execute(
+            select(PlaybackActivity).where(PlaybackActivity.is_active == True)
+        )
+        active_activities = result.scalars().all()
+        for activity in active_activities:
+            activity.is_active = False
+            if not activity.ended_at:
+                activity.ended_at = datetime.now(timezone.utc)
+        
+        active_count = 0
+        
+        for session in sessions:
+            now_playing = session.get("NowPlayingItem")
+            if not now_playing:
+                continue
+            
+            emby_user_id = session.get("UserId")
+            db_user_id = user_id_map.get(emby_user_id)
+            
+            if not db_user_id:
+                continue
+            
+            # Get media item info
+            item_path = now_playing.get("Path")
+            media_item = path_to_item.get(item_path) if item_path else None
+            
+            # Get or create title
+            title = now_playing.get("Name", "Unknown")
+            series_name = now_playing.get("SeriesName")
+            if series_name:
+                season_num = now_playing.get("ParentIndexNumber", 0)
+                episode_num = now_playing.get("IndexNumber", 0)
+                title = f"{series_name} : S{season_num}E{episode_num} - {title}"
+            
+            # Determine play method
+            play_state = session.get("PlayState", {})
+            transcode_info = session.get("TranscodingInfo", {})
+            
+            if transcode_info:
+                play_method = "Transcode"
+                is_transcoding = True
+                transcode_video = transcode_info.get("IsVideoDirect", True) == False
+                transcode_audio = transcode_info.get("IsAudioDirect", True) == False
+            else:
+                play_method = "DirectPlay" if not session.get("TranscodingInfo") else "DirectStream"
+                is_transcoding = False
+                transcode_video = False
+                transcode_audio = False
+            
+            # Check if we have an existing active session for this user+item
+            session_id = session.get("Id")
+            
+            result = await db.execute(
+                select(PlaybackActivity).where(
+                    PlaybackActivity.user_id == db_user_id,
+                    PlaybackActivity.session_id == session_id
+                )
+            )
+            existing = result.scalar_one_or_none()
+            
+            position_ticks = play_state.get("PositionTicks", 0)
+            runtime_ticks = now_playing.get("RunTimeTicks", 1) or 1
+            played_percentage = (position_ticks / runtime_ticks * 100) if runtime_ticks else 0
+            
+            if existing:
+                # Update existing session
+                existing.is_active = True
+                existing.ended_at = None
+                existing.position_ticks = position_ticks
+                existing.played_percentage = played_percentage
+                existing.duration_seconds = int(position_ticks / 10_000_000)  # Ticks to seconds
+            else:
+                # Create new session
+                activity = PlaybackActivity(
+                    user_id=db_user_id,
+                    media_item_id=media_item.id if media_item else None,
+                    media_title=title,
+                    library_id=media_item.library_id if media_item else None,
+                    session_id=session_id,
+                    play_method=play_method,
+                    client_name=session.get("Client"),
+                    device_name=session.get("DeviceName"),
+                    device_id=session.get("DeviceId"),
+                    ip_address=session.get("RemoteEndPoint"),
+                    is_transcoding=is_transcoding,
+                    transcode_video=transcode_video,
+                    transcode_audio=transcode_audio,
+                    started_at=datetime.now(timezone.utc),
+                    position_ticks=position_ticks,
+                    runtime_ticks=runtime_ticks,
+                    played_percentage=played_percentage,
+                    is_active=True
+                )
+                db.add(activity)
+            
+            active_count += 1
+        
+        await db.commit()
+        logger.info(f"Synced {active_count} active playback sessions")
+        
+    except Exception as e:
+        logger.warning(f"Failed to sync active sessions: {e}")

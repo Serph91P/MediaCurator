@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { 
   FolderIcon, 
   ArrowPathIcon, 
@@ -8,7 +9,8 @@ import {
   FilmIcon,
   TvIcon,
   PlayIcon,
-  ClockIcon
+  ClockIcon,
+  ArrowTopRightOnSquareIcon
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
@@ -78,17 +80,18 @@ function LibraryCard({
   const isMovie = stat.media_type === 'movie'
   
   return (
-    <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">
+    <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden group relative">
       {/* Header with gradient */}
       <div className={`px-4 py-3 ${isMovie ? 'bg-linear-to-r from-primary-600 to-primary-500' : 'bg-linear-to-r from-green-600 to-green-500'} flex items-center justify-between`}>
-        <div className="flex items-center gap-2">
+        <Link to={`/libraries/${stat.id}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           {isMovie ? (
             <FilmIcon className="w-5 h-5 text-white" />
           ) : (
             <TvIcon className="w-5 h-5 text-white" />
           )}
           <h3 className="text-sm font-semibold text-white uppercase tracking-wider">{stat.name}</h3>
-        </div>
+          <ArrowTopRightOnSquareIcon className="w-4 h-4 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </Link>
         <button
           onClick={() => onToggle(stat.id)}
           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${

@@ -8,12 +8,16 @@ import Dashboard from './pages/Dashboard'
 import Services from './pages/Services'
 import Rules from './pages/Rules'
 import Libraries from './pages/Libraries'
+import LibraryDetail from './pages/LibraryDetail'
 import Notifications from './pages/Notifications'
 import Settings from './pages/Settings'
 import History from './pages/History'
 import Preview from './pages/Preview'
 import Jobs from './pages/Jobs'
 import Staging from './pages/Staging'
+import Users from './pages/Users'
+import UserDetail from './pages/UserDetail'
+import Activity from './pages/Activity'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -56,12 +60,16 @@ function App() {
         <Route path="services" element={<Services />} />
         <Route path="rules" element={<Rules />} />
         <Route path="libraries" element={<Libraries />} />
+        <Route path="libraries/:libraryId" element={<LibraryDetail />} />
         <Route path="jobs" element={<Jobs />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="settings" element={<Settings />} />
         <Route path="history" element={<History />} />
         <Route path="preview" element={<Preview />} />
         <Route path="staging" element={<Staging />} />
+        <Route path="users" element={<Users />} />
+        <Route path="users/:userId" element={<UserDetail />} />
+        <Route path="activity" element={<Activity />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

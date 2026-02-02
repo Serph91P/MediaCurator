@@ -256,17 +256,20 @@ Delete movie if:
 
 ## Implementation Priority
 
-### Phase 1 - Foundation (Current)
+### Phase 1 - Foundation ✅
 - [x] MediaServerUser model
 - [x] UserWatchHistory model
 - [x] Basic user stats on Dashboard
 - [x] Library stats API
+- [x] PlaybackActivity model
 
-### Phase 2 - Views & Navigation
-- [ ] Library Detail View (Overview, Media, Activity tabs)
-- [ ] Users Page (list with stats)
-- [ ] User Detail View (Overview, Activity, Timeline tabs)
-- [ ] Global Activity Log
+### Phase 2 - Views & Navigation ✅
+- [x] Library Detail View (Overview, Media, Activity tabs)
+- [x] Users Page (list with stats)
+- [x] User Detail View (Overview, Activity tabs)
+- [x] Global Activity Log
+- [x] Activity stats API (plays by day/hour/week)
+- [x] Active sessions tracking
 
 ### Phase 3 - Statistics & Charts
 - [ ] Daily Play Count Chart

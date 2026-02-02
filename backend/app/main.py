@@ -13,7 +13,7 @@ import sys
 from .core.config import get_settings
 from .core.database import init_db, close_db
 from .core.rate_limit import setup_rate_limiting, limiter, RateLimits
-from .api.routes import auth, services, rules, libraries, notifications, system, jobs, media, staging, audit
+from .api.routes import auth, services, rules, libraries, notifications, system, jobs, media, staging, audit, activity, users
 
 settings = get_settings()
 
@@ -95,6 +95,8 @@ app.include_router(system.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
 app.include_router(media.router, prefix="/api")
 app.include_router(staging.router, prefix="/api/staging", tags=["staging"])
+app.include_router(activity.router, prefix="/api/activity", tags=["activity"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
 
 
 @app.get("/api/health")

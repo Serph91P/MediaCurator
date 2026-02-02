@@ -21,8 +21,24 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8080
     
-    # Database
+    # Database - supports SQLite (default) or PostgreSQL
+    # SQLite: sqlite+aiosqlite:////data/mediacurator.db
+    # PostgreSQL: postgresql+asyncpg://user:password@host:5432/dbname
     database_url: str = "sqlite+aiosqlite:////data/mediacurator.db"
+    
+    # PostgreSQL specific settings (alternative to database_url)
+    postgres_host: Optional[str] = None
+    postgres_port: int = 5432
+    postgres_user: Optional[str] = None
+    postgres_password: Optional[str] = None
+    postgres_db: Optional[str] = None
+    
+    @property
+    def effective_database_url(self) -> str:
+        """Get the effective database URL, preferring PostgreSQL if configured."""
+        if self.postgres_host and self.postgres_user and self.postgres_password and self.postgres_db:
+            return f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        return self.database_url
     
     # Security
     secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(32))

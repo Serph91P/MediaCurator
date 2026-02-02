@@ -94,7 +94,7 @@ function DiskUsageBar({
   )
 }
 
-// Top List Item Component (Jellystat-style)
+// Top List Item Component
 function TopListItem({ 
   rank, 
   title, 
@@ -186,7 +186,7 @@ export default function Dashboard() {
     },
   })
 
-  // Dashboard stats (Jellystat-style with user tracking)
+  // Dashboard stats with user tracking
   const { data: dashboardStats } = useQuery({
     queryKey: ['dashboardStats', statsDays],
     queryFn: async () => {
@@ -270,7 +270,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Watch Statistics Section (Jellystat-style) */}
+      {/* Watch Statistics Section */}
       <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-dark-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -395,7 +395,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Library Overview (Jellystat-style) */}
+      {/* Library Overview */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <ServerStackIcon className="w-5 h-5" />

@@ -340,7 +340,7 @@ async def get_dashboard_stats(
     current_user = Depends(get_current_user)
 ):
     """
-    Get comprehensive dashboard statistics similar to Jellystat.
+    Get comprehensive dashboard statistics.
     Includes: most viewed movies/series, library overview, watch trends.
     """
     
@@ -381,33 +381,38 @@ async def get_dashboard_stats(
     most_viewed_movies = [format_item(m) for m in most_viewed_movies_result.scalars().all()]
     
     # === MOST VIEWED SERIES (aggregate episode plays per series) ===
-    # Get series with most total episode plays
+    # Get series with most total episode plays using series_id (external ID)
     series_plays_result = await db.execute(
         select(
-            MediaItem.parent_id,
+            MediaItem.series_id,
             func.sum(MediaItem.watch_count).label('total_plays')
         )
         .where(
             and_(
                 MediaItem.media_type == MediaType.EPISODE,
-                MediaItem.parent_id.isnot(None),
+                MediaItem.series_id.isnot(None),
                 MediaItem.watch_count > 0
             )
         )
-        .group_by(MediaItem.parent_id)
+        .group_by(MediaItem.series_id)
         .order_by(func.sum(MediaItem.watch_count).desc())
         .limit(limit)
     )
     series_plays = series_plays_result.all()
     
-    # Get the actual series info
+    # Get the actual series info using external_id
     most_viewed_series = []
     for row in series_plays:
-        if row.parent_id:
+        if row.series_id:
             series_result = await db.execute(
                 select(MediaItem)
                 .options(joinedload(MediaItem.service_connection))
-                .where(MediaItem.id == row.parent_id)
+                .where(
+                    and_(
+                        MediaItem.external_id == row.series_id,
+                        MediaItem.media_type == MediaType.SERIES
+                    )
+                )
             )
             series = series_result.scalar_one_or_none()
             if series:

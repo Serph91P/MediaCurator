@@ -327,6 +327,7 @@ class MediaItem(Base):
     
     # Series specific
     series_id = Column(String(100), nullable=True)
+    parent_id = Column(Integer, ForeignKey("media_items.id"), nullable=True)  # For episodes -> series/season
     season_number = Column(Integer, nullable=True)
     episode_number = Column(Integer, nullable=True)
     

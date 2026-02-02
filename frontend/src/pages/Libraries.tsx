@@ -67,7 +67,7 @@ function formatDuration(seconds: number): string {
   return parts.join(' ')
 }
 
-// Library Card Component (Jellystat-style)
+// Library Card Component
 function LibraryCard({ 
   stat, 
   stagingSettings,

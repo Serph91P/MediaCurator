@@ -22,7 +22,7 @@ async def get_library_stats(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ) -> List[Dict[str, Any]]:
-    """Get detailed statistics for all libraries (Jellystat-style)."""
+    """Get detailed statistics for all libraries."""
     
     result = await db.execute(
         select(Library).order_by(Library.media_type, Library.name)
@@ -225,7 +225,7 @@ async def get_library_details(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ) -> Dict[str, Any]:
-    """Get detailed statistics for a specific library (Jellystat-style)."""
+    """Get detailed statistics for a specific library."""
     result = await db.execute(
         select(Library).where(Library.id == library_id)
     )
@@ -479,8 +479,8 @@ async def get_library_media(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     search: Optional[str] = None,
-    sort_by: str = Query("title", regex="^(title|added_at|last_watched_at|watch_count|size_bytes)$"),
-    sort_order: str = Query("asc", regex="^(asc|desc)$"),
+    sort_by: str = Query("title", pattern="^(title|added_at|last_watched_at|watch_count|size_bytes)$"),
+    sort_order: str = Query("asc", pattern="^(asc|desc)$"),
     media_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)

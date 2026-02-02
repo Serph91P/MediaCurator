@@ -4,7 +4,7 @@ Users API routes - Media server users and their statistics.
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import select, func, desc, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 from typing import Optional
 from datetime import datetime, timedelta
 
@@ -55,10 +55,10 @@ async def get_users(
     result = await db.execute(query)
     users = result.scalars().all()
     
-    # Get last watched for each user
+    # Get last watched for each user from UserWatchHistory (since PlaybackActivity may be empty)
     user_data = []
     for u in users:
-        # Get last activity
+        # Try to get last activity from PlaybackActivity first
         last_activity_result = await db.execute(
             select(PlaybackActivity)
             .where(PlaybackActivity.user_id == u.id)
@@ -66,6 +66,40 @@ async def get_users(
             .limit(1)
         )
         last_activity = last_activity_result.scalar_one_or_none()
+        
+        # If no PlaybackActivity, try UserWatchHistory
+        last_watched_info = None
+        last_client = None
+        
+        if last_activity:
+            last_watched_info = {
+                "title": last_activity.media_title,
+                "client": last_activity.client_name,
+                "device": last_activity.device_name
+            }
+            last_client = last_activity.client_name or last_activity.device_name
+        else:
+            # Fallback to UserWatchHistory
+            last_history_result = await db.execute(
+                select(UserWatchHistory)
+                .options(joinedload(UserWatchHistory.media_item))
+                .where(
+                    and_(
+                        UserWatchHistory.user_id == u.id,
+                        UserWatchHistory.last_played_at.isnot(None)
+                    )
+                )
+                .order_by(desc(UserWatchHistory.last_played_at))
+                .limit(1)
+            )
+            last_history = last_history_result.scalar_one_or_none()
+            
+            if last_history and last_history.media_item:
+                last_watched_info = {
+                    "title": last_history.media_item.title,
+                    "client": None,
+                    "device": None
+                }
         
         user_data.append({
             "id": u.id,
@@ -76,11 +110,8 @@ async def get_users(
             "total_plays": u.total_plays,
             "total_watch_time_seconds": u.total_watch_time_seconds,
             "last_activity_at": u.last_activity_at.isoformat() if u.last_activity_at else None,
-            "last_watched": {
-                "title": last_activity.media_title,
-                "client": last_activity.client_name,
-                "device": last_activity.device_name
-            } if last_activity else None
+            "last_watched": last_watched_info,
+            "last_client": last_client
         })
     
     return {
@@ -110,7 +141,7 @@ async def get_user_detail(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Get time-based stats
+    # Get time-based stats from PlaybackActivity
     now = datetime.utcnow()
     periods = {
         "last_24h": now - timedelta(hours=24),
@@ -123,7 +154,7 @@ async def get_user_detail(
         plays_result = await db.execute(
             select(
                 func.count(PlaybackActivity.id),
-                func.sum(PlaybackActivity.duration_seconds)
+                func.coalesce(func.sum(PlaybackActivity.duration_seconds), 0)
             )
             .where(
                 and_(
@@ -135,10 +166,10 @@ async def get_user_detail(
         row = plays_result.one()
         stats[period_name] = {
             "plays": row[0] or 0,
-            "watch_seconds": row[1] or 0
+            "watch_seconds": int(row[1] or 0)
         }
     
-    # Get recently watched
+    # Get recently watched from PlaybackActivity first
     recent_result = await db.execute(
         select(PlaybackActivity)
         .where(PlaybackActivity.user_id == user_id)
@@ -146,6 +177,49 @@ async def get_user_detail(
         .limit(10)
     )
     recent_activities = recent_result.scalars().all()
+    
+    # If no PlaybackActivity, fallback to UserWatchHistory
+    recently_watched = []
+    if recent_activities:
+        recently_watched = [
+            {
+                "id": a.id,
+                "media_title": a.media_title,
+                "client_name": a.client_name,
+                "device_name": a.device_name,
+                "started_at": a.started_at.isoformat() if a.started_at else None,
+                "duration_seconds": a.duration_seconds,
+                "played_percentage": a.played_percentage
+            }
+            for a in recent_activities
+        ]
+    else:
+        # Fallback to UserWatchHistory
+        history_result = await db.execute(
+            select(UserWatchHistory)
+            .options(joinedload(UserWatchHistory.media_item))
+            .where(
+                and_(
+                    UserWatchHistory.user_id == user_id,
+                    UserWatchHistory.last_played_at.isnot(None)
+                )
+            )
+            .order_by(desc(UserWatchHistory.last_played_at))
+            .limit(10)
+        )
+        history_items = history_result.scalars().all()
+        recently_watched = [
+            {
+                "id": h.id,
+                "media_title": h.media_item.title if h.media_item else "Unknown",
+                "client_name": None,
+                "device_name": None,
+                "started_at": h.last_played_at.isoformat() if h.last_played_at else None,
+                "duration_seconds": 0,
+                "played_percentage": h.played_percentage or 0
+            }
+            for h in history_items
+        ]
     
     return {
         "id": user.id,
@@ -159,18 +233,7 @@ async def get_user_detail(
         "last_activity_at": user.last_activity_at.isoformat() if user.last_activity_at else None,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "stats": stats,
-        "recently_watched": [
-            {
-                "id": a.id,
-                "media_title": a.media_title,
-                "client_name": a.client_name,
-                "device_name": a.device_name,
-                "started_at": a.started_at.isoformat() if a.started_at else None,
-                "duration_seconds": a.duration_seconds,
-                "played_percentage": a.played_percentage
-            }
-            for a in recent_activities
-        ]
+        "recently_watched": recently_watched
     }
 
 

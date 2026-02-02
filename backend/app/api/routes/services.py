@@ -215,6 +215,8 @@ async def sync_service(
 ):
     """Sync media items from a service."""
     from ...services.sync import sync_service_media
+    from ...models import JobExecutionLog
+    from datetime import timezone
     
     result = await db.execute(
         select(ServiceConnection).where(ServiceConnection.id == service_id)
@@ -226,5 +228,45 @@ async def sync_service(
             detail="Service connection not found"
         )
     
-    sync_result = await sync_service_media(db, service)
-    return sync_result
+    # Create execution log for visibility in Jobs view
+    start_time = datetime.now(timezone.utc)
+    execution_log = JobExecutionLog(
+        job_id=f"sync_service_{service_id}",
+        job_name=f"Sync: {service.name}",
+        status="running",
+        started_at=start_time
+    )
+    db.add(execution_log)
+    await db.commit()
+    await db.refresh(execution_log)
+    
+    try:
+        sync_result = await sync_service_media(db, service)
+        
+        # Update execution log
+        end_time = datetime.now(timezone.utc)
+        execution_log.status = "success" if sync_result.get("success", True) else "error"
+        execution_log.completed_at = end_time
+        execution_log.duration_seconds = (end_time - start_time).total_seconds()
+        execution_log.details = {
+            "service_name": service.name,
+            "service_type": service.service_type.value,
+            "added": sync_result.get("added", 0),
+            "updated": sync_result.get("updated", 0),
+            "users_synced": sync_result.get("users_synced", 0)
+        }
+        if not sync_result.get("success", True):
+            execution_log.error_message = sync_result.get("message", "Unknown error")
+        
+        await db.commit()
+        return sync_result
+        
+    except Exception as e:
+        # Update execution log with error
+        end_time = datetime.now(timezone.utc)
+        execution_log.status = "error"
+        execution_log.completed_at = end_time
+        execution_log.duration_seconds = (end_time - start_time).total_seconds()
+        execution_log.error_message = str(e)
+        await db.commit()
+        raise

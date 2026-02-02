@@ -1,0 +1,120 @@
+# MediaCurator Production Deployment
+# Komodo Stack Configuration for existing media network
+
+services:
+  mediacurator:
+    # renovate: datasource=docker depName=ghcr.io/serph91p/mediacurator
+    image: ghcr.io/serph91p/mediacurator:dev.0.0.133
+    container_name: mediacurator
+    restart: unless-stopped
+    
+    labels:
+      - "komodo.stack=mediacurator"
+      - "komodo.enabled=true"
+    
+    # Run as non-root user (appuser with UID 1000)
+    # Note: Named volumes are managed by Docker, no manual permission fixes needed
+    user: "1000:1000"
+    
+    environment:
+      # Timezone
+      - TZ=${TZ:-Europe/Berlin}
+      
+      # Security - IMPORTANT: Change this in production!
+      - SECRET_KEY=${SECRET_KEY:-please-change-this-secret-key-in-production}
+      
+      # Database
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-mediacurator}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mediacurator}
+      - POSTGRES_DB=${POSTGRES_DB:-mediacurator}
+      
+      # Optional: Pre-create admin user (useful for automated deployments)
+      # If not set, first registered user via web UI becomes admin automatically
+      # - INITIAL_ADMIN_USER=${ADMIN_USER:-}
+      # - INITIAL_ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      
+      # Optional: Debug mode (not recommended for production)
+      # - DEBUG=false
+    
+    volumes:
+      # Application data (database, config) - using named volume
+      - mediacurator_data:/app/config
+      
+      # Application logs - using named volume
+      - mediacurator_logs:/app/logs
+      
+      # Media mount - REQUIRED: Point to your actual media location
+      # Mount as read-only (:ro) for safety
+      - ${MEDIA_PATH:-/media}:/data
+      
+      # Optional: Additional media paths
+      # - /mnt/movies:/media/movies:ro
+      # - /mnt/tv:/media/tv:ro
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+      
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    # Resource limits (optional but recommended)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    networks:
+      - media
+      - mediacurator
+
+ postgres:
+    image: postgres:18.1-alpine
+    container_name: mediacurator_postgres
+    restart: unless-stopped
+    
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-mediacurator}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mediacurator}
+      - POSTGRES_DB=${POSTGRES_DB:-mediacurator}
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      
+    labels:
+      - "komodo.stack=mediacurator"
+      - "komodo.enabled=true"
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mediacurator} -d ${POSTGRES_DB:-mediacurator}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    networks:
+      - mediacurator
+
+volumes:
+  mediacurator_data:
+    driver: local
+  mediacurator_logs:
+    driver: local
+  postgres_data:
+    driver: local
+
+networks:
+  media:
+    external: true
+    name: media
+  mediacurator:

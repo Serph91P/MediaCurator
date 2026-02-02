@@ -26,7 +26,7 @@ export interface Session {
   is_current: boolean
 }
 
-export type ServiceType = 'sonarr' | 'radarr' | 'emby' | 'jellyfin' | 'jellystat'
+export type ServiceType = 'sonarr' | 'radarr' | 'emby' | 'jellyfin'
 export type MediaType = 'movie' | 'series' | 'episode' | 'season'
 export type RuleActionType = 'delete' | 'delete_and_unmonitor' | 'notify_only' | 'move_to_trash' | 'unmonitor'
 export type NotificationType = 'webhook' | 'discord' | 'slack' | 'email' | 'apprise'

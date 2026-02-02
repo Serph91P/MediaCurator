@@ -18,7 +18,7 @@ class ServiceType(str, Enum):
     RADARR = "radarr"
     EMBY = "emby"
     JELLYFIN = "jellyfin"
-    JELLYSTAT = "jellystat"
+
 
 
 class MediaType(str, Enum):

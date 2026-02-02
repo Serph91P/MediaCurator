@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { PlayIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ArrowPathIcon, MinusCircleIcon, PencilIcon } from '@heroicons/react/24/outline'
+import { PlayIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ArrowPathIcon, MinusCircleIcon, PencilIcon, ServerIcon } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 import { formatDateTime } from '../lib/utils'
@@ -14,6 +14,8 @@ interface Job {
   interval_hours: number | null
   is_running: boolean
   running_since: string | null
+  service_id?: number | null
+  service_type?: string | null
 }
 
 interface JobExecution {
@@ -26,6 +28,13 @@ interface JobExecution {
   duration_seconds: number | null
   error_message: string | null
   details: Record<string, any>
+}
+
+interface ServiceConnection {
+  id: number
+  name: string
+  service_type: string
+  is_enabled: boolean
 }
 
 export default function Jobs() {
@@ -42,6 +51,14 @@ export default function Jobs() {
       return res.data
     },
     refetchInterval: 5000, // Refresh every 5 seconds
+  })
+
+  const { data: services } = useQuery({
+    queryKey: ['services'],
+    queryFn: async () => {
+      const res = await api.get<ServiceConnection[]>('/services/')
+      return res.data
+    },
   })
 
   const { data: recentExecutions, isLoading: executionsLoading } = useQuery({
@@ -73,6 +90,22 @@ export default function Jobs() {
       toast.success('Job triggered successfully')
     },
     onError: () => toast.error('Failed to trigger job'),
+  })
+
+  const triggerServiceSyncMutation = useMutation({
+    mutationFn: async (serviceId: number) => {
+      const res = await api.post(`/jobs/sync/service/${serviceId}`)
+      return res.data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['job-executions'] })
+      toast.success(`Sync started for ${data.service_name}`)
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.detail || 'Failed to trigger sync'
+      toast.error(message)
+    },
   })
 
   const updateIntervalMutation = useMutation({
@@ -185,6 +218,76 @@ export default function Jobs() {
             <span className="text-gray-900 dark:text-white font-medium">
               Scheduler: {jobsData.running ? 'Running' : 'Stopped'}
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Service Sync Jobs */}
+      {services && services.filter(s => s.is_enabled).length > 0 && (
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <ServerIcon className="w-5 h-5" />
+              Service Sync
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-dark-400 mt-1">
+              Trigger manual sync for individual services
+            </p>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {services.filter(s => s.is_enabled).map((service) => {
+                const serviceJobId = `sync_service_${service.id}`
+                const isRunning = jobsData?.jobs?.some(j => j.id === serviceJobId && j.is_running) ||
+                                  recentExecutions?.some(e => e.job_id === serviceJobId && e.status === 'running')
+                const lastExecution = recentExecutions?.find(e => e.job_id === serviceJobId)
+                
+                return (
+                  <div
+                    key={service.id}
+                    className={`bg-gray-100 dark:bg-dark-700/50 rounded-lg p-4 ${isRunning ? 'ring-2 ring-blue-500' : ''}`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{service.name}</h3>
+                        <span className="text-xs text-gray-500 dark:text-dark-400 capitalize">
+                          {service.service_type}
+                        </span>
+                      </div>
+                      {isRunning && (
+                        <ArrowPathIcon className="w-5 h-5 text-blue-400 animate-spin" />
+                      )}
+                    </div>
+                    
+                    {lastExecution && (
+                      <div className="text-xs text-gray-500 dark:text-dark-400 mb-3">
+                        Last: {lastExecution.status === 'running' ? 'Running...' : 
+                               lastExecution.status === 'success' ? `✓ ${formatDuration(lastExecution.duration_seconds)}` :
+                               lastExecution.status === 'error' ? '✗ Error' : lastExecution.status}
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={() => triggerServiceSyncMutation.mutate(service.id)}
+                      disabled={isRunning || triggerServiceSyncMutation.isPending}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isRunning ? (
+                        <>
+                          <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                          Syncing...
+                        </>
+                      ) : (
+                        <>
+                          <PlayIcon className="w-4 h-4" />
+                          Sync Now
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       )}

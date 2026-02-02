@@ -261,20 +261,27 @@ class EmbyClient(BaseServiceClient):
         self,
         user_id: str,
         parent_id: Optional[str] = None,
-        include_item_types: Optional[List[str]] = None
+        include_item_types: Optional[List[str]] = None,
+        fields: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Get library items with full watch data in a single request.
         This is more efficient than fetching items and watch data separately.
         """
-        fields = [
+        default_fields = [
             "Path", "Overview", "Genres", "Tags", "DateCreated", "PremiereDate",
-            "CommunityRating", "Size", "MediaSources",
+            "CommunityRating", "Size", "MediaSources", "RunTimeTicks",
             # Include UserData fields
         ]
+        # Merge custom fields if provided
+        if fields:
+            all_fields = list(set(default_fields + fields))
+        else:
+            all_fields = default_fields
+            
         params = {
             "Recursive": "true",
-            "Fields": ",".join(fields),
+            "Fields": ",".join(all_fields),
             "EnableUserData": "true",  # Include UserData in response
         }
         if parent_id:

@@ -13,6 +13,7 @@ import {
   ChevronRightIcon
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
+import { formatBytes } from '../lib/utils'
 import type { CleanupRule } from '../types'
 
 interface PreviewItem {
@@ -73,18 +74,6 @@ interface GroupedSeries {
   }>
   reasons: string[]
   ruleName: string
-}
-
-function formatBytes(bytes: number | null): string {
-  if (!bytes) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let unitIndex = 0
-  let size = bytes
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024
-    unitIndex++
-  }
-  return `${size.toFixed(1)} ${units[unitIndex]}`
 }
 
 // Extract series name and season/episode from title like "Series Name - S01E05 - Episode Title"

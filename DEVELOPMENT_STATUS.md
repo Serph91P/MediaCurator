@@ -4,7 +4,7 @@
 
 **Letzte Aktualisierung**: 22. Februar 2026 (Session 6)
 **Branch**: `feature/phase2-enhancements-and-docs` (von `develop`)
-**Letzter Commit**: Pending
+**Letzter Commit**: `ea6e64c` (Session 6)
 **Version**: `vdev.0.0.147`
 **Repo**: `https://github.com/Serph91P/MediaCurator.git`
 
@@ -346,7 +346,7 @@ frontend/src/
 | Jobs.tsx | ✅ ResponsiveTable | ✅ Executions-Tabelle migriert (Session 4) |
 
 ### Fehlende UI-Features (geplant aber nicht implementiert)
-- **Activity-Seite**: ~~IP-Adresse Spalte, Device-Spalte,~~ ~~Expand-Row~~ ✅ Expand-Row implementiert (Session 6) ~~Library-Filter, Items-per-Page Selector~~
+- **Activity-Seite**: ~~IP-Adresse Spalte, Device-Spalte, Expand-Row, Library-Filter, Items-per-Page Selector~~ ✅ Alles implementiert (Session 4+5+6)
 - **LibraryDetail**: Genre-Distribution Charts, Grid-View mit Poster-Bildern, ~~Expand-Row~~ ✅ (Session 6)
 - **UserDetail**: Favorite Genres Sektion, Timeline-Tab, ~~Expand-Row~~ ✅ (Session 6)
 - **Rules.tsx**: Modal ist sehr lang – kein Wizard/Accordion, keine Genre/Tag-Autocomplete
@@ -403,7 +403,7 @@ Das Backend ist gut strukturiert mit:
 - **Notifications**: Multi-URL-Input, Template-Editor mit Variable-Suggestions, Live-Preview
 - **Services & Jobs**: Übersichtlich, Test-Verbindung, manueller Sync-Trigger, editierbare Intervalle
 - **Auth-Flow**: Setup-Required Check, Refresh-Token mit Queue für Concurrent Requests
-- **ResponsiveTable-Komponente**: Gut gebaut (Table→Cards auf Mobile), wird nur zu selten benutzt
+- **ResponsiveTable-Komponente**: Gut gebaut (Table→Cards auf Mobile), jetzt auf allen Seiten eingesetzt inkl. Expand-Row-Support
 
 ---
 
@@ -415,7 +415,7 @@ Das Backend ist gut strukturiert mit:
 
 ### ~~Priorität 2: UX-Verbesserungen~~ ✅ ERLEDIGT (Session 3+4)
 3. ~~**BUG-006**: Sprachmix Deutsch→Englisch bereinigen~~ ✅ utils.ts Locale (Session 3) + Layout.tsx deutsche Strings (Session 4)
-4. ~~**Mobile Tables**: ResponsiveTable in Activity, UserDetail, Staging, Jobs einsetzen~~ ✅ (Session 4). Preview offen (komplexe expandable rows).
+4. ~~**Mobile Tables**: ResponsiveTable in Activity, UserDetail, Staging, Jobs, Preview einsetzen~~ ✅ (Session 4+6). Alle Seiten migriert.
 5. ~~**BUG-005**: Toast-Theming fixen~~ ✅
 
 ### ~~Priorität 3: Phase 3 – Charts implementieren~~ ⚠️ TEILWEISE ERLEDIGT (Session 4)
@@ -425,10 +425,10 @@ Das Backend ist gut strukturiert mit:
 9. **Genre Distribution**: Backend-API für Genre-Aggregation nötig, dann Radar/Spider Chart – offen
 
 ### Priorität 4: Fehlende Phase 2 Features
-10. ~~**Activity-Seite erweitern**: IP, Device Spalten, Library-Filter, Items-per-Page~~ ✅ (Session 4+5). ~~Expand-Row~~ ✅ (Session 6).
-11. ~~**UserDetail erweitern**: Library-Filter auf Activity~~ ✅ (Session 5). ~~Expand-Row~~ ✅ (Session 6). Favorite Genres offen.
-12. **LibraryDetail erweitern**: ~~ResponsiveTable~~ ✅ (Session 5). ~~Expand-Row~~ ✅ (Session 6). Genre-Charts, Grid-View offen.
-13. **Dashboard Charts**: ~~Keine Charts~~ ✅ (Session 5) – Daily Plays, Day-of-Week, Hour-of-Day recharts Charts.
+10. ~~**Activity-Seite erweitern**: IP, Device Spalten, Library-Filter, Items-per-Page, Expand-Row~~ ✅ (Session 4+5+6).
+11. ~~**UserDetail erweitern**: Library-Filter auf Activity, Expand-Row~~ ✅ (Session 5+6). Favorite Genres offen.
+12. **LibraryDetail erweitern**: ~~ResponsiveTable, Expand-Row~~ ✅ (Session 5+6). Genre-Charts, Grid-View offen.
+13. ~~**Dashboard Charts**: Daily Plays, Day-of-Week, Hour-of-Day recharts Charts~~ ✅ (Session 5).
 
 ### ~~Priorität 5: Code-Qualität~~ ✅ ERLEDIGT (Session 3+4)
 13. ~~Code-Splitting mit React.lazy~~ ✅ (Session 4) – 13 Seiten lazy-loaded mit Suspense-Fallback

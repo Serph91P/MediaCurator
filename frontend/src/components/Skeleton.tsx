@@ -11,7 +11,7 @@ export function Skeleton({
   width,
   height 
 }: SkeletonProps) {
-  const baseClasses = 'animate-pulse bg-dark-700'
+  const baseClasses = 'animate-pulse bg-gray-200 dark:bg-dark-700'
   
   const variantClasses = {
     text: 'rounded h-4',
@@ -55,7 +55,7 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
 
 export function CardSkeleton() {
   return (
-    <div className="bg-dark-800 rounded-xl border border-dark-700 p-6 space-y-4">
+    <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-6 space-y-4">
       <div className="flex items-start justify-between">
         <div className="flex-1 space-y-2">
           <Skeleton width="60%" height="24px" />
@@ -75,7 +75,7 @@ export function StatsSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="bg-dark-800 rounded-xl border border-dark-700 p-6">
+        <div key={i} className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-6">
           <Skeleton width="50%" height="16px" className="mb-3" />
           <Skeleton width="70%" height="32px" />
         </div>

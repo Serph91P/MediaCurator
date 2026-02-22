@@ -42,6 +42,19 @@ export function formatRelativeTime(date: string | Date | null | undefined): stri
 }
 
 /**
+ * Format duration in seconds to human-readable string
+ */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (!seconds || seconds === 0) return '0m'
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`
+  }
+  return `${minutes}m`
+}
+
+/**
  * Format date to localized string
  */
 export function formatDate(date: string | Date | null | undefined): string {
@@ -51,7 +64,7 @@ export function formatDate(date: string | Date | null | undefined): string {
   const dateStr = typeof date === 'string' ? date : date.toISOString()
   const isoDate = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
   
-  return new Date(isoDate).toLocaleDateString('de-DE', {
+  return new Date(isoDate).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -70,7 +83,7 @@ export function formatDateTime(date: string | Date | null | undefined): string {
   const dateStr = typeof date === 'string' ? date : date.toISOString()
   const isoDate = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
   
-  return new Date(isoDate).toLocaleString('de-DE', {
+  return new Date(isoDate).toLocaleString('en-US', {
     dateStyle: 'short',
     timeStyle: 'short',
   })

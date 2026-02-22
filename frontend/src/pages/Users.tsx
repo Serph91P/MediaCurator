@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import { formatRelativeTime } from '../lib/utils'
+import { useDebounce } from '../hooks/useDebounce'
 
 interface MediaServerUser {
   id: number
@@ -53,17 +54,8 @@ export default function Users() {
   const [page, setPage] = useState(1)
   const [pageSize] = useState(25)
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
   const [includeHidden, setIncludeHidden] = useState(false)
-
-  // Debounce search
-  const handleSearchChange = (value: string) => {
-    setSearch(value)
-    setTimeout(() => {
-      setDebouncedSearch(value)
-      setPage(1)
-    }, 300)
-  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['mediaUsers', page, pageSize, debouncedSearch, includeHidden],
@@ -102,7 +94,10 @@ export default function Users() {
             <input
               type="text"
               value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
               placeholder="Search users..."
               className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-dark-700 border border-gray-200 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />

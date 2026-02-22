@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from './stores/auth'
 import { getToken } from './lib/api'
@@ -31,9 +32,16 @@ interface SetupStatus {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, fetchUser } = useAuthStore()
   const token = getToken()
   const location = useLocation()
+
+  // Fetch fresh user data on mount if we have a token
+  useEffect(() => {
+    if (token) {
+      fetchUser()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   
   // Check both zustand state and localStorage token
   if (!isAuthenticated && !token) {

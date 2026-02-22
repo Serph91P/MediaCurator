@@ -86,10 +86,10 @@ async def get_users(
                 .where(
                     and_(
                         UserWatchHistory.user_id == u.id,
-                        UserWatchHistory.last_played_at.isnot(None)
+                        UserWatchHistory.is_played == True
                     )
                 )
-                .order_by(desc(UserWatchHistory.last_played_at))
+                .order_by(desc(func.coalesce(UserWatchHistory.last_played_at, datetime.min)), desc(UserWatchHistory.play_count))
                 .limit(1)
             )
             last_history = last_history_result.scalar_one_or_none()

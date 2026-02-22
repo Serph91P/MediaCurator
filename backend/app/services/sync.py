@@ -274,7 +274,7 @@ async def _sync_radarr(
                 "title": movie.get("title", "Unknown"),
                 "media_type": MediaType.MOVIE,
                 "year": movie.get("year"),
-                "path": movie.get("path"),
+                "path": movie.get("movieFile", {}).get("path") or movie.get("path"),
                 "size_bytes": movie.get("sizeOnDisk", 0),
                 "genres": movie.get("genres", []),
                 "tags": [str(t) for t in movie.get("tags", [])],
@@ -580,8 +580,8 @@ async def _sync_emby(
                     # Track user's last activity
                     if db_user_id not in user_last_activity or last_played_date > user_last_activity[db_user_id]:
                         user_last_activity[db_user_id] = last_played_date
-                except:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to parse LastPlayedDate '{user_data.get('LastPlayedDate')}' for user {db_user_id}: {e}")
             
             # Store per-user watch data for UserWatchHistory
             if is_played or play_count > 0 or is_favorite or progress > 0:
@@ -688,6 +688,9 @@ async def _sync_emby(
                 db_user.total_watch_time_seconds = user_watch_time.get(db_user_id, 0)
                 if db_user_id in user_last_activity:
                     db_user.last_activity_at = user_last_activity[db_user_id]
+                elif user_play_count.get(db_user_id, 0) > 0 and not db_user.last_activity_at:
+                    # Fallback: user has plays but no parseable LastPlayedDate
+                    db_user.last_activity_at = datetime.now(timezone.utc)
         
         # === SAVE USER WATCH HISTORY ===
         logger.info(f"Saving {len(user_watch_data)} user watch history records...")

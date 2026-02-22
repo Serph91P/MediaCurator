@@ -254,6 +254,27 @@ frontend/src/
 
 ### 🔴 CRITICAL
 
+#### BUG-012: Dashboard “Most Viewed Movies” zeigt keine Daten
+- **Datei**: `backend/app/services/sync.py` (Zeile 277)
+- **Problem**: Radarr-Sync speichert den **Ordner-Pfad** (`movie.get("path")` → `/movies/Movie Title/`), aber Emby liefert den **Datei-Pfad** (`/movies/Movie Title/Movie.mkv`). Path-Matching in `track_watch_data` schlägt für ALLE Filme fehl → `watch_count` wird nie aktualisiert.
+- **Auswirkung**: Keine Film-Watch-Statistiken, "No movie plays yet" auf Dashboard, `UserWatchHistory` für Filme leer
+- **Fix**: `movie.get("movieFile", {}).get("path") or movie.get("path")` – bevorzugt den Datei-Pfad aus `movieFile`
+- **Status**: ✅ ERLEDIGT (Session 6)
+- **Hinweis**: Bestehende Filme werden beim nächsten Radarr-Sync automatisch korrigiert (Update-Loop setzt `path` neu)
+
+#### BUG-013: Users-Seite – Last Seen/Last Watched/Last Client fehlerhaft
+- **Dateien**: `backend/app/services/sync.py`, `backend/app/api/routes/users.py`
+- **Problem (3 Ursachen)**:
+  1. `last_activity_at` hängt von `LastPlayedDate` aus Emby ab, das oft fehlt oder nicht geparst werden kann. Fehler wurden mit `except: pass` verschluckt.
+  2. `UserWatchHistory`-Fallback filtert auf `last_played_at IS NOT NULL`, was ebenfalls von `LastPlayedDate` abhängt → kein Fallback.
+  3. `UserWatchHistory` speichert keine Client/Device-Info → Fallback gibt immer `null`.
+- **Auswirkung**: "Last Seen: Never" bei allen Usern, "Last Watched: Never" / "Last Client: N/A" bei Usern ohne aktive PlaybackActivity
+- **Fix**:
+  - Fallback: `last_activity_at = datetime.now(UTC)` wenn User Plays hat aber kein `LastPlayedDate`
+  - `UserWatchHistory`-Query: `is_played == True` statt `last_played_at IS NOT NULL`, sortiert nach `coalesce(last_played_at, min)` + `play_count`
+  - Stilles `except: pass` → `logger.warning()` für `LastPlayedDate`-Parsing-Fehler
+- **Status**: ✅ ERLEDIGT (Session 6)
+
 #### BUG-011: PlaybackActivity – position_ticks/runtime_ticks Integer Overflow
 - **Datei**: `backend/app/models/database.py`, `backend/app/services/sync.py`
 - **Problem**: `position_ticks` und `runtime_ticks` waren `Integer` (int32, max ~2.1B), aber Emby liefert Tick-Werte >int32 (z.B. `70223183889`). PostgreSQL wirft `value out of int32 range`.
@@ -502,5 +523,5 @@ docker compose -f docker-compose.dev.yml up --build
 | 22.02.2026 (3) | **Session 3 – Bugfixes**: Alle 10 Bugs (BUG-001 bis BUG-010) behoben. LibraryDetail.tsx komplett rewritten (API-Pfade, React Query, shared Utils, Light/Dark-Mode). Light-Mode gefixt in Login, Register, ConfirmDialog, Skeleton, Toaster. Locale `de-DE` → `en-US`. fetchUser() bei App-Init. Code-Duplizierung (formatBytes/formatDuration) aufgeräumt. useDebounce Hook in Users.tsx. Branch: `fix/bugfixes-and-ux-improvements`, Commit: `f90a5f5` (10 Dateien, 295 Insertions, 342 Deletions) |
 | 22.02.2026 (4) | **Session 4 – UX & Charts**: Layout.tsx deutsche Strings → Englisch (BUG-006 abgeschlossen). ResponsiveTable Light-Mode-Fix (fehlende `dark:` Varianten). Activity.tsx: `useDebounce` statt setTimeout, shared Utils (`formatDurationLong`, `formatWatchTime`), ResponsiveTable-Migration, 3× recharts Charts (Daily Plays Area, Day-of-Week Bar, Hour-of-Day Bar). UserDetail.tsx: shared Utils + ResponsiveTable. Staging.tsx: ResponsiveTable. Jobs.tsx: Executions-Tabelle → ResponsiveTable. App.tsx: React.lazy Code-Splitting (13 Seiten). Branch: `feature/ux-improvements-and-charts` |
 | 22.02.2026 (5) | **Session 5 – Phase 2 Enhancements & Docs**: LibraryDetail.tsx Media+Activity Tabs → ResponsiveTable. Activity.tsx: Library-Filter Dropdown + Items-per-Page Selector (10/25/50/100). UserDetail.tsx: Library-Filter auf Activity-Tab. Dashboard.tsx: 3× recharts Charts (Daily Plays Area, Day-of-Week Bar, Hour-of-Day Bar) mit Dashboard-eigenem statsDays-Selector. PLANNED_FEATURES.md: Phase 2/3 Status aktualisiert, Implementation History Tabelle. Branch: `feature/phase2-enhancements-and-docs` |
-| 22.02.2026 (6) | **Session 6 – Bugfix & Expand-Rows**: BUG-011 behoben: PlaybackActivity `position_ticks`/`runtime_ticks` Integer→BigInteger (PostgreSQL int32 overflow bei Emby-Ticks >2.1B). DB-Migration hinzugefügt. Fehlerbehandlung in `_sync_active_sessions` und `services.py` mit `db.rollback()`. ResponsiveTable: Expand-Row-Support (`onRowClick`, `isExpanded`, `expandedContent`). Preview.tsx: Beide Tabellen (Series+Movies) auf ResponsiveTable migriert (letzte Seite). Expand-Rows auf Activity, UserDetail, LibraryDetail (IP, Device, Play Method, Progress-Bar). ConfirmDialog: `aria-modal`, Focus-Trap, Escape-Key, Click-Outside. Library Activity API: `ip_address`, `transcode_video`, `transcode_audio` hinzugefügt. Branch: `feature/phase2-enhancements-and-docs` |
+| 22.02.2026 (6) | **Session 6 – Bugfix & Expand-Rows**: BUG-011 behoben: PlaybackActivity `position_ticks`/`runtime_ticks` Integer→BigInteger (PostgreSQL int32 overflow bei Emby-Ticks >2.1B). DB-Migration hinzugefügt. Fehlerbehandlung in `_sync_active_sessions` und `services.py` mit `db.rollback()`. ResponsiveTable: Expand-Row-Support (`onRowClick`, `isExpanded`, `expandedContent`). Preview.tsx: Beide Tabellen (Series+Movies) auf ResponsiveTable migriert (letzte Seite). Expand-Rows auf Activity, UserDetail, LibraryDetail (IP, Device, Play Method, Progress-Bar). ConfirmDialog: `aria-modal`, Focus-Trap, Escape-Key, Click-Outside. Library Activity API: `ip_address`, `transcode_video`, `transcode_audio` hinzugefügt. BUG-012: Radarr-Pfad Ordner→Datei-Pfad (Movie-Watch-Statistiken). BUG-013: User Last Seen/Watched/Client Fallback-Logik. Branch: `feature/phase2-enhancements-and-docs` |
 | 30.12.2024 | Initiale Version: Session-Zusammenfassung (Rules Export, Sidebar, Theme Toggle, Staging UI) |

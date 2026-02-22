@@ -323,3 +323,25 @@ async def migrate_database(db: AsyncSession):
         
         await db.commit()
         logger.info("Migration completed: staging_library_name column added to libraries")
+    # Migrate position_ticks and runtime_ticks from INTEGER to BIGINT
+    # Emby tick values can exceed int32 range (max ~2.1B), e.g. 70223183889
+    has_playback_table = await table_exists(db, 'playback_activities')
+    if has_playback_table:
+        needs_bigint_migration = False
+        if is_postgres:
+            # Check if columns are still integer (not bigint)
+            result = await db.execute(text("""
+                SELECT data_type FROM information_schema.columns 
+                WHERE table_name = 'playback_activities' AND column_name = 'position_ticks'
+            """))
+            row = result.scalar()
+            if row and row == 'integer':
+                needs_bigint_migration = True
+        # SQLite has no strict integer size, so no migration needed there
+
+        if needs_bigint_migration:
+            logger.info("Migrating playback_activities: position_ticks and runtime_ticks INTEGER → BIGINT")
+            await db.execute(text("ALTER TABLE playback_activities ALTER COLUMN position_ticks TYPE BIGINT"))
+            await db.execute(text("ALTER TABLE playback_activities ALTER COLUMN runtime_ticks TYPE BIGINT"))
+            await db.commit()
+            logger.info("Migration completed: playback_activities tick columns are now BIGINT")

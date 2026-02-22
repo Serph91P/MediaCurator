@@ -108,13 +108,15 @@ Server-wide activity feed showing all playback across all users.
 - **Items per page**: 10, 25, 50, 100
 - **Search**: Search by title, user, or device
 
-### Expand Row
+### Expand Row ✅ Implemented (Session 6)
 - Click to expand a row for more details:
-  - Full file path
-  - Bitrate information
-  - Resolution
-  - Audio/video codecs
-  - Subtitle information
+  - ~~Full file path~~
+  - ~~Bitrate information~~
+  - ~~Resolution~~
+  - ~~Audio/video codecs~~
+  - ~~Subtitle information~~
+  - IP Address, Device, Play Method (color-coded), Progress Bar
+  - Implemented on: Activity, UserDetail, LibraryDetail, Preview (season breakdown)
 
 ---
 
@@ -273,7 +275,9 @@ Delete movie if:
 - [x] Library filter on Activity page
 - [x] Library filter on User Detail activity tab
 - [x] Items-per-page selector on Activity page
-- [x] ResponsiveTable on all pages (History, Users, Activity, UserDetail, Staging, Jobs, LibraryDetail)
+- [x] ResponsiveTable on all pages (History, Users, Activity, UserDetail, Staging, Jobs, LibraryDetail, Preview)
+- [x] Expand-Row on Activity, UserDetail, LibraryDetail (IP, Device, Play Method, Progress)
+- [x] ConfirmDialog accessibility (aria-modal, focus trap, escape key)
 
 ### Phase 3 - Statistics & Charts ⚠️ Partially Complete
 - [x] Daily Play Count Chart (Activity page + Dashboard)
@@ -338,6 +342,10 @@ To enable these features, the following data needs to be tracked:
 | 2 | LibraryDetail ResponsiveTable migration | Session 5 | ✅ |
 | 3 | Dashboard recharts charts | Session 5 | ✅ |
 | 4 | Code-splitting with React.lazy | Session 4 | ✅ |
+| 2 | Preview.tsx ResponsiveTable migration | Session 6 | ✅ |
+| 2 | Expand-Row (Activity, UserDetail, LibraryDetail) | Session 6 | ✅ |
+| 2 | ConfirmDialog accessibility (focus trap, aria-modal) | Session 6 | ✅ |
+| - | BUG-011: position_ticks int32→BigInteger | Session 6 | ✅ |
 
 ---
 

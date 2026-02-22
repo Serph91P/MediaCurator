@@ -2,7 +2,7 @@
 
 > **Zweck**: Dieses Dokument dient als fortlaufender Stand für die Weiterentwicklung. Es kann in jedem neuen Chat/auf jedem Rechner als Kontext übergeben werden, damit der Assistent sofort weiß, wo es weitergeht.
 
-**Letzte Aktualisierung**: 22. Februar 2026 (Session 5)
+**Letzte Aktualisierung**: 22. Februar 2026 (Session 6)
 **Branch**: `feature/phase2-enhancements-and-docs` (von `develop`)
 **Letzter Commit**: Pending
 **Version**: `vdev.0.0.147`
@@ -254,6 +254,13 @@ frontend/src/
 
 ### 🔴 CRITICAL
 
+#### BUG-011: PlaybackActivity – position_ticks/runtime_ticks Integer Overflow
+- **Datei**: `backend/app/models/database.py`, `backend/app/services/sync.py`
+- **Problem**: `position_ticks` und `runtime_ticks` waren `Integer` (int32, max ~2.1B), aber Emby liefert Tick-Werte >int32 (z.B. `70223183889`). PostgreSQL wirft `value out of int32 range`.
+- **Auswirkung**: Emby-Sync bricht bei Active Sessions ab, `services.py` commit schlägt fehl (PendingRollbackError)
+- **Fix**: Spalten auf `BigInteger` geändert, Migration für PostgreSQL hinzugefügt (ALTER COLUMN TYPE BIGINT), Fehlerbehandlung in `_sync_active_sessions` und `services.py` mit `db.rollback()` versehen
+- **Status**: ✅ ERLEDIGT (Session 6)
+
 #### BUG-001: LibraryDetail.tsx – Doppeltes `/api/` Prefix
 - **Datei**: `frontend/src/pages/LibraryDetail.tsx`
 - **Problem**: Die Seite benutzt Pfade wie `/api/libraries/${id}/details`, aber die Axios-BaseURL ist bereits `/api`. Das erzeugt Requests an `/api/api/libraries/...`.
@@ -334,14 +341,14 @@ frontend/src/
 | LibraryDetail.tsx | ✅ ResponsiveTable | ✅ Migriert (Session 5) |
 | UserDetail.tsx | ✅ ResponsiveTable | ✅ Migriert (Session 4) |
 | Activity.tsx | ✅ ResponsiveTable | ✅ Migriert (Session 4) |
-| Preview.tsx | ❌ Raw `<table>` | ❌ Überläuft auf Mobile (komplexe expandable rows) |
+| Preview.tsx | ✅ ResponsiveTable | ✅ Migriert (Session 6, mit Expand-Row-Support) |
 | Staging.tsx | ✅ ResponsiveTable | ✅ Migriert (Session 4) |
 | Jobs.tsx | ✅ ResponsiveTable | ✅ Executions-Tabelle migriert (Session 4) |
 
 ### Fehlende UI-Features (geplant aber nicht implementiert)
-- **Activity-Seite**: ~~IP-Adresse Spalte, Device-Spalte,~~ Expand-Row (Bitrate, Resolution, Codecs) ~~Library-Filter, Items-per-Page Selector~~
-- **LibraryDetail**: Genre-Distribution Charts, Grid-View mit Poster-Bildern, Expand-Row
-- **UserDetail**: Favorite Genres Sektion, Timeline-Tab
+- **Activity-Seite**: ~~IP-Adresse Spalte, Device-Spalte,~~ ~~Expand-Row~~ ✅ Expand-Row implementiert (Session 6) ~~Library-Filter, Items-per-Page Selector~~
+- **LibraryDetail**: Genre-Distribution Charts, Grid-View mit Poster-Bildern, ~~Expand-Row~~ ✅ (Session 6)
+- **UserDetail**: Favorite Genres Sektion, Timeline-Tab, ~~Expand-Row~~ ✅ (Session 6)
 - **Rules.tsx**: Modal ist sehr lang – kein Wizard/Accordion, keine Genre/Tag-Autocomplete
 - **Settings.tsx**: Cron-Eingaben ohne Hilfe/Validierung
 - **Dashboard**: ~~Keine Charts~~ recharts Charts implementiert (Session 5)
@@ -352,8 +359,8 @@ frontend/src/
 - **Staging.tsx**: Beide Queries auf 30s Refetch – könnte reduziert werden
 
 ### Accessibility
-- Kein `aria-label` auf Mobile-Hamburger-Button in Layout
-- ConfirmDialog hat keinen Focus-Trap / `aria-modal`
+- ~~Kein `aria-label` auf Mobile-Hamburger-Button in Layout~~ ✅ War bereits vorhanden
+- ~~ConfirmDialog hat keinen Focus-Trap / `aria-modal`~~ ✅ Behoben (Session 6) – `role="dialog"`, `aria-modal`, `aria-labelledby`, Focus-Trap, Escape-Key, Click-Outside
 - ~~Farbkontrast im Light-Mode gebrochen~~ ✅ Behoben (Session 3)
 
 ---
@@ -418,9 +425,9 @@ Das Backend ist gut strukturiert mit:
 9. **Genre Distribution**: Backend-API für Genre-Aggregation nötig, dann Radar/Spider Chart – offen
 
 ### Priorität 4: Fehlende Phase 2 Features
-10. ~~**Activity-Seite erweitern**: IP, Device Spalten, Library-Filter, Items-per-Page~~ ✅ (Session 4+5). Expand-Row offen.
-11. ~~**UserDetail erweitern**: Library-Filter auf Activity~~ ✅ (Session 5). Favorite Genres, Expand-Row offen.
-12. **LibraryDetail erweitern**: ~~ResponsiveTable~~ ✅ (Session 5). Genre-Charts, Grid-View, Expand-Row offen.
+10. ~~**Activity-Seite erweitern**: IP, Device Spalten, Library-Filter, Items-per-Page~~ ✅ (Session 4+5). ~~Expand-Row~~ ✅ (Session 6).
+11. ~~**UserDetail erweitern**: Library-Filter auf Activity~~ ✅ (Session 5). ~~Expand-Row~~ ✅ (Session 6). Favorite Genres offen.
+12. **LibraryDetail erweitern**: ~~ResponsiveTable~~ ✅ (Session 5). ~~Expand-Row~~ ✅ (Session 6). Genre-Charts, Grid-View offen.
 13. **Dashboard Charts**: ~~Keine Charts~~ ✅ (Session 5) – Daily Plays, Day-of-Week, Hour-of-Day recharts Charts.
 
 ### ~~Priorität 5: Code-Qualität~~ ✅ ERLEDIGT (Session 3+4)
@@ -495,4 +502,5 @@ docker compose -f docker-compose.dev.yml up --build
 | 22.02.2026 (3) | **Session 3 – Bugfixes**: Alle 10 Bugs (BUG-001 bis BUG-010) behoben. LibraryDetail.tsx komplett rewritten (API-Pfade, React Query, shared Utils, Light/Dark-Mode). Light-Mode gefixt in Login, Register, ConfirmDialog, Skeleton, Toaster. Locale `de-DE` → `en-US`. fetchUser() bei App-Init. Code-Duplizierung (formatBytes/formatDuration) aufgeräumt. useDebounce Hook in Users.tsx. Branch: `fix/bugfixes-and-ux-improvements`, Commit: `f90a5f5` (10 Dateien, 295 Insertions, 342 Deletions) |
 | 22.02.2026 (4) | **Session 4 – UX & Charts**: Layout.tsx deutsche Strings → Englisch (BUG-006 abgeschlossen). ResponsiveTable Light-Mode-Fix (fehlende `dark:` Varianten). Activity.tsx: `useDebounce` statt setTimeout, shared Utils (`formatDurationLong`, `formatWatchTime`), ResponsiveTable-Migration, 3× recharts Charts (Daily Plays Area, Day-of-Week Bar, Hour-of-Day Bar). UserDetail.tsx: shared Utils + ResponsiveTable. Staging.tsx: ResponsiveTable. Jobs.tsx: Executions-Tabelle → ResponsiveTable. App.tsx: React.lazy Code-Splitting (13 Seiten). Branch: `feature/ux-improvements-and-charts` |
 | 22.02.2026 (5) | **Session 5 – Phase 2 Enhancements & Docs**: LibraryDetail.tsx Media+Activity Tabs → ResponsiveTable. Activity.tsx: Library-Filter Dropdown + Items-per-Page Selector (10/25/50/100). UserDetail.tsx: Library-Filter auf Activity-Tab. Dashboard.tsx: 3× recharts Charts (Daily Plays Area, Day-of-Week Bar, Hour-of-Day Bar) mit Dashboard-eigenem statsDays-Selector. PLANNED_FEATURES.md: Phase 2/3 Status aktualisiert, Implementation History Tabelle. Branch: `feature/phase2-enhancements-and-docs` |
+| 22.02.2026 (6) | **Session 6 – Bugfix & Expand-Rows**: BUG-011 behoben: PlaybackActivity `position_ticks`/`runtime_ticks` Integer→BigInteger (PostgreSQL int32 overflow bei Emby-Ticks >2.1B). DB-Migration hinzugefügt. Fehlerbehandlung in `_sync_active_sessions` und `services.py` mit `db.rollback()`. ResponsiveTable: Expand-Row-Support (`onRowClick`, `isExpanded`, `expandedContent`). Preview.tsx: Beide Tabellen (Series+Movies) auf ResponsiveTable migriert (letzte Seite). Expand-Rows auf Activity, UserDetail, LibraryDetail (IP, Device, Play Method, Progress-Bar). ConfirmDialog: `aria-modal`, Focus-Trap, Escape-Key, Click-Outside. Library Activity API: `ip_address`, `transcode_video`, `transcode_audio` hinzugefügt. Branch: `feature/phase2-enhancements-and-docs` |
 | 30.12.2024 | Initiale Version: Session-Zusammenfassung (Rules Export, Sidebar, Theme Toggle, Staging UI) |

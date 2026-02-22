@@ -1,9 +1,12 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from './stores/auth'
 import { getToken } from './lib/api'
+import api from './lib/api'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import SetupWizard from './pages/SetupWizard'
 import Dashboard from './pages/Dashboard'
 import Services from './pages/Services'
 import Rules from './pages/Rules'
@@ -19,6 +22,14 @@ import Users from './pages/Users'
 import UserDetail from './pages/UserDetail'
 import Activity from './pages/Activity'
 
+interface SetupStatus {
+  setup_complete: boolean
+  has_users: boolean
+  has_arr_service: boolean
+  has_media_server: boolean
+  current_step: string
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
   const token = getToken()
@@ -29,6 +40,39 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
   
+  return <>{children}</>
+}
+
+/**
+ * Redirect to /setup if authenticated but setup is not complete.
+ */
+function SetupGate({ children }: { children: React.ReactNode }) {
+  const { data: setupStatus, isLoading } = useQuery<SetupStatus>({
+    queryKey: ['setup-status'],
+    queryFn: async () => {
+      const res = await api.get<SetupStatus>('/setup/status')
+      return res.data
+    },
+    staleTime: 30_000,
+    retry: 1,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark-900">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
+          <p className="text-gray-400 dark:text-dark-400 mt-4">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // If setup is not complete, redirect to wizard
+  if (setupStatus && !setupStatus.setup_complete) {
+    return <Navigate to="/setup" replace />
+  }
+
   return <>{children}</>
 }
 
@@ -47,12 +91,22 @@ function App() {
         path="/register" 
         element={hasAuth ? <Navigate to="/" replace /> : <Register />} 
       />
+      <Route
+        path="/setup"
+        element={
+          <ProtectedRoute>
+            <SetupWizard />
+          </ProtectedRoute>
+        }
+      />
       
       <Route
         path="/"
         element={
           <ProtectedRoute>
-            <Layout />
+            <SetupGate>
+              <Layout />
+            </SetupGate>
           </ProtectedRoute>
         }
       >

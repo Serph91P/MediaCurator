@@ -2,7 +2,7 @@
 Sync service for fetching media items from services.
 """
 import asyncio
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Callable, Awaitable
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -14,10 +14,14 @@ from .sonarr import SonarrClient
 from .radarr import RadarrClient
 from .emby import EmbyClient
 
+# Type for progress callback
+ProgressCallback = Optional[Callable[[str, Optional[float], Optional[int], Optional[int], Optional[Dict]], Awaitable[None]]]
+
 
 async def sync_service_media(
     db: AsyncSession,
-    service: ServiceConnection
+    service: ServiceConnection,
+    progress_callback: ProgressCallback = None
 ) -> Dict[str, Any]:
     """Sync media items from a service connection."""
     logger.info(f"Starting sync for service: {service.name}")
@@ -29,11 +33,11 @@ async def sync_service_media(
     
     try:
         if service.service_type == ServiceType.SONARR:
-            result = await _sync_sonarr(db, service)
+            result = await _sync_sonarr(db, service, progress_callback)
         elif service.service_type == ServiceType.RADARR:
-            result = await _sync_radarr(db, service)
+            result = await _sync_radarr(db, service, progress_callback)
         elif service.service_type in [ServiceType.EMBY, ServiceType.JELLYFIN]:
-            result = await _sync_emby(db, service)
+            result = await _sync_emby(db, service, progress_callback)
         else:
             return {
                 "success": False,
@@ -92,7 +96,8 @@ async def sync_service_media(
 
 async def _sync_sonarr(
     db: AsyncSession,
-    service: ServiceConnection
+    service: ServiceConnection,
+    progress_callback: ProgressCallback = None
 ) -> Dict[str, Any]:
     """Sync series and episodes from Sonarr."""
     client = SonarrClient(
@@ -109,8 +114,18 @@ async def _sync_sonarr(
     
     try:
         series_list = await client.get_series()
+        total_series = len(series_list)
         
-        for series in series_list:
+        if progress_callback:
+            await progress_callback("Fetching series list", 5, 0, total_series, {"total_series": total_series})
+        
+        for idx, series in enumerate(series_list):
+            if progress_callback and idx % 5 == 0:
+                pct = 5 + (idx / max(total_series, 1)) * 85
+                await progress_callback(
+                    f"Syncing series {idx+1}/{total_series}: {series.get('title', 'Unknown')}",
+                    pct, idx, total_series, None
+                )
             # Get or create series item
             result = await db.execute(
                 select(MediaItem)
@@ -195,6 +210,9 @@ async def _sync_sonarr(
         
         await db.commit()
         
+        if progress_callback:
+            await progress_callback("Sonarr sync complete", 100, total_series, total_series, {"added": added, "updated": updated})
+        
     finally:
         await client.close()
     
@@ -208,7 +226,8 @@ async def _sync_sonarr(
 
 async def _sync_radarr(
     db: AsyncSession,
-    service: ServiceConnection
+    service: ServiceConnection,
+    progress_callback: ProgressCallback = None
 ) -> Dict[str, Any]:
     """Sync movies from Radarr."""
     client = RadarrClient(
@@ -223,8 +242,19 @@ async def _sync_radarr(
     
     try:
         movies = await client.get_movies()
+        total_movies = len(movies)
         
-        for movie in movies:
+        if progress_callback:
+            await progress_callback("Fetching movie list", 5, 0, total_movies, {"total_movies": total_movies})
+        
+        for idx, movie in enumerate(movies):
+            if progress_callback and idx % 10 == 0:
+                pct = 5 + (idx / max(total_movies, 1)) * 90
+                await progress_callback(
+                    f"Syncing movie {idx+1}/{total_movies}: {movie.get('title', 'Unknown')}",
+                    pct, idx, total_movies, None
+                )
+            
             if not movie.get("hasFile"):
                 continue
             
@@ -263,6 +293,9 @@ async def _sync_radarr(
         
         await db.commit()
         
+        if progress_callback:
+            await progress_callback("Radarr sync complete", 100, total_movies, total_movies, {"added": added, "updated": updated})
+        
     finally:
         await client.close()
     
@@ -276,7 +309,8 @@ async def _sync_radarr(
 
 async def _sync_emby(
     db: AsyncSession,
-    service: ServiceConnection
+    service: ServiceConnection,
+    progress_callback: ProgressCallback = None
 ) -> Dict[str, Any]:
     """
     Sync watch data from Emby/Jellyfin to existing MediaItems.
@@ -305,6 +339,8 @@ async def _sync_emby(
     try:
         # === SYNC LIBRARIES FROM EMBY ===
         logger.info("Syncing libraries from Emby...")
+        if progress_callback:
+            await progress_callback("Syncing Emby libraries", 2, None, None, None)
         emby_libraries = await client.get_libraries()
         
         # Build library mapping
@@ -358,6 +394,9 @@ async def _sync_emby(
         
         logger.info(f"Synced {len(library_map)} libraries")
         
+        if progress_callback:
+            await progress_callback(f"Synced {len(library_map)} libraries", 10, len(library_map), len(library_map), None)
+        
         # Build library paths for matching (all paths from all Emby libraries)
         library_paths: list[tuple[str, int, MediaType]] = []
         for db_lib in library_map.values():
@@ -394,6 +433,9 @@ async def _sync_emby(
         
         logger.info(f"Found {len(path_to_item)} existing media items with paths")
         
+        if progress_callback:
+            await progress_callback("Matching media paths to libraries", 15, None, None, {"items_with_paths": len(path_to_item)})
+        
         # === UPDATE LIBRARY_ID ON EXISTING ITEMS ===
         for item in all_items:
             if item.path and not item.library_id:
@@ -403,6 +445,9 @@ async def _sync_emby(
                     library_assignments += 1
         
         logger.info(f"Assigned library_id to {library_assignments} items")
+        
+        if progress_callback:
+            await progress_callback(f"Assigned {library_assignments} library mappings", 20, library_assignments, len(all_items), None)
         
         # === SYNC USERS ===
         users = await client.get_users()
@@ -446,6 +491,9 @@ async def _sync_emby(
             users_synced += 1
         
         logger.info(f"Synced {users_synced} users to database")
+        
+        if progress_callback:
+            await progress_callback(f"Synced {users_synced} users", 25, users_synced, len(users), None)
         
         # Get active sessions to mark currently watching (by path)
         sessions = await client.get_sessions()
@@ -561,6 +609,13 @@ async def _sync_emby(
             try:
                 logger.debug(f"Processing user {i}/{len(users)}: {user_name}")
                 
+                if progress_callback:
+                    pct = 25 + (i / max(len(users), 1)) * 50
+                    await progress_callback(
+                        f"Fetching watch data for user {i}/{len(users)}: {user_name}",
+                        pct, i, len(users), {"user": user_name}
+                    )
+                
                 # Fetch and process movies immediately (don't hold in memory)
                 emby_movies = await client.get_items_with_watch_data(
                     user_id=emby_user_id, 
@@ -618,6 +673,9 @@ async def _sync_emby(
         updated += watch_updated
         logger.info(f"Updated watch data for {watch_updated} items")
         
+        if progress_callback:
+            await progress_callback("Saving watch history", 85, watch_updated, len(path_to_item), {"watch_updated": watch_updated})
+        
         # === UPDATE USER STATISTICS ===
         logger.info("Updating user statistics...")
         for db_user_id in user_id_map.values():
@@ -673,8 +731,18 @@ async def _sync_emby(
         await db.commit()
         logger.info(f"Updated watch data for {watch_updated} items from Emby (max values from {len(users)} users), saved {history_saved} watch history records")
         
+        if progress_callback:
+            await progress_callback("Syncing active sessions", 92, None, None, {"history_saved": history_saved})
+        
         # === SYNC ACTIVE SESSIONS ===
         await _sync_active_sessions(db, client, service, user_id_map, path_to_item)
+        
+        if progress_callback:
+            await progress_callback("Emby sync complete", 100, None, None, {
+                "updated": updated,
+                "library_assignments": library_assignments,
+                "users_synced": users_synced
+            })
         
     finally:
         await client.close()

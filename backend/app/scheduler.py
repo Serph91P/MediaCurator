@@ -5,9 +5,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from loguru import logger
 from sqlalchemy import select
+from typing import Optional, Dict, Any
 
 from .core.config import get_settings
 from .core.database import async_session_maker
+from .core.websocket import ws_manager
 from .models import ServiceConnection, CleanupRule, SystemSettings, JobExecutionLog
 from .services.cleanup_engine import CleanupEngine
 from .services.sync import sync_service_media
@@ -16,6 +18,27 @@ from functools import partial
 
 settings = get_settings()
 scheduler = AsyncIOScheduler()
+
+
+def _make_progress_callback(job_id: str, job_name: str):
+    """Create a progress callback that broadcasts via WebSocket."""
+    async def callback(
+        step: str,
+        progress_pct: Optional[float] = None,
+        current: Optional[int] = None,
+        total: Optional[int] = None,
+        details: Optional[Dict] = None
+    ):
+        await ws_manager.send_job_progress(
+            job_id=job_id,
+            job_name=job_name,
+            step=step,
+            progress_percent=progress_pct,
+            current=current,
+            total=total,
+            details=details
+        )
+    return callback
 
 
 async def run_service_sync_job(service_id: int):
@@ -55,7 +78,13 @@ async def run_service_sync_job(service_id: int):
             await db.commit()
             
             try:
-                sync_result = await sync_service_media(db, service)
+                # Create progress callback for WebSocket
+                progress_cb = _make_progress_callback(job_id, job_name)
+                
+                # Notify WebSocket clients that job started
+                await ws_manager.send_job_started(job_id, job_name)
+                
+                sync_result = await sync_service_media(db, service, progress_callback=progress_cb)
                 
                 # Update execution log
                 end_time = datetime.now(timezone.utc)
@@ -72,6 +101,13 @@ async def run_service_sync_job(service_id: int):
                 await db.commit()
                 logger.info(f"Sync completed for {service.name}: {sync_result}")
                 
+                # Notify WebSocket clients that job completed
+                await ws_manager.send_job_completed(
+                    job_id, job_name, "success",
+                    duration=execution_log.duration_seconds,
+                    details=sync_result
+                )
+                
             except Exception as e:
                 error_msg = f"Sync failed for {service.name}: {e}"
                 logger.error(error_msg)
@@ -82,6 +118,13 @@ async def run_service_sync_job(service_id: int):
                 execution_log.duration_seconds = (end_time - start_time).total_seconds()
                 execution_log.error_message = str(e)
                 await db.commit()
+                
+                # Notify WebSocket clients that job failed
+                await ws_manager.send_job_completed(
+                    job_id, job_name, "error",
+                    duration=execution_log.duration_seconds,
+                    error=str(e)
+                )
                     
         except Exception as e:
             error_msg = f"Sync job failed for service {service_id}: {e}"
@@ -123,9 +166,24 @@ async def run_sync_job():
             synced_count = 0
             errors = []
             
-            for service in services:
+            # Notify WebSocket clients that job started
+            await ws_manager.send_job_started("sync_job", "Media Sync")
+            
+            for svc_idx, service in enumerate(services):
                 try:
-                    sync_result = await sync_service_media(db, service)
+                    svc_job_id = f"sync_job_sub_{service.id}"
+                    svc_job_name = f"Media Sync: {service.name}"
+                    progress_cb = _make_progress_callback(svc_job_id, svc_job_name)
+                    
+                    await ws_manager.send_job_progress(
+                        "sync_job", "Media Sync",
+                        step=f"Syncing service {svc_idx+1}/{len(services)}: {service.name}",
+                        progress_percent=(svc_idx / max(len(services), 1)) * 100,
+                        current=svc_idx,
+                        total=len(services)
+                    )
+                    
+                    sync_result = await sync_service_media(db, service, progress_callback=progress_cb)
                     synced_count += sync_result.get('synced', 0)
                     logger.info(f"Sync completed for {service.name}: {sync_result}")
                 except Exception as e:
@@ -147,6 +205,14 @@ async def run_sync_job():
                 execution_log.error_message = "; ".join(errors)
             
             await db.commit()
+            
+            # Notify WebSocket clients that job completed
+            await ws_manager.send_job_completed(
+                "sync_job", "Media Sync",
+                status="success" if not errors else "error",
+                duration=execution_log.duration_seconds,
+                details={"services_synced": len(services), "errors": errors}
+            )
                     
         except Exception as e:
             error_msg = f"Sync job failed: {e}"
@@ -160,6 +226,12 @@ async def run_sync_job():
                 execution_log.duration_seconds = (end_time - start_time).total_seconds()
                 execution_log.error_message = str(e)
                 await db.commit()
+                
+                await ws_manager.send_job_completed(
+                    "sync_job", "Media Sync", "error",
+                    duration=execution_log.duration_seconds,
+                    error=str(e)
+                )
 
 
 async def run_cleanup_job():
@@ -180,6 +252,8 @@ async def run_cleanup_job():
             )
             db.add(execution_log)
             await db.commit()
+            
+            await ws_manager.send_job_started("cleanup_job", "Cleanup Check")
             
             engine = CleanupEngine(db)
             
@@ -244,6 +318,12 @@ async def run_cleanup_job():
             }
             await db.commit()
             
+            await ws_manager.send_job_completed(
+                "cleanup_job", "Cleanup Check", "success",
+                duration=execution_log.duration_seconds,
+                details={"rules_evaluated": len(rules), "items_flagged": total_flagged}
+            )
+            
         except Exception as e:
             error_msg = f"Cleanup job failed: {e}"
             logger.error(error_msg)
@@ -256,6 +336,12 @@ async def run_cleanup_job():
                 execution_log.duration_seconds = (end_time - start_time).total_seconds()
                 execution_log.error_message = str(e)
                 await db.commit()
+                
+                await ws_manager.send_job_completed(
+                    "cleanup_job", "Cleanup Check", "error",
+                    duration=execution_log.duration_seconds,
+                    error=str(e)
+                )
 
 
 async def run_staging_cleanup_job():
@@ -276,6 +362,8 @@ async def run_staging_cleanup_job():
             )
             db.add(execution_log)
             await db.commit()
+            
+            await ws_manager.send_job_started("staging_cleanup_job", "Staging Cleanup")
             
             from .services.staging import StagingService
             from .services.emby import EmbyService
@@ -300,6 +388,13 @@ async def run_staging_cleanup_job():
             
             logger.info(f"Staging cleanup completed: {result}")
             
+            await ws_manager.send_job_completed(
+                "staging_cleanup_job", "Staging Cleanup",
+                status="success" if result.get('success') else "error",
+                duration=execution_log.duration_seconds,
+                details=result
+            )
+            
         except Exception as e:
             error_msg = f"Staging cleanup job failed: {e}"
             logger.error(error_msg)
@@ -312,6 +407,12 @@ async def run_staging_cleanup_job():
                 execution_log.duration_seconds = (end_time - start_time).total_seconds()
                 execution_log.error_message = str(e)
                 await db.commit()
+                
+                await ws_manager.send_job_completed(
+                    "staging_cleanup_job", "Staging Cleanup", "error",
+                    duration=execution_log.duration_seconds if execution_log else 0,
+                    error=str(e)
+                )
 
 
 async def run_auto_restore_job():
@@ -332,6 +433,8 @@ async def run_auto_restore_job():
             )
             db.add(execution_log)
             await db.commit()
+            
+            await ws_manager.send_job_started("auto_restore_job", "Auto-Restore Watched")
             
             from .services.staging import StagingService
             from .services.emby import EmbyService
@@ -359,6 +462,13 @@ async def run_auto_restore_job():
             
             logger.info(f"Auto-restore completed: {result}")
             
+            await ws_manager.send_job_completed(
+                "auto_restore_job", "Auto-Restore Watched",
+                status=execution_log.status,
+                duration=execution_log.duration_seconds,
+                details=result
+            )
+            
         except Exception as e:
             error_msg = f"Auto-restore job failed: {e}"
             logger.error(error_msg)
@@ -371,6 +481,12 @@ async def run_auto_restore_job():
                 execution_log.duration_seconds = (end_time - start_time).total_seconds()
                 execution_log.error_message = str(e)
                 await db.commit()
+                
+                await ws_manager.send_job_completed(
+                    "auto_restore_job", "Auto-Restore Watched", "error",
+                    duration=execution_log.duration_seconds if execution_log else 0,
+                    error=str(e)
+                )
 
 
 def start_scheduler():

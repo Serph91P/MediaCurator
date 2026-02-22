@@ -2,7 +2,7 @@
 Main FastAPI application.
 """
 from pathlib import Path
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -13,7 +13,8 @@ import sys
 from .core.config import get_settings
 from .core.database import init_db, close_db
 from .core.rate_limit import setup_rate_limiting, limiter, RateLimits
-from .api.routes import auth, services, rules, libraries, notifications, system, jobs, media, staging, audit, activity, users
+from .core.websocket import ws_manager
+from .api.routes import auth, services, rules, libraries, notifications, system, jobs, media, staging, audit, activity, users, setup
 
 settings = get_settings()
 
@@ -97,6 +98,7 @@ app.include_router(media.router, prefix="/api")
 app.include_router(staging.router, prefix="/api/staging", tags=["staging"])
 app.include_router(activity.router, prefix="/api/activity", tags=["activity"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(setup.router, prefix="/api")
 
 
 @app.get("/api/health")
@@ -142,6 +144,22 @@ async def health_detailed(request: Request):
         health_status["components"]["scheduler"] = {"status": "unknown", "error": str(e)}
     
     return health_status
+
+
+@app.websocket("/api/ws/jobs")
+async def websocket_jobs(websocket: WebSocket):
+    """WebSocket endpoint for real-time job status updates."""
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive, listen for pings
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text('{"type":"pong"}')
+    except WebSocketDisconnect:
+        await ws_manager.disconnect(websocket)
+    except Exception:
+        await ws_manager.disconnect(websocket)
 
 
 # Mount static files for frontend assets (JS, CSS, etc.)

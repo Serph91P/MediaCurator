@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import { formatBytes, formatRelativeTime, formatDuration, formatDate } from '../lib/utils'
+import ResponsiveTable from '../components/ResponsiveTable'
 
 interface LibraryDetails {
   id: number
@@ -386,41 +387,58 @@ export default function LibraryDetail() {
 
           {/* Media Table */}
           <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 dark:border-dark-700 text-left text-sm text-gray-500 dark:text-dark-400">
-                    <th className="px-4 py-3 font-medium">Title</th>
-                    <th className="px-4 py-3 font-medium">Year</th>
-                    <th className="px-4 py-3 font-medium">Size</th>
-                    <th className="px-4 py-3 font-medium">Plays</th>
-                    <th className="px-4 py-3 font-medium">Last Watched</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-dark-700">
-                  {mediaData?.items.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-dark-700/50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {item.media_type === 'movie' ? (
-                            <FilmIcon className="w-4 h-4 text-gray-400 dark:text-dark-400" />
-                          ) : (
-                            <TvIcon className="w-4 h-4 text-gray-400 dark:text-dark-400" />
-                          )}
-                          <span className="font-medium text-gray-900 dark:text-white">{item.title}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-dark-400">{item.year || '-'}</td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-dark-400">{formatBytes(item.size_bytes)}</td>
-                      <td className="px-4 py-3 text-gray-900 dark:text-white">{item.watch_count}</td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-dark-400">
-                        {formatRelativeTime(item.last_watched_at)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ResponsiveTable
+              columns={[
+                {
+                  header: 'Title',
+                  accessor: 'title',
+                  cell: (item: MediaItem) => (
+                    <div className="flex items-center gap-2">
+                      {item.media_type === 'movie' ? (
+                        <FilmIcon className="w-4 h-4 text-gray-400 dark:text-dark-400 shrink-0" />
+                      ) : (
+                        <TvIcon className="w-4 h-4 text-gray-400 dark:text-dark-400 shrink-0" />
+                      )}
+                      <span className="font-medium text-gray-900 dark:text-white">{item.title}</span>
+                    </div>
+                  )
+                },
+                {
+                  header: 'Year',
+                  accessor: 'year',
+                  mobileHide: true,
+                  cell: (item: MediaItem) => (
+                    <span className="text-sm text-gray-500 dark:text-dark-400">{item.year || '-'}</span>
+                  )
+                },
+                {
+                  header: 'Size',
+                  accessor: 'size_bytes',
+                  cell: (item: MediaItem) => (
+                    <span className="text-sm text-gray-500 dark:text-dark-400">{formatBytes(item.size_bytes)}</span>
+                  )
+                },
+                {
+                  header: 'Plays',
+                  accessor: 'watch_count',
+                  cell: (item: MediaItem) => (
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{item.watch_count}</span>
+                  )
+                },
+                {
+                  header: 'Last Watched',
+                  accessor: 'last_watched_at',
+                  cell: (item: MediaItem) => (
+                    <span className="text-sm text-gray-500 dark:text-dark-400">
+                      {formatRelativeTime(item.last_watched_at)}
+                    </span>
+                  )
+                }
+              ]}
+              data={mediaData?.items || []}
+              keyExtractor={(item: MediaItem) => item.id}
+              emptyMessage="No media items found"
+            />
           </div>
 
           {/* Media Pagination */}
@@ -452,69 +470,80 @@ export default function LibraryDetail() {
         <div className="space-y-4">
           {/* Activity Table */}
           <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 dark:border-dark-700 text-left text-sm text-gray-500 dark:text-dark-400">
-                    <th className="px-4 py-3 font-medium">Title</th>
-                    <th className="px-4 py-3 font-medium">User</th>
-                    <th className="px-4 py-3 font-medium">Client</th>
-                    <th className="px-4 py-3 font-medium">Played</th>
-                    <th className="px-4 py-3 font-medium">Duration</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-dark-700">
-                  {(!activityData?.items || activityData.items.length === 0) ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-dark-400">
-                        No activity recorded yet
-                      </td>
-                    </tr>
+            <ResponsiveTable
+              columns={[
+                {
+                  header: 'Title',
+                  accessor: 'media_title',
+                  cell: (item: ActivityItem) => (
+                    <span className="font-medium text-gray-900 dark:text-white">{item.media_title}</span>
+                  )
+                },
+                {
+                  header: 'User',
+                  accessor: 'user_id',
+                  cell: (item: ActivityItem) => (
+                    <Link
+                      to={`/users/${item.user_id}`}
+                      className="text-sm text-gray-500 dark:text-dark-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                    >
+                      {String(item.user_id).slice(0, 8)}...
+                    </Link>
+                  )
+                },
+                {
+                  header: 'Client',
+                  accessor: 'client_name',
+                  mobileHide: true,
+                  cell: (item: ActivityItem) => (
+                    <span className="text-sm text-gray-500 dark:text-dark-400">
+                      {item.client_name || item.device_name || 'Unknown'}
+                    </span>
+                  )
+                },
+                {
+                  header: 'Played',
+                  accessor: 'started_at',
+                  cell: (item: ActivityItem) => (
+                    <span className="text-sm text-gray-500 dark:text-dark-400">
+                      {formatRelativeTime(item.started_at)}
+                    </span>
+                  )
+                },
+                {
+                  header: 'Duration',
+                  accessor: 'duration_seconds',
+                  cell: (item: ActivityItem) => (
+                    <span className="text-sm text-gray-500 dark:text-dark-400">
+                      {formatDuration(item.duration_seconds)}
+                      {item.played_percentage > 0 && (
+                        <span className="ml-1 text-xs">
+                          ({Math.round(item.played_percentage)}%)
+                        </span>
+                      )}
+                    </span>
+                  )
+                },
+                {
+                  header: 'Status',
+                  accessor: 'is_active',
+                  mobileHide: true,
+                  cell: (item: ActivityItem) => item.is_active ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-600 dark:text-green-400 text-xs rounded-full">
+                      <span className="w-1.5 h-1.5 bg-green-500 dark:bg-green-400 rounded-full animate-pulse"></span>
+                      Playing
+                    </span>
                   ) : (
-                    activityData.items.map((item) => (
-                      <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-dark-700/50">
-                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{item.media_title}</td>
-                        <td className="px-4 py-3 text-gray-500 dark:text-dark-400">
-                          <Link
-                            to={`/users/${item.user_id}`}
-                            className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-                          >
-                            {item.user_id.slice(0, 8)}...
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 dark:text-dark-400">
-                          {item.client_name || item.device_name || 'Unknown'}
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 dark:text-dark-400">
-                          {formatRelativeTime(item.started_at)}
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 dark:text-dark-400">
-                          {formatDuration(item.duration_seconds)}
-                          {item.played_percentage > 0 && (
-                            <span className="ml-1 text-xs">
-                              ({Math.round(item.played_percentage)}%)
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {item.is_active ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-600 dark:text-green-400 text-xs rounded-full">
-                              <span className="w-1.5 h-1.5 bg-green-500 dark:bg-green-400 rounded-full animate-pulse"></span>
-                              Playing
-                            </span>
-                          ) : (
-                            <span className="text-gray-500 dark:text-dark-400 text-sm">
-                              {item.is_transcoding ? 'Transcoded' : 'Direct'}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    <span className="text-gray-500 dark:text-dark-400 text-sm">
+                      {item.is_transcoding ? 'Transcoded' : 'Direct'}
+                    </span>
+                  )
+                }
+              ]}
+              data={activityData?.items || []}
+              keyExtractor={(item: ActivityItem) => item.id}
+              emptyMessage="No activity recorded yet"
+            />
           </div>
 
           {/* Activity Pagination */}

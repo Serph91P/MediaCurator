@@ -270,11 +270,16 @@ Delete movie if:
 - [x] Global Activity Log
 - [x] Activity stats API (plays by day/hour/week)
 - [x] Active sessions tracking
+- [x] Library filter on Activity page
+- [x] Library filter on User Detail activity tab
+- [x] Items-per-page selector on Activity page
+- [x] ResponsiveTable on all pages (History, Users, Activity, UserDetail, Staging, Jobs, LibraryDetail)
 
-### Phase 3 - Statistics & Charts
-- [ ] Daily Play Count Chart
-- [ ] Play Count by Day/Hour Charts
-- [ ] Genre Distribution Charts
+### Phase 3 - Statistics & Charts ⚠️ Partially Complete
+- [x] Daily Play Count Chart (Activity page + Dashboard)
+- [x] Play Count by Day of Week Chart (Activity page + Dashboard)
+- [x] Play Count by Hour Chart (Activity page + Dashboard)
+- [ ] Genre Distribution Charts (needs backend genre aggregation API)
 - [ ] Watch Patterns Heatmap
 
 ### Phase 4 - Advanced Analytics
@@ -312,6 +317,27 @@ To enable these features, the following data needs to be tracked:
 - Activity logs can grow large - implement retention policies
 - Consider aggregating old data (daily summaries instead of individual events)
 - Provide cleanup options for activity history
+
+---
+
+---
+
+## Implementation History
+
+| Phase | Feature | Session | Status |
+|-------|---------|---------|--------|
+| 1 | All Foundation models & APIs | Session 1 | ✅ |
+| 2 | Library Detail, Users, Activity pages | Session 1-2 | ✅ |
+| 2 | WebSocket Real-Time System | Session 2 | ✅ |
+| 2 | Setup Wizard | Session 2 | ✅ |
+| 2 | Bug fixes (Light-mode, API paths, etc.) | Session 3 | ✅ |
+| 2 | ResponsiveTable migrations | Session 4 | ✅ |
+| 3 | recharts charts on Activity page | Session 4 | ✅ |
+| 2 | Library filter on Activity & UserDetail | Session 5 | ✅ |
+| 2 | Items-per-page on Activity | Session 5 | ✅ |
+| 2 | LibraryDetail ResponsiveTable migration | Session 5 | ✅ |
+| 3 | Dashboard recharts charts | Session 5 | ✅ |
+| 4 | Code-splitting with React.lazy | Session 4 | ✅ |
 
 ---
 

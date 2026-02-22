@@ -2,10 +2,10 @@
 
 > **Zweck**: Dieses Dokument dient als fortlaufender Stand für die Weiterentwicklung. Es kann in jedem neuen Chat/auf jedem Rechner als Kontext übergeben werden, damit der Assistent sofort weiß, wo es weitergeht.
 
-**Letzte Aktualisierung**: 22. Februar 2026 (Session 4)
-**Branch**: `feature/ux-improvements-and-charts` (von `develop`)
+**Letzte Aktualisierung**: 22. Februar 2026 (Session 5)
+**Branch**: `feature/phase2-enhancements-and-docs` (von `develop`)
 **Letzter Commit**: Pending
-**Version**: `vdev.0.0.140`
+**Version**: `vdev.0.0.147`
 **Repo**: `https://github.com/Serph91P/MediaCurator.git`
 
 ---
@@ -62,7 +62,7 @@ MediaCurator ist ein Self-Hosted Media Management Tool das mit Emby/Jellyfin (Me
 | Server State | TanStack React Query | 5.x |
 | Client State | Zustand (persist) | 5 |
 | Forms | react-hook-form | 7.49 |
-| Charts | recharts | 3.7 (**installiert, aber noch nicht benutzt**) |
+| Charts | recharts | 3.7 (**in Benutzung**: Activity + Dashboard Charts) |
 | HTTP | Axios (mit Interceptor-Refresh) | 1.6 |
 | Toasts | react-hot-toast | 2.4 |
 
@@ -185,18 +185,18 @@ frontend/src/
 - [x] Basic user stats on Dashboard
 - [x] Library stats API
 
-### Phase 2 – Views & Navigation ⚠️ TEILWEISE ERLEDIGT
+### Phase 2 – Views & Navigation ✅ WEITGEHEND ERLEDIGT
 | Feature | Backend | Frontend | Qualität | Anmerkungen |
 |---------|---------|----------|----------|-------------|
-| Library Detail – Overview Tab | ✅ API liefert 24h/7d/30d Stats | ✅ Dargestellt | ⚠️ | Kein Genre-Chart, keine Poster-Bilder |
-| Library Detail – Media Tab | ✅ Sortierung, Suche, Pagination | ✅ Tabelle | ⚠️ | Kein Grid-View, nur Tabelle. Sortierung funktioniert |
-| Library Detail – Activity Tab | ✅ Pagination | ✅ Tabelle | ⚠️ | Kein IP, Device, Expand-Row |
+| Library Detail – Overview Tab | ✅ API liefert 24h/7d/30d Stats | ✅ Dargestellt | ✅ | Kein Genre-Chart, keine Poster-Bilder |
+| Library Detail – Media Tab | ✅ Sortierung, Suche, Pagination | ✅ ResponsiveTable | ✅ | Migriert auf ResponsiveTable (Session 5) |
+| Library Detail – Activity Tab | ✅ Pagination | ✅ ResponsiveTable | ✅ | Migriert auf ResponsiveTable (Session 5) |
 | Users Page | ✅ Pagination, Search | ✅ ResponsiveTable | ✅ | Gut implementiert |
 | User Detail – Overview | ✅ Time-based Stats | ✅ | ⚠️ | Kein Favorite Genres |
-| User Detail – Activity | ✅ Filters | ✅ Tabelle | ⚠️ | Kein Library-Filter, kein Expand-Row |
+| User Detail – Activity | ✅ Filters + Library-Filter | ✅ Tabelle + Library-Filter | ✅ | Library-Filter hinzugefügt (Session 5) |
 | User Detail – Timeline Tab | ❌ Kein API | ❌ | ❌ | Nicht implementiert |
-| Global Activity Log | ✅ Stats + Active Sessions | ✅ | ⚠️ | Kein IP, kein Device, kein Library-Filter, kein Items-per-Page |
-| Activity Stats API | ✅ plays by day/hour/weekday | ❌ Charts fehlen | ⚠️ | Backend liefert Daten, Frontend zeigt keine Charts |
+| Global Activity Log | ✅ Stats + Active Sessions | ✅ | ✅ | Library-Filter + Items-per-Page hinzugefügt (Session 5) |
+| Activity Stats API | ✅ plays by day/hour/weekday | ✅ Charts | ✅ | recharts Charts auf Activity + Dashboard (Session 4+5) |
 | Active Sessions | ✅ 30s Sync | ✅ 30s Refresh | ✅ | Gut implementiert |
 
 ### Phase 3 – Statistics & Charts ⚠️ TEILWEISE ERLEDIGT (Session 4)
@@ -331,7 +331,7 @@ frontend/src/
 |-------|----------------------|--------|
 | History.tsx | ✅ Ja | ✅ Gut |
 | Users.tsx | ✅ Ja | ✅ Gut |
-| LibraryDetail.tsx | ❌ Raw `<table>` | ❌ Überläuft auf Mobile |
+| LibraryDetail.tsx | ✅ ResponsiveTable | ✅ Migriert (Session 5) |
 | UserDetail.tsx | ✅ ResponsiveTable | ✅ Migriert (Session 4) |
 | Activity.tsx | ✅ ResponsiveTable | ✅ Migriert (Session 4) |
 | Preview.tsx | ❌ Raw `<table>` | ❌ Überläuft auf Mobile (komplexe expandable rows) |
@@ -339,12 +339,12 @@ frontend/src/
 | Jobs.tsx | ✅ ResponsiveTable | ✅ Executions-Tabelle migriert (Session 4) |
 
 ### Fehlende UI-Features (geplant aber nicht implementiert)
-- **Activity-Seite**: IP-Adresse Spalte, Device-Spalte, Expand-Row (Bitrate, Resolution, Codecs), Library-Filter, Items-per-Page Selector
+- **Activity-Seite**: ~~IP-Adresse Spalte, Device-Spalte,~~ Expand-Row (Bitrate, Resolution, Codecs) ~~Library-Filter, Items-per-Page Selector~~
 - **LibraryDetail**: Genre-Distribution Charts, Grid-View mit Poster-Bildern, Expand-Row
 - **UserDetail**: Favorite Genres Sektion, Timeline-Tab
 - **Rules.tsx**: Modal ist sehr lang – kein Wizard/Accordion, keine Genre/Tag-Autocomplete
 - **Settings.tsx**: Cron-Eingaben ohne Hilfe/Validierung
-- **Dashboard**: Keine Charts (recharts installiert aber unbenutzt)
+- **Dashboard**: ~~Keine Charts~~ recharts Charts implementiert (Session 5)
 
 ### Performance
 - ~~**Kein Code-Splitting**~~: ✅ Alle Seiten (außer Login/Register) auf `React.lazy` + `Suspense` migriert (Session 4).
@@ -418,9 +418,10 @@ Das Backend ist gut strukturiert mit:
 9. **Genre Distribution**: Backend-API für Genre-Aggregation nötig, dann Radar/Spider Chart – offen
 
 ### Priorität 4: Fehlende Phase 2 Features
-10. **Activity-Seite erweitern**: IP, Device Spalten, Library-Filter, Items-per-Page, Expand-Row
-11. **UserDetail erweitern**: Favorite Genres, Library-Filter auf Activity, Expand-Row
-12. **LibraryDetail erweitern**: Genre-Charts, Grid-View, Expand-Row
+10. ~~**Activity-Seite erweitern**: IP, Device Spalten, Library-Filter, Items-per-Page~~ ✅ (Session 4+5). Expand-Row offen.
+11. ~~**UserDetail erweitern**: Library-Filter auf Activity~~ ✅ (Session 5). Favorite Genres, Expand-Row offen.
+12. **LibraryDetail erweitern**: ~~ResponsiveTable~~ ✅ (Session 5). Genre-Charts, Grid-View, Expand-Row offen.
+13. **Dashboard Charts**: ~~Keine Charts~~ ✅ (Session 5) – Daily Plays, Day-of-Week, Hour-of-Day recharts Charts.
 
 ### ~~Priorität 5: Code-Qualität~~ ✅ ERLEDIGT (Session 3+4)
 13. ~~Code-Splitting mit React.lazy~~ ✅ (Session 4) – 13 Seiten lazy-loaded mit Suspense-Fallback
@@ -493,4 +494,5 @@ docker compose -f docker-compose.dev.yml up --build
 | 22.02.2026 (2) | **Session 2**: WebSocket Real-Time System (ConnectionManager, Progress-Callbacks für Sonarr/Radarr/Emby, Scheduler-Integration), Global Toast-Notifications via WebSocket, Jobs-Page komplett neu geschrieben (Live-Progress-Bars, Running-Panel, WS-Status-Indikator), Layout.tsx Job-Badge, Setup-Wizard (Backend: /setup/status, /test-connection, /add-service, /complete, /skip; Frontend: 5-Step geführter Wizard mit Welcome→Arr→MediaServer→Sync→Complete), App.tsx SetupGate Redirect-Logik |
 | 22.02.2026 (3) | **Session 3 – Bugfixes**: Alle 10 Bugs (BUG-001 bis BUG-010) behoben. LibraryDetail.tsx komplett rewritten (API-Pfade, React Query, shared Utils, Light/Dark-Mode). Light-Mode gefixt in Login, Register, ConfirmDialog, Skeleton, Toaster. Locale `de-DE` → `en-US`. fetchUser() bei App-Init. Code-Duplizierung (formatBytes/formatDuration) aufgeräumt. useDebounce Hook in Users.tsx. Branch: `fix/bugfixes-and-ux-improvements`, Commit: `f90a5f5` (10 Dateien, 295 Insertions, 342 Deletions) |
 | 22.02.2026 (4) | **Session 4 – UX & Charts**: Layout.tsx deutsche Strings → Englisch (BUG-006 abgeschlossen). ResponsiveTable Light-Mode-Fix (fehlende `dark:` Varianten). Activity.tsx: `useDebounce` statt setTimeout, shared Utils (`formatDurationLong`, `formatWatchTime`), ResponsiveTable-Migration, 3× recharts Charts (Daily Plays Area, Day-of-Week Bar, Hour-of-Day Bar). UserDetail.tsx: shared Utils + ResponsiveTable. Staging.tsx: ResponsiveTable. Jobs.tsx: Executions-Tabelle → ResponsiveTable. App.tsx: React.lazy Code-Splitting (13 Seiten). Branch: `feature/ux-improvements-and-charts` |
+| 22.02.2026 (5) | **Session 5 – Phase 2 Enhancements & Docs**: LibraryDetail.tsx Media+Activity Tabs → ResponsiveTable. Activity.tsx: Library-Filter Dropdown + Items-per-Page Selector (10/25/50/100). UserDetail.tsx: Library-Filter auf Activity-Tab. Dashboard.tsx: 3× recharts Charts (Daily Plays Area, Day-of-Week Bar, Hour-of-Day Bar) mit Dashboard-eigenem statsDays-Selector. PLANNED_FEATURES.md: Phase 2/3 Status aktualisiert, Implementation History Tabelle. Branch: `feature/phase2-enhancements-and-docs` |
 | 30.12.2024 | Initiale Version: Session-Zusammenfassung (Rules Export, Sidebar, Theme Toggle, Staging UI) |

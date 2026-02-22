@@ -2,6 +2,8 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/auth'
 import { useThemeStore } from '../stores/theme'
+import { useJobsStore } from '../stores/jobs'
+import { useJobWebSocket } from '../hooks/useJobWebSocket'
 import api from '../lib/api'
 import { useState, useEffect } from 'react'
 import {
@@ -45,6 +47,8 @@ const navigation = [
 export default function Layout() {
   const { user, logout } = useAuthStore()
   const { theme, setTheme } = useThemeStore()
+  const runningCount = useJobsStore((s) => s.runningCount)
+  useJobWebSocket() // Global WebSocket connection for all pages
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const stored = localStorage.getItem('sidebarCollapsed')
@@ -157,7 +161,17 @@ export default function Layout() {
                 }`
               }
             >
-              <item.icon className="w-5 h-5 sm:w-5 sm:h-5 flex-shrink-0" />
+              <div className="relative flex-shrink-0">
+                <item.icon className="w-5 h-5 sm:w-5 sm:h-5" />
+                {item.name === 'Jobs' && runningCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex items-center justify-center h-4 w-4 rounded-full bg-blue-500 text-[10px] font-bold text-white">
+                      {runningCount}
+                    </span>
+                  </span>
+                )}
+              </div>
               {(!sidebarCollapsed || sidebarOpen) && <span>{item.name}</span>}
             </NavLink>
           ))}

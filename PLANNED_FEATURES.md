@@ -346,6 +346,8 @@ To enable these features, the following data needs to be tracked:
 | 2 | Expand-Row (Activity, UserDetail, LibraryDetail) | Session 6 | ✅ |
 | 2 | ConfirmDialog accessibility (focus trap, aria-modal) | Session 6 | ✅ |
 | - | BUG-011: position_ticks int32→BigInteger | Session 6 | ✅ |
+| - | BUG-012: Radarr folder→file path (movie stats) | Session 6 | ✅ |
+| - | BUG-013: User Last Seen/Watched/Client fallback | Session 6 | ✅ |
 
 ---
 

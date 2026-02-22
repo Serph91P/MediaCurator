@@ -16,6 +16,7 @@ import api from '../lib/api'
 import toast from 'react-hot-toast'
 import { formatDateTime } from '../lib/utils'
 import { useJobsStore, type JobProgress } from '../stores/jobs'
+import ResponsiveTable from '../components/ResponsiveTable'
 
 interface Job {
   id: string
@@ -631,93 +632,92 @@ export default function Jobs() {
           )}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-100 dark:bg-dark-700/50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">
-                  Job
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">
-                  Started
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">
-                  Duration
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-dark-300 uppercase tracking-wider">
-                  Details
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-dark-700">
-              {executionsLoading ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-8 text-center text-gray-500 dark:text-dark-400"
-                  >
-                    Loading executions...
-                  </td>
-                </tr>
-              ) : (
-                (selectedJobId ? jobHistory : recentExecutions)?.map((exec) => (
-                  <tr key={exec.id} className="hover:bg-gray-100 dark:hover:bg-dark-700/30">
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {exec.job_name}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-dark-400 font-mono">
-                        {exec.job_id}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">{getStatusBadge(exec.status)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-dark-300">
-                      {formatDateTime(exec.started_at)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-dark-300">
-                      {formatDuration(exec.duration_seconds)}
-                    </td>
-                    <td className="px-6 py-4">
-                      {exec.error_message ? (
-                        <div
-                          className="text-xs text-red-400 max-w-md truncate"
-                          title={exec.error_message}
-                        >
-                          {exec.error_message}
+          {executionsLoading ? (
+            <div className="px-6 py-8 text-center text-gray-500 dark:text-dark-400">
+              Loading executions...
+            </div>
+          ) : (() => {
+            const executions = selectedJobId ? jobHistory : recentExecutions
+            return executions && executions.length > 0 ? (
+              <ResponsiveTable
+                columns={[
+                  {
+                    header: 'Job',
+                    accessor: 'job_name',
+                    cell: (exec: JobExecution) => (
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {exec.job_name}
                         </div>
-                      ) : exec.details ? (
-                        <div className="text-xs text-gray-500 dark:text-dark-400">
-                          {Object.entries(exec.details)
-                            .slice(0, 2)
-                            .map(([key, value]) => (
-                              <div key={key}>
-                                {key}:{' '}
-                                <span className="text-gray-600 dark:text-dark-300">
-                                  {JSON.stringify(value)}
-                                </span>
-                              </div>
-                            ))}
+                        <div className="text-xs text-gray-500 dark:text-dark-400 font-mono">
+                          {exec.job_id}
                         </div>
-                      ) : (
-                        <span className="text-gray-500 dark:text-dark-500">-</span>
-                      )}
-                    </td>
-                  </tr>
-                )) || (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-6 py-8 text-center text-gray-500 dark:text-dark-400"
-                    >
-                      No executions yet
-                    </td>
-                  </tr>
-                )
-              )}
-            </tbody>
-          </table>
+                      </div>
+                    )
+                  },
+                  {
+                    header: 'Status',
+                    accessor: 'status',
+                    cell: (exec: JobExecution) => getStatusBadge(exec.status)
+                  },
+                  {
+                    header: 'Started',
+                    accessor: 'started_at',
+                    mobileHide: true,
+                    cell: (exec: JobExecution) => (
+                      <span className="text-sm text-gray-600 dark:text-dark-300">
+                        {formatDateTime(exec.started_at)}
+                      </span>
+                    )
+                  },
+                  {
+                    header: 'Duration',
+                    accessor: 'duration_seconds',
+                    cell: (exec: JobExecution) => (
+                      <span className="text-sm text-gray-600 dark:text-dark-300">
+                        {formatDuration(exec.duration_seconds)}
+                      </span>
+                    )
+                  },
+                  {
+                    header: 'Details',
+                    accessor: 'details',
+                    mobileHide: true,
+                    cell: (exec: JobExecution) => exec.error_message ? (
+                      <div
+                        className="text-xs text-red-400 max-w-md truncate"
+                        title={exec.error_message}
+                      >
+                        {exec.error_message}
+                      </div>
+                    ) : exec.details ? (
+                      <div className="text-xs text-gray-500 dark:text-dark-400">
+                        {Object.entries(exec.details)
+                          .slice(0, 2)
+                          .map(([key, value]) => (
+                            <div key={key}>
+                              {key}:{' '}
+                              <span className="text-gray-600 dark:text-dark-300">
+                                {JSON.stringify(value)}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-500 dark:text-dark-500">-</span>
+                    )
+                  }
+                ]}
+                data={executions}
+                keyExtractor={(exec: JobExecution) => exec.id}
+                emptyMessage="No executions yet"
+              />
+            ) : (
+              <div className="px-6 py-8 text-center text-gray-500 dark:text-dark-400">
+                No executions yet
+              </div>
+            )
+          })()}
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import { ClockIcon, TrashIcon, ArrowPathIcon, Cog6ToothIcon, CheckCircleIcon, Fo
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 import { formatBytes, formatRelativeTime } from '../lib/utils'
+import ResponsiveTable from '../components/ResponsiveTable'
 
 interface StagedItem {
   id: number
@@ -450,91 +451,98 @@ export default function Staging() {
               <p className="text-gray-500 dark:text-dark-400">No staged items</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-dark-700">
-                <thead className="bg-gray-50 dark:bg-dark-900/50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                      Media
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                      Size
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                      Staged
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                      Time Remaining
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-dark-800 divide-y divide-gray-200 dark:divide-dark-700">
-                  {items.map((item) => {
+            <ResponsiveTable
+              columns={[
+                {
+                  header: 'Media',
+                  accessor: 'title',
+                  cell: (item: StagedItem) => (
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{item.title}</span>
+                      {item.season_number && item.episode_number && (
+                        <span className="text-xs text-gray-500 dark:text-dark-400">
+                          S{item.season_number}E{item.episode_number}
+                        </span>
+                      )}
+                    </div>
+                  )
+                },
+                {
+                  header: 'Type',
+                  accessor: 'media_type',
+                  mobileHide: true,
+                  cell: (item: StagedItem) => (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-dark-700 text-gray-600 dark:text-dark-300">
+                      {item.media_type.charAt(0).toUpperCase() + item.media_type.slice(1)}
+                    </span>
+                  )
+                },
+                {
+                  header: 'Size',
+                  accessor: 'size_bytes',
+                  cell: (item: StagedItem) => (
+                    <span className="text-sm text-gray-600 dark:text-dark-300">
+                      {formatBytes(item.size_bytes)}
+                    </span>
+                  )
+                },
+                {
+                  header: 'Staged',
+                  accessor: 'staged_at',
+                  mobileHide: true,
+                  cell: (item: StagedItem) => (
+                    <span className="text-sm text-gray-500 dark:text-dark-400">
+                      {formatRelativeTime(item.staged_at)}
+                    </span>
+                  )
+                },
+                {
+                  header: 'Time Remaining',
+                  accessor: 'permanent_delete_at',
+                  mobileLabel: 'Remaining',
+                  cell: (item: StagedItem) => {
                     const timeRemaining = getTimeRemaining(item.permanent_delete_at)
                     return (
-                      <tr key={item.id} className="hover:bg-gray-100 dark:hover:bg-dark-700/50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-900 dark:text-white">{item.title}</span>
-                            {item.season_number && item.episode_number && (
-                              <span className="text-xs text-gray-500 dark:text-dark-400">
-                                S{item.season_number}E{item.episode_number}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-dark-700 text-gray-600 dark:text-dark-300">
-                            {item.media_type.charAt(0).toUpperCase() + item.media_type.slice(1)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-dark-300">
-                          {formatBytes(item.size_bytes)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-dark-400">
-                          {formatRelativeTime(item.staged_at)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`text-sm font-medium ${timeRemaining.className}`}>
-                            {timeRemaining.text}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => restoreMutation.mutate(item.id)}
-                              disabled={restoreMutation.isPending}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                            >
-                              <ArrowPathIcon className="w-4 h-4" />
-                              Restore
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (confirm(`Permanently delete "${item.title}"?`)) {
-                                  deleteMutation.mutate(item.id)
-                                }
-                              }}
-                              disabled={deleteMutation.isPending}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                      <span className={`text-sm font-medium ${timeRemaining.className}`}>
+                        {timeRemaining.text}
+                      </span>
                     )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                  }
+                },
+                {
+                  header: 'Actions',
+                  accessor: 'id',
+                  className: 'text-right',
+                  cell: (item: StagedItem) => (
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => restoreMutation.mutate(item.id)}
+                        disabled={restoreMutation.isPending}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        <ArrowPathIcon className="w-4 h-4" />
+                        Restore
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Permanently delete "${item.title}"?`)) {
+                            deleteMutation.mutate(item.id)
+                          }
+                        }}
+                        disabled={deleteMutation.isPending}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                        Delete
+                      </button>
+                    </div>
+                  )
+                }
+              ]}
+              data={items}
+              keyExtractor={(item: StagedItem) => item.id}
+              emptyMessage="No staged items"
+            />
           )}
         </div>
       ) : (

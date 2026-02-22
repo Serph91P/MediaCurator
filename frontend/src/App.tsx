@@ -1,27 +1,31 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from './stores/auth'
 import { getToken } from './lib/api'
 import api from './lib/api'
 import Layout from './components/Layout'
+
+// Eagerly loaded (needed immediately)
 import Login from './pages/Login'
 import Register from './pages/Register'
-import SetupWizard from './pages/SetupWizard'
-import Dashboard from './pages/Dashboard'
-import Services from './pages/Services'
-import Rules from './pages/Rules'
-import Libraries from './pages/Libraries'
-import LibraryDetail from './pages/LibraryDetail'
-import Notifications from './pages/Notifications'
-import Settings from './pages/Settings'
-import History from './pages/History'
-import Preview from './pages/Preview'
-import Jobs from './pages/Jobs'
-import Staging from './pages/Staging'
-import Users from './pages/Users'
-import UserDetail from './pages/UserDetail'
-import Activity from './pages/Activity'
+
+// Lazy-loaded pages
+const SetupWizard = lazy(() => import('./pages/SetupWizard'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Services = lazy(() => import('./pages/Services'))
+const Rules = lazy(() => import('./pages/Rules'))
+const Libraries = lazy(() => import('./pages/Libraries'))
+const LibraryDetail = lazy(() => import('./pages/LibraryDetail'))
+const Notifications = lazy(() => import('./pages/Notifications'))
+const Settings = lazy(() => import('./pages/Settings'))
+const History = lazy(() => import('./pages/History'))
+const Preview = lazy(() => import('./pages/Preview'))
+const Jobs = lazy(() => import('./pages/Jobs'))
+const Staging = lazy(() => import('./pages/Staging'))
+const Users = lazy(() => import('./pages/Users'))
+const UserDetail = lazy(() => import('./pages/UserDetail'))
+const Activity = lazy(() => import('./pages/Activity'))
 
 interface SetupStatus {
   setup_complete: boolean
@@ -84,6 +88,14 @@ function SetupGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function PageSpinner() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+    </div>
+  )
+}
+
 function App() {
   const { isAuthenticated } = useAuthStore()
   const token = getToken()
@@ -103,7 +115,9 @@ function App() {
         path="/setup"
         element={
           <ProtectedRoute>
-            <SetupWizard />
+            <Suspense fallback={<PageSpinner />}>
+              <SetupWizard />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -118,20 +132,20 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Dashboard />} />
-        <Route path="services" element={<Services />} />
-        <Route path="rules" element={<Rules />} />
-        <Route path="libraries" element={<Libraries />} />
-        <Route path="libraries/:libraryId" element={<LibraryDetail />} />
-        <Route path="jobs" element={<Jobs />} />
-        <Route path="notifications" element={<Notifications />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="history" element={<History />} />
-        <Route path="preview" element={<Preview />} />
-        <Route path="staging" element={<Staging />} />
-        <Route path="users" element={<Users />} />
-        <Route path="users/:userId" element={<UserDetail />} />
-        <Route path="activity" element={<Activity />} />
+        <Route index element={<Suspense fallback={<PageSpinner />}><Dashboard /></Suspense>} />
+        <Route path="services" element={<Suspense fallback={<PageSpinner />}><Services /></Suspense>} />
+        <Route path="rules" element={<Suspense fallback={<PageSpinner />}><Rules /></Suspense>} />
+        <Route path="libraries" element={<Suspense fallback={<PageSpinner />}><Libraries /></Suspense>} />
+        <Route path="libraries/:libraryId" element={<Suspense fallback={<PageSpinner />}><LibraryDetail /></Suspense>} />
+        <Route path="jobs" element={<Suspense fallback={<PageSpinner />}><Jobs /></Suspense>} />
+        <Route path="notifications" element={<Suspense fallback={<PageSpinner />}><Notifications /></Suspense>} />
+        <Route path="settings" element={<Suspense fallback={<PageSpinner />}><Settings /></Suspense>} />
+        <Route path="history" element={<Suspense fallback={<PageSpinner />}><History /></Suspense>} />
+        <Route path="preview" element={<Suspense fallback={<PageSpinner />}><Preview /></Suspense>} />
+        <Route path="staging" element={<Suspense fallback={<PageSpinner />}><Staging /></Suspense>} />
+        <Route path="users" element={<Suspense fallback={<PageSpinner />}><Users /></Suspense>} />
+        <Route path="users/:userId" element={<Suspense fallback={<PageSpinner />}><UserDetail /></Suspense>} />
+        <Route path="activity" element={<Suspense fallback={<PageSpinner />}><Activity /></Suspense>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

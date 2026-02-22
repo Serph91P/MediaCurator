@@ -13,7 +13,8 @@ import {
   TvIcon
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
-import { formatRelativeTime } from '../lib/utils'
+import { formatRelativeTime, formatDurationLong, formatWatchTime } from '../lib/utils'
+import ResponsiveTable from '../components/ResponsiveTable'
 import toast from 'react-hot-toast'
 
 interface UserStats {
@@ -75,36 +76,6 @@ interface ActivityResponse {
   page: number
   page_size: number
   total_pages: number
-}
-
-function formatDuration(seconds: number): string {
-  if (!seconds || seconds === 0) return '0s'
-  
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes}m ${secs}s`
-  } else if (minutes > 0) {
-    return `${minutes}m ${secs}s`
-  }
-  return `${secs}s`
-}
-
-function formatWatchTime(seconds: number): string {
-  if (!seconds || seconds === 0) return '0 Minutes'
-  
-  const days = Math.floor(seconds / 86400)
-  const hours = Math.floor((seconds % 86400) / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  
-  const parts = []
-  if (days > 0) parts.push(`${days} Days`)
-  if (hours > 0) parts.push(`${hours} Hours`)
-  if (minutes > 0 || parts.length === 0) parts.push(`${minutes} Minutes`)
-  
-  return parts.join(' ')
 }
 
 // Stats Box Component
@@ -296,7 +267,7 @@ export default function UserDetail() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {formatDuration(item.duration_seconds)}
+                        {formatDurationLong(item.duration_seconds)}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-dark-400">
                         {formatRelativeTime(item.started_at)}
@@ -312,111 +283,116 @@ export default function UserDetail() {
         </div>
       ) : (
         <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-dark-700/50 border-b border-gray-200 dark:border-dark-700">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-dark-400 uppercase">Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-dark-400 uppercase hidden md:table-cell">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-dark-400 uppercase hidden lg:table-cell">Transcode</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-dark-400 uppercase">Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-dark-400 uppercase">Duration</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-dark-700">
-                {activityLoading ? (
-                  [...Array(5)].map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-48" /></td>
-                      <td className="px-4 py-4 hidden md:table-cell"><div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-32" /></td>
-                      <td className="px-4 py-4 hidden lg:table-cell"><div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-24" /></td>
-                      <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-32" /></td>
-                      <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-20 ml-auto" /></td>
-                    </tr>
-                  ))
-                ) : activityData?.items.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-gray-500 dark:text-dark-400">
-                      No activity found
-                    </td>
-                  </tr>
-                ) : (
-                  activityData?.items.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-dark-700/50">
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
-                          {item.media_type === 'movie' ? (
-                            <FilmIcon className="w-4 h-4 text-primary-400 shrink-0" />
-                          ) : (
-                            <TvIcon className="w-4 h-4 text-green-400 shrink-0" />
-                          )}
-                          <span className="text-sm text-gray-900 dark:text-white truncate max-w-xs">
-                            {item.media_title}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 hidden md:table-cell">
-                        <span className="text-sm text-gray-600 dark:text-dark-300">
-                          {item.client_name}
-                        </span>
-                        <span className="text-xs text-gray-400 dark:text-dark-500 block">
-                          {item.device_name}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 hidden lg:table-cell">
-                        {item.is_transcoding ? (
-                          <span className="text-xs text-yellow-500">
-                            Transcode
-                            {item.transcode_video && item.transcode_audio ? ' (V+A)' :
-                             item.transcode_video ? ' (Video)' :
-                             item.transcode_audio ? ' (Audio)' : ''}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-green-500">
-                            {item.play_method || 'Direct'}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="text-sm text-gray-600 dark:text-dark-300">
-                          {new Date(item.started_at).toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          {formatDuration(item.duration_seconds)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {activityData && activityData.total_pages > 1 && (
-            <div className="px-4 py-3 border-t border-gray-200 dark:border-dark-700 flex items-center justify-between">
-              <div className="text-sm text-gray-500 dark:text-dark-400">
-                Page {activityPage} of {activityData.total_pages}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setActivityPage(p => Math.max(1, p - 1))}
-                  disabled={activityPage === 1}
-                  className="px-3 py-1 text-sm bg-gray-100 dark:bg-dark-700 rounded disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setActivityPage(p => Math.min(activityData.total_pages, p + 1))}
-                  disabled={activityPage === activityData.total_pages}
-                  className="px-3 py-1 text-sm bg-gray-100 dark:bg-dark-700 rounded disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
+          {activityLoading ? (
+            <div className="p-4 space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="animate-pulse flex gap-4">
+                  <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-48 flex-1" />
+                  <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-32" />
+                  <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-20" />
+                </div>
+              ))}
             </div>
+          ) : !activityData?.items.length ? (
+            <div className="px-4 py-12 text-center text-gray-500 dark:text-dark-400">
+              No activity found
+            </div>
+          ) : (
+            <>
+              <ResponsiveTable
+                columns={[
+                  {
+                    header: 'Title',
+                    accessor: 'media_title',
+                    cell: (item: ActivityItem) => (
+                      <div className="flex items-center gap-2">
+                        {item.media_type === 'movie' ? (
+                          <FilmIcon className="w-4 h-4 text-primary-400 shrink-0" />
+                        ) : (
+                          <TvIcon className="w-4 h-4 text-green-400 shrink-0" />
+                        )}
+                        <span className="text-sm text-gray-900 dark:text-white truncate max-w-xs">
+                          {item.media_title}
+                        </span>
+                      </div>
+                    )
+                  },
+                  {
+                    header: 'Client',
+                    accessor: 'client_name',
+                    mobileHide: true,
+                    cell: (item: ActivityItem) => (
+                      <div>
+                        <span className="text-sm text-gray-600 dark:text-dark-300">{item.client_name}</span>
+                        <span className="text-xs text-gray-400 dark:text-dark-500 block">{item.device_name}</span>
+                      </div>
+                    )
+                  },
+                  {
+                    header: 'Transcode',
+                    accessor: 'is_transcoding',
+                    mobileHide: true,
+                    cell: (item: ActivityItem) => item.is_transcoding ? (
+                      <span className="text-xs text-yellow-500">
+                        Transcode
+                        {item.transcode_video && item.transcode_audio ? ' (V+A)' :
+                         item.transcode_video ? ' (Video)' :
+                         item.transcode_audio ? ' (Audio)' : ''}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-green-500">{item.play_method || 'Direct'}</span>
+                    )
+                  },
+                  {
+                    header: 'Date',
+                    accessor: 'started_at',
+                    cell: (item: ActivityItem) => (
+                      <span className="text-sm text-gray-600 dark:text-dark-300">
+                        {new Date(item.started_at).toLocaleString()}
+                      </span>
+                    )
+                  },
+                  {
+                    header: 'Duration',
+                    accessor: 'duration_seconds',
+                    className: 'text-right',
+                    cell: (item: ActivityItem) => (
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {formatDurationLong(item.duration_seconds)}
+                      </span>
+                    )
+                  }
+                ]}
+                data={activityData.items}
+                keyExtractor={(item: ActivityItem) => item.id}
+                emptyMessage="No activity found"
+              />
+
+              {/* Pagination */}
+              {activityData.total_pages > 1 && (
+                <div className="px-4 py-3 border-t border-gray-200 dark:border-dark-700 flex items-center justify-between">
+                  <div className="text-sm text-gray-500 dark:text-dark-400">
+                    Page {activityPage} of {activityData.total_pages}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setActivityPage(p => Math.max(1, p - 1))}
+                      disabled={activityPage === 1}
+                      className="px-3 py-1 text-sm bg-gray-100 dark:bg-dark-700 rounded disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setActivityPage(p => Math.min(activityData.total_pages, p + 1))}
+                      disabled={activityPage === activityData.total_pages}
+                      className="px-3 py-1 text-sm bg-gray-100 dark:bg-dark-700 rounded disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

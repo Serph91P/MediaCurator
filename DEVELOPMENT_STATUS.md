@@ -2,9 +2,9 @@
 
 > **Zweck**: Dieses Dokument dient als fortlaufender Stand für die Weiterentwicklung. Es kann in jedem neuen Chat/auf jedem Rechner als Kontext übergeben werden, damit der Assistent sofort weiß, wo es weitergeht.
 
-**Letzte Aktualisierung**: 22. Februar 2026 (Session 3)
-**Branch**: `fix/bugfixes-and-ux-improvements` (von `develop`)
-**Letzter Commit**: `f90a5f5` - "fix: resolve all priority 1-5 bugs from DEVELOPMENT_STATUS.md"
+**Letzte Aktualisierung**: 22. Februar 2026 (Session 4)
+**Branch**: `feature/ux-improvements-and-charts` (von `develop`)
+**Letzter Commit**: Pending
 **Version**: `vdev.0.0.140`
 **Repo**: `https://github.com/Serph91P/MediaCurator.git`
 
@@ -199,12 +199,12 @@ frontend/src/
 | Activity Stats API | ✅ plays by day/hour/weekday | ❌ Charts fehlen | ⚠️ | Backend liefert Daten, Frontend zeigt keine Charts |
 | Active Sessions | ✅ 30s Sync | ✅ 30s Refresh | ✅ | Gut implementiert |
 
-### Phase 3 – Statistics & Charts ❌ NICHT BEGONNEN
+### Phase 3 – Statistics & Charts ⚠️ TEILWEISE ERLEDIGT (Session 4)
 | Feature | Backend-API | Frontend | Anmerkungen |
 |---------|------------|----------|-------------|
-| Daily Play Count Chart (Stacked Area) | ✅ `/activity/stats` liefert `plays_by_day` | ❌ | recharts installiert, nicht benutzt |
-| Play Count by Day of Week (Bar) | ✅ `/activity/stats` liefert `plays_by_day_of_week` | ❌ | Daten vorhanden |
-| Play Count by Hour (Bar) | ✅ `/activity/stats` liefert `plays_by_hour` | ❌ | Daten vorhanden |
+| Daily Play Count Chart (Area) | ✅ `/activity/stats` liefert `plays_by_day` | ✅ Activity.tsx | recharts AreaChart mit Gradient |
+| Play Count by Day of Week (Bar) | ✅ `/activity/stats` liefert `plays_by_day_of_week` | ✅ Activity.tsx | recharts BarChart |
+| Play Count by Hour (Bar) | ✅ `/activity/stats` liefert `plays_by_hour` | ✅ Activity.tsx | recharts BarChart mit AM/PM Labels |
 | Genre Distribution (Radar/Spider) | ❌ Kein API | ❌ | Backend müsste Genre-Aggregation liefern |
 
 ### ★ NEU: WebSocket Real-Time System ✅ ERLEDIGT (Session 2)
@@ -295,7 +295,7 @@ frontend/src/
   - `frontend/src/components/Layout.tsx`: Update-Banner mit `"Update verfügbar!"`, `"Changelog ansehen"`, `"Aktuelle Version"`
   - `frontend/src/lib/utils.ts`: `formatDate`/`formatDateTime` benutzen `'de-DE'` Locale
 - **Fix**: Alles auf Englisch (oder ein i18n-System), Locale konfigurierbar machen
-- **Status**: ⚠️ TEILWEISE ERLEDIGT (Session 3) – `utils.ts` Locale `de-DE` → `en-US` geändert. Layout.tsx deutsche Strings noch offen.
+- **Status**: ✅ ERLEDIGT (Session 3+4) – `utils.ts` Locale `de-DE` → `en-US` geändert (Session 3). Layout.tsx deutsche Strings → Englisch (Session 4).
 
 #### BUG-007: LibraryDetail.tsx – Kein React Query
 - **Datei**: `frontend/src/pages/LibraryDetail.tsx`
@@ -332,11 +332,11 @@ frontend/src/
 | History.tsx | ✅ Ja | ✅ Gut |
 | Users.tsx | ✅ Ja | ✅ Gut |
 | LibraryDetail.tsx | ❌ Raw `<table>` | ❌ Überläuft auf Mobile |
-| UserDetail.tsx | ❌ Raw `<table>` | ❌ Überläuft auf Mobile |
-| Activity.tsx | ❌ Raw `<table>` | ❌ Überläuft auf Mobile |
-| Preview.tsx | ❌ Raw `<table>` | ❌ Überläuft auf Mobile |
-| Staging.tsx | ❌ Raw `<table>` | ❌ Überläuft auf Mobile |
-| Jobs.tsx | ❌ Teilweise Cards | ⚠️ Executions-Tabelle überläuft |
+| UserDetail.tsx | ✅ ResponsiveTable | ✅ Migriert (Session 4) |
+| Activity.tsx | ✅ ResponsiveTable | ✅ Migriert (Session 4) |
+| Preview.tsx | ❌ Raw `<table>` | ❌ Überläuft auf Mobile (komplexe expandable rows) |
+| Staging.tsx | ✅ ResponsiveTable | ✅ Migriert (Session 4) |
+| Jobs.tsx | ✅ ResponsiveTable | ✅ Executions-Tabelle migriert (Session 4) |
 
 ### Fehlende UI-Features (geplant aber nicht implementiert)
 - **Activity-Seite**: IP-Adresse Spalte, Device-Spalte, Expand-Row (Bitrate, Resolution, Codecs), Library-Filter, Items-per-Page Selector
@@ -347,7 +347,7 @@ frontend/src/
 - **Dashboard**: Keine Charts (recharts installiert aber unbenutzt)
 
 ### Performance
-- **Kein Code-Splitting**: Alle Seiten eagerly importiert in `App.tsx`. `React.lazy` + `Suspense` fehlt.
+- ~~**Kein Code-Splitting**~~: ✅ Alle Seiten (außer Login/Register) auf `React.lazy` + `Suspense` migriert (Session 4).
 - **Jobs.tsx**: 5-Sekunden-Refetch auf 2 Queries = konstanter Netzwerk-Traffic
 - **Staging.tsx**: Beide Queries auf 30s Refetch – könnte reduziert werden
 
@@ -364,8 +364,8 @@ frontend/src/
 | Problem | Betroffene Dateien | Beschreibung | Status |
 |---------|--------------------|-------------|--------|
 | Fetch-Pattern | LibraryDetail.tsx | Einzige Seite ohne React Query | ✅ Behoben (Session 3) |
-| Utility-Duplizierung | LibraryDetail.tsx, Preview.tsx | Eigene formatBytes/formatDuration statt utils.ts | ✅ Behoben (Session 3) |
-| Debounce-Pattern | Users.tsx | Manuell statt useDebounce Hook | ✅ Behoben (Session 3) |
+| Utility-Duplizierung | LibraryDetail.tsx, Preview.tsx, Activity.tsx, UserDetail.tsx | Eigene formatBytes/formatDuration/formatWatchTime statt utils.ts | ✅ Behoben (Session 3+4) |
+| Debounce-Pattern | Users.tsx, Activity.tsx | Manuell statt useDebounce Hook | ✅ Behoben (Session 3+4) |
 | API-Prefix | LibraryDetail.tsx | Doppeltes /api/ | ✅ Behoben (Session 3) |
 | Theme-Klassen | Login, Register, ConfirmDialog, Skeleton | Fehlende dark: Varianten | ✅ Behoben (Session 3) |
 
@@ -406,24 +406,24 @@ Das Backend ist gut strukturiert mit:
 1. ~~**BUG-001**: LibraryDetail.tsx `/api/`-Prefix fixen + auf React Query migrieren + Utils importieren~~ ✅
 2. ~~**BUG-002/003/004**: Light-Mode fixen (Login, Register, ConfirmDialog, Skeleton)~~ ✅
 
-### ~~Priorität 2: UX-Verbesserungen~~ ⚠️ TEILWEISE ERLEDIGT (Session 3)
-3. ~~**BUG-006**: Sprachmix Deutsch→Englisch bereinigen~~ ⚠️ utils.ts Locale gefixt, Layout.tsx deutsche Strings noch offen
-4. **Mobile Tables**: ResponsiveTable in Activity, UserDetail, Preview, Staging, LibraryDetail einsetzen
+### ~~Priorität 2: UX-Verbesserungen~~ ✅ ERLEDIGT (Session 3+4)
+3. ~~**BUG-006**: Sprachmix Deutsch→Englisch bereinigen~~ ✅ utils.ts Locale (Session 3) + Layout.tsx deutsche Strings (Session 4)
+4. ~~**Mobile Tables**: ResponsiveTable in Activity, UserDetail, Staging, Jobs einsetzen~~ ✅ (Session 4). Preview offen (komplexe expandable rows).
 5. ~~**BUG-005**: Toast-Theming fixen~~ ✅
 
-### Priorität 3: Phase 3 – Charts implementieren
-6. **Daily Play Count Chart**: Stacked Area Chart mit recharts, Daten kommen von `/activity/stats` → `plays_by_day`
-7. **Plays by Day of Week**: Bar Chart, Daten: `plays_by_day_of_week`
-8. **Plays by Hour**: Bar Chart, Daten: `plays_by_hour`
-9. **Genre Distribution**: Backend-API für Genre-Aggregation nötig, dann Radar/Spider Chart
+### ~~Priorität 3: Phase 3 – Charts implementieren~~ ⚠️ TEILWEISE ERLEDIGT (Session 4)
+6. ~~**Daily Play Count Chart**: Area Chart mit recharts auf Activity-Seite~~ ✅
+7. ~~**Plays by Day of Week**: Bar Chart auf Activity-Seite~~ ✅
+8. ~~**Plays by Hour**: Bar Chart auf Activity-Seite~~ ✅
+9. **Genre Distribution**: Backend-API für Genre-Aggregation nötig, dann Radar/Spider Chart – offen
 
 ### Priorität 4: Fehlende Phase 2 Features
 10. **Activity-Seite erweitern**: IP, Device Spalten, Library-Filter, Items-per-Page, Expand-Row
 11. **UserDetail erweitern**: Favorite Genres, Library-Filter auf Activity, Expand-Row
 12. **LibraryDetail erweitern**: Genre-Charts, Grid-View, Expand-Row
 
-### ~~Priorität 5: Code-Qualität~~ ✅ ERLEDIGT (Session 3)
-13. Code-Splitting mit React.lazy — noch offen
+### ~~Priorität 5: Code-Qualität~~ ✅ ERLEDIGT (Session 3+4)
+13. ~~Code-Splitting mit React.lazy~~ ✅ (Session 4) – 13 Seiten lazy-loaded mit Suspense-Fallback
 14. ~~BUG-008: fetchUser bei App-Init~~ ✅
 15. ~~BUG-009/010: Code-Duplizierung/Debounce aufräumen~~ ✅
 
@@ -492,4 +492,5 @@ docker compose -f docker-compose.dev.yml up --build
 | 22.02.2026 | Vollständige Neuaufsetzung: Kompletter Code-Review (Backend + Frontend), Bug-Katalog mit 10 Einträgen, UX-Analyse, Priorisierte Roadmap, Architektur-Dokumentation |
 | 22.02.2026 (2) | **Session 2**: WebSocket Real-Time System (ConnectionManager, Progress-Callbacks für Sonarr/Radarr/Emby, Scheduler-Integration), Global Toast-Notifications via WebSocket, Jobs-Page komplett neu geschrieben (Live-Progress-Bars, Running-Panel, WS-Status-Indikator), Layout.tsx Job-Badge, Setup-Wizard (Backend: /setup/status, /test-connection, /add-service, /complete, /skip; Frontend: 5-Step geführter Wizard mit Welcome→Arr→MediaServer→Sync→Complete), App.tsx SetupGate Redirect-Logik |
 | 22.02.2026 (3) | **Session 3 – Bugfixes**: Alle 10 Bugs (BUG-001 bis BUG-010) behoben. LibraryDetail.tsx komplett rewritten (API-Pfade, React Query, shared Utils, Light/Dark-Mode). Light-Mode gefixt in Login, Register, ConfirmDialog, Skeleton, Toaster. Locale `de-DE` → `en-US`. fetchUser() bei App-Init. Code-Duplizierung (formatBytes/formatDuration) aufgeräumt. useDebounce Hook in Users.tsx. Branch: `fix/bugfixes-and-ux-improvements`, Commit: `f90a5f5` (10 Dateien, 295 Insertions, 342 Deletions) |
+| 22.02.2026 (4) | **Session 4 – UX & Charts**: Layout.tsx deutsche Strings → Englisch (BUG-006 abgeschlossen). ResponsiveTable Light-Mode-Fix (fehlende `dark:` Varianten). Activity.tsx: `useDebounce` statt setTimeout, shared Utils (`formatDurationLong`, `formatWatchTime`), ResponsiveTable-Migration, 3× recharts Charts (Daily Plays Area, Day-of-Week Bar, Hour-of-Day Bar). UserDetail.tsx: shared Utils + ResponsiveTable. Staging.tsx: ResponsiveTable. Jobs.tsx: Executions-Tabelle → ResponsiveTable. App.tsx: React.lazy Code-Splitting (13 Seiten). Branch: `feature/ux-improvements-and-charts` |
 | 30.12.2024 | Initiale Version: Session-Zusammenfassung (Rules Export, Sidebar, Theme Toggle, Staging UI) |

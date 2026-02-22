@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { 
   PlayIcon,
@@ -7,11 +7,16 @@ import {
   FilmIcon,
   TvIcon,
   UserIcon,
-  FunnelIcon,
   SignalIcon
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
-import { formatRelativeTime } from '../lib/utils'
+import { formatRelativeTime, formatDurationLong, formatWatchTime } from '../lib/utils'
+import { useDebounce } from '../hooks/useDebounce'
+import ResponsiveTable from '../components/ResponsiveTable'
+import {
+  AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts'
 
 interface ActivityItem {
   id: number
@@ -57,47 +62,17 @@ interface ActivityStats {
   plays_by_day_of_week: { day_of_week: number; plays: number }[]
 }
 
-function formatDuration(seconds: number): string {
-  if (!seconds || seconds === 0) return '0s'
-  
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes}m ${secs}s`
-  } else if (minutes > 0) {
-    return `${minutes}m ${secs}s`
-  }
-  return `${secs}s`
-}
-
-function formatWatchTime(seconds: number): string {
-  if (!seconds || seconds === 0) return '0 Minutes'
-  
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  
-  if (hours > 0) {
-    return `${hours} Hours ${minutes} Minutes`
-  }
-  return `${minutes} Minutes`
-}
-
 export default function Activity() {
   const [page, setPage] = useState(1)
   const [pageSize] = useState(25)
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
   const [mediaTypeFilter, setMediaTypeFilter] = useState<string>('')
 
-  const handleSearchChange = (value: string) => {
-    setSearch(value)
-    setTimeout(() => {
-      setDebouncedSearch(value)
-      setPage(1)
-    }, 300)
-  }
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch])
 
   // Fetch activity stats
   const { data: stats } = useQuery({
@@ -198,6 +173,126 @@ export default function Activity() {
         </div>
       )}
 
+      {/* Charts */}
+      {stats && stats.plays_by_day.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Daily Plays Chart */}
+          <div className="lg:col-span-2 bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Daily Plays (Last 30 Days)
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={stats.plays_by_day}>
+                  <defs>
+                    <linearGradient id="playsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-primary-500)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--color-primary-500)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" className="dark:opacity-20" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12, fill: 'var(--color-gray-500)' }}
+                    tickFormatter={(d: string) => {
+                      const date = new Date(d)
+                      return `${date.getMonth() + 1}/${date.getDate()}`
+                    }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: 'var(--color-gray-500)' }}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--color-dark-800)',
+                      border: '1px solid var(--color-dark-700)',
+                      borderRadius: '0.5rem',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
+                    labelFormatter={(d: string) => new Date(d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                    formatter={(value: number, name: string) => [value, name === 'plays' ? 'Plays' : 'Duration (s)']}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="plays"
+                    stroke="var(--color-primary-500)"
+                    fill="url(#playsGradient)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Plays by Day of Week */}
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Plays by Day of Week
+            </h3>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.plays_by_day_of_week.map(d => ({
+                  ...d,
+                  name: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.day_of_week]
+                }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" className="dark:opacity-20" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--color-gray-500)' }} />
+                  <YAxis tick={{ fontSize: 12, fill: 'var(--color-gray-500)' }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--color-dark-800)',
+                      border: '1px solid var(--color-dark-700)',
+                      borderRadius: '0.5rem',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
+                    formatter={(value: number) => [value, 'Plays']}
+                  />
+                  <Bar dataKey="plays" fill="var(--color-primary-500)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Plays by Hour */}
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Plays by Hour of Day
+            </h3>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.plays_by_hour.map(d => ({
+                  ...d,
+                  label: d.hour === 0 ? '12 AM' : d.hour < 12 ? `${d.hour} AM` : d.hour === 12 ? '12 PM' : `${d.hour - 12} PM`
+                }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" className="dark:opacity-20" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 10, fill: 'var(--color-gray-500)' }}
+                    interval={2}
+                  />
+                  <YAxis tick={{ fontSize: 12, fill: 'var(--color-gray-500)' }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--color-dark-800)',
+                      border: '1px solid var(--color-dark-700)',
+                      borderRadius: '0.5rem',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
+                    formatter={(value: number) => [value, 'Plays']}
+                  />
+                  <Bar dataKey="plays" fill="var(--color-green-500)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Active Sessions */}
       {activeSessions && activeSessions.length > 0 && (
         <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-4">
@@ -245,7 +340,7 @@ export default function Activity() {
             <input
               type="text"
               value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by title, client, device..."
               className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-dark-700 border border-gray-200 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
@@ -266,134 +361,141 @@ export default function Activity() {
 
       {/* Activity Table */}
       <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-dark-700/50 border-b border-gray-200 dark:border-dark-700">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-dark-400 uppercase">User</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-dark-400 uppercase">Title</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-dark-400 uppercase hidden md:table-cell">Client</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-dark-400 uppercase hidden lg:table-cell">Transcode</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-dark-400 uppercase">Date</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-dark-400 uppercase">Duration</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-dark-700">
-              {isLoading ? (
-                [...Array(10)].map((_, i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-24" /></td>
-                    <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-48" /></td>
-                    <td className="px-4 py-4 hidden md:table-cell"><div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-32" /></td>
-                    <td className="px-4 py-4 hidden lg:table-cell"><div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-24" /></td>
-                    <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-32" /></td>
-                    <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-20 ml-auto" /></td>
-                  </tr>
-                ))
-              ) : data?.items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
-                    <PlayIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-dark-500 mb-4" />
-                    <p className="text-gray-500 dark:text-dark-400">No activity found</p>
-                    <p className="text-sm text-gray-400 dark:text-dark-500 mt-1">
-                      Activity will appear after syncing with your media server
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                data?.items.map((item) => (
-                  <tr 
-                    key={item.id} 
-                    className={`hover:bg-gray-50 dark:hover:bg-dark-700/50 ${item.is_active ? 'bg-green-50/50 dark:bg-green-500/5' : ''}`}
-                  >
-                    <td className="px-4 py-4">
-                      {item.user ? (
-                        <Link 
-                          to={`/users/${item.user.id}`}
-                          className="font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400"
-                        >
-                          {item.user.name}
-                        </Link>
+        {isLoading ? (
+          <div className="p-4 space-y-3">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="animate-pulse flex gap-4">
+                <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-24" />
+                <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-48 flex-1" />
+                <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-32" />
+                <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-20" />
+              </div>
+            ))}
+          </div>
+        ) : !data?.items.length ? (
+          <div className="px-4 py-12 text-center">
+            <PlayIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-dark-500 mb-4" />
+            <p className="text-gray-500 dark:text-dark-400">No activity found</p>
+            <p className="text-sm text-gray-400 dark:text-dark-500 mt-1">
+              Activity will appear after syncing with your media server
+            </p>
+          </div>
+        ) : (
+          <>
+            <ResponsiveTable
+              columns={[
+                {
+                  header: 'User',
+                  accessor: 'user',
+                  cell: (item: ActivityItem) => item.user ? (
+                    <Link
+                      to={`/users/${item.user.id}`}
+                      className="font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400"
+                    >
+                      {item.user.name}
+                    </Link>
+                  ) : <span className="text-gray-400">Unknown</span>
+                },
+                {
+                  header: 'Title',
+                  accessor: 'media_title',
+                  cell: (item: ActivityItem) => (
+                    <div className="flex items-center gap-2">
+                      {item.media_type === 'movie' ? (
+                        <FilmIcon className="w-4 h-4 text-primary-400 shrink-0" />
                       ) : (
-                        <span className="text-gray-400">Unknown</span>
+                        <TvIcon className="w-4 h-4 text-green-400 shrink-0" />
                       )}
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-2">
-                        {item.media_type === 'movie' ? (
-                          <FilmIcon className="w-4 h-4 text-primary-400 shrink-0" />
-                        ) : (
-                          <TvIcon className="w-4 h-4 text-green-400 shrink-0" />
-                        )}
-                        <span className="text-sm text-gray-900 dark:text-white truncate max-w-xs">
-                          {item.media_title}
+                      <span className="text-sm text-gray-900 dark:text-white truncate max-w-xs">
+                        {item.media_title}
+                      </span>
+                      {item.is_active && (
+                        <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 rounded">
+                          LIVE
                         </span>
-                        {item.is_active && (
-                          <span className="px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 rounded">
-                            LIVE
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 hidden md:table-cell">
+                      )}
+                    </div>
+                  )
+                },
+                {
+                  header: 'Client',
+                  accessor: 'client_name',
+                  mobileHide: true,
+                  cell: (item: ActivityItem) => (
+                    <div>
                       <span className="text-sm text-gray-600 dark:text-dark-300">{item.client_name}</span>
                       <span className="text-xs text-gray-400 dark:text-dark-500 block">{item.device_name}</span>
-                    </td>
-                    <td className="px-4 py-4 hidden lg:table-cell">
-                      {item.is_transcoding ? (
-                        <span className="text-xs text-yellow-500">
-                          Transcode
-                          {item.transcode_video && item.transcode_audio ? ' (V+A)' :
-                           item.transcode_video ? ' (Video)' :
-                           item.transcode_audio ? ' (Audio)' : ''}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-green-500">{item.play_method || 'Direct'}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="text-sm text-gray-600 dark:text-dark-300">
-                        {new Date(item.started_at).toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {formatDuration(item.duration_seconds)}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  )
+                },
+                {
+                  header: 'Transcode',
+                  accessor: 'is_transcoding',
+                  mobileHide: true,
+                  cell: (item: ActivityItem) => item.is_transcoding ? (
+                    <span className="text-xs text-yellow-500">
+                      Transcode
+                      {item.transcode_video && item.transcode_audio ? ' (V+A)' :
+                       item.transcode_video ? ' (Video)' :
+                       item.transcode_audio ? ' (Audio)' : ''}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-green-500">{item.play_method || 'Direct'}</span>
+                  )
+                },
+                {
+                  header: 'Date',
+                  accessor: 'started_at',
+                  cell: (item: ActivityItem) => (
+                    <span className="text-sm text-gray-600 dark:text-dark-300">
+                      {new Date(item.started_at).toLocaleString()}
+                    </span>
+                  )
+                },
+                {
+                  header: 'Duration',
+                  accessor: 'duration_seconds',
+                  className: 'text-right',
+                  cell: (item: ActivityItem) => (
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {formatDurationLong(item.duration_seconds)}
+                    </span>
+                  )
+                }
+              ]}
+              data={data.items}
+              keyExtractor={(item: ActivityItem) => item.id}
+              emptyMessage="No activity found"
+            />
 
-        {/* Pagination */}
-        {data && data.total_pages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-dark-700 flex items-center justify-between">
-            <div className="text-sm text-gray-500 dark:text-dark-400">
-              Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, data.total)} of {data.total}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1 text-sm bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-dark-300 rounded hover:bg-gray-200 dark:hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <span className="px-3 py-1 text-sm text-gray-600 dark:text-dark-400">
-                {page} of {data.total_pages}
-              </span>
-              <button
-                onClick={() => setPage(p => Math.min(data.total_pages, p + 1))}
-                disabled={page === data.total_pages}
-                className="px-3 py-1 text-sm bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-dark-300 rounded hover:bg-gray-200 dark:hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+            {/* Pagination */}
+            {data.total_pages > 1 && (
+              <div className="px-4 py-3 border-t border-gray-200 dark:border-dark-700 flex items-center justify-between">
+                <div className="text-sm text-gray-500 dark:text-dark-400">
+                  Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, data.total)} of {data.total}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="px-3 py-1 text-sm bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-dark-300 rounded hover:bg-gray-200 dark:hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-3 py-1 text-sm text-gray-600 dark:text-dark-400">
+                    {page} of {data.total_pages}
+                  </span>
+                  <button
+                    onClick={() => setPage(p => Math.min(data.total_pages, p + 1))}
+                    disabled={page === data.total_pages}
+                    className="px-3 py-1 text-sm bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-dark-300 rounded hover:bg-gray-200 dark:hover:bg-dark-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

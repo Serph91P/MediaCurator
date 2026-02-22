@@ -55,6 +55,42 @@ export function formatDuration(seconds: number | null | undefined): string {
 }
 
 /**
+ * Format duration in seconds with seconds precision (e.g., "2h 15m 30s")
+ */
+export function formatDurationLong(seconds: number | null | undefined): string {
+  if (!seconds || seconds === 0) return '0s'
+  
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = Math.floor(seconds % 60)
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${secs}s`
+  } else if (minutes > 0) {
+    return `${minutes}m ${secs}s`
+  }
+  return `${secs}s`
+}
+
+/**
+ * Format watch time to human-readable string (e.g., "3 Days 5 Hours 20 Minutes")
+ */
+export function formatWatchTime(seconds: number | null | undefined): string {
+  if (!seconds || seconds === 0) return '0 Minutes'
+  
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days} Day${days !== 1 ? 's' : ''}`)
+  if (hours > 0) parts.push(`${hours} Hour${hours !== 1 ? 's' : ''}`)
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes} Minute${minutes !== 1 ? 's' : ''}`)
+  
+  return parts.join(' ')
+}
+
+/**
  * Format date to localized string
  */
 export function formatDate(date: string | Date | null | undefined): string {

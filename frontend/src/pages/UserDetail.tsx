@@ -17,6 +17,12 @@ import { formatRelativeTime, formatDurationLong, formatWatchTime } from '../lib/
 import ResponsiveTable from '../components/ResponsiveTable'
 import toast from 'react-hot-toast'
 
+interface Library {
+  id: number
+  name: string
+  media_type: string
+}
+
 interface UserStats {
   plays: number
   watch_seconds: number
@@ -97,6 +103,7 @@ export default function UserDetail() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'overview' | 'activity'>('overview')
   const [activityPage, setActivityPage] = useState(1)
+  const [activityLibraryFilter, setActivityLibraryFilter] = useState<string>('')
 
   const { data: user, isLoading } = useQuery({
     queryKey: ['mediaUser', userId],
@@ -107,10 +114,24 @@ export default function UserDetail() {
     enabled: !!userId
   })
 
-  const { data: activityData, isLoading: activityLoading } = useQuery({
-    queryKey: ['userActivity', userId, activityPage],
+  // Fetch libraries for filter dropdown
+  const { data: libraries } = useQuery({
+    queryKey: ['libraries'],
     queryFn: async () => {
-      const res = await api.get<ActivityResponse>(`/users/${userId}/activity?page=${activityPage}&page_size=25`)
+      const res = await api.get<Library[]>('/libraries/')
+      return res.data
+    }
+  })
+
+  const { data: activityData, isLoading: activityLoading } = useQuery({
+    queryKey: ['userActivity', userId, activityPage, activityLibraryFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: activityPage.toString(),
+        page_size: '25'
+      })
+      if (activityLibraryFilter) params.append('library_id', activityLibraryFilter)
+      const res = await api.get<ActivityResponse>(`/users/${userId}/activity?${params}`)
       return res.data
     },
     enabled: !!userId && activeTab === 'activity'
@@ -282,7 +303,22 @@ export default function UserDetail() {
           </div>
         </div>
       ) : (
-        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">
+        <div className="space-y-4">
+          {/* Activity Filters */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <select
+              value={activityLibraryFilter}
+              onChange={(e) => { setActivityLibraryFilter(e.target.value); setActivityPage(1); }}
+              className="px-4 py-2 bg-gray-50 dark:bg-dark-700 border border-gray-200 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">All Libraries</option>
+              {libraries?.map((lib) => (
+                <option key={lib.id} value={lib.id}>{lib.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">
           {activityLoading ? (
             <div className="p-4 space-y-3">
               {[...Array(5)].map((_, i) => (
@@ -394,6 +430,7 @@ export default function UserDetail() {
               )}
             </>
           )}
+        </div>
         </div>
       )}
     </div>

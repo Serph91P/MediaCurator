@@ -18,6 +18,12 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 
+interface Library {
+  id: number
+  name: string
+  media_type: string
+}
+
 interface ActivityItem {
   id: number
   user: {
@@ -64,15 +70,25 @@ interface ActivityStats {
 
 export default function Activity() {
   const [page, setPage] = useState(1)
-  const [pageSize] = useState(25)
+  const [pageSize, setPageSize] = useState(25)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [mediaTypeFilter, setMediaTypeFilter] = useState<string>('')
+  const [libraryFilter, setLibraryFilter] = useState<string>('')
 
-  // Reset to page 1 when search changes
+  // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1)
   }, [debouncedSearch])
+
+  // Fetch libraries for filter dropdown
+  const { data: libraries } = useQuery({
+    queryKey: ['libraries'],
+    queryFn: async () => {
+      const res = await api.get<Library[]>('/libraries/')
+      return res.data
+    }
+  })
 
   // Fetch activity stats
   const { data: stats } = useQuery({
@@ -95,7 +111,7 @@ export default function Activity() {
 
   // Fetch activity list
   const { data, isLoading } = useQuery({
-    queryKey: ['activities', page, pageSize, debouncedSearch, mediaTypeFilter],
+    queryKey: ['activities', page, pageSize, debouncedSearch, mediaTypeFilter, libraryFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -103,6 +119,7 @@ export default function Activity() {
       })
       if (debouncedSearch) params.append('search', debouncedSearch)
       if (mediaTypeFilter) params.append('media_type', mediaTypeFilter)
+      if (libraryFilter) params.append('library_id', libraryFilter)
       
       const res = await api.get<ActivityResponse>(`/activity/?${params}`)
       return res.data
@@ -346,6 +363,18 @@ export default function Activity() {
             />
           </div>
 
+          {/* Library Filter */}
+          <select
+            value={libraryFilter}
+            onChange={(e) => { setLibraryFilter(e.target.value); setPage(1); }}
+            className="px-4 py-2 bg-gray-50 dark:bg-dark-700 border border-gray-200 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">All Libraries</option>
+            {libraries?.map((lib) => (
+              <option key={lib.id} value={lib.id}>{lib.name}</option>
+            ))}
+          </select>
+
           {/* Type Filter */}
           <select
             value={mediaTypeFilter}
@@ -355,6 +384,18 @@ export default function Activity() {
             <option value="">All Types</option>
             <option value="movie">Movies</option>
             <option value="episode">Episodes</option>
+          </select>
+
+          {/* Items per Page */}
+          <select
+            value={pageSize}
+            onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+            className="px-4 py-2 bg-gray-50 dark:bg-dark-700 border border-gray-200 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value={10}>10 / page</option>
+            <option value={25}>25 / page</option>
+            <option value={50}>50 / page</option>
+            <option value={100}>100 / page</option>
           </select>
         </div>
       </div>

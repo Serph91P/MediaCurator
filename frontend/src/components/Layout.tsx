@@ -268,15 +268,15 @@ export default function Layout() {
                 </svg>
                 <div>
                   <p className="text-sm font-medium text-white">
-                    Update verfügbar! 
+                    Update available! 
                     {updateData.commits_behind > 0 && (
                       <span className="ml-2">
-                        {updateData.commits_behind} neue{updateData.commits_behind === 1 ? 'r' : ''} Commit{updateData.commits_behind === 1 ? '' : 's'}
+                        {updateData.commits_behind} new commit{updateData.commits_behind === 1 ? '' : 's'}
                       </span>
                     )}
                   </p>
                   <p className="text-xs text-primary-100">
-                    Aktuelle Version: {updateData.current_version?.split('-')[0] || updateData.current_commit} → Neueste: {updateData.latest_version || updateData.latest_commit}
+                    Current: {updateData.current_version?.split('-')[0] || updateData.current_commit} → Latest: {updateData.latest_version || updateData.latest_commit}
                   </p>
                 </div>
               </div>
@@ -286,7 +286,7 @@ export default function Layout() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white text-primary-600 rounded-lg hover:bg-primary-50 transition-colors"
               >
-                Changelog ansehen
+                View Changelog
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>

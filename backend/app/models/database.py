@@ -2,7 +2,7 @@
 Database models for the application.
 """
 from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, Text, ForeignKey,
+    Column, Integer, BigInteger, String, Boolean, DateTime, Text, ForeignKey,
     Float, Enum as SQLEnum, JSON, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
@@ -545,8 +545,8 @@ class PlaybackActivity(Base):
     duration_seconds = Column(Integer, default=0)  # How long they watched
     
     # Media position
-    position_ticks = Column(Integer, nullable=True)  # Current position in ticks
-    runtime_ticks = Column(Integer, nullable=True)  # Total runtime in ticks
+    position_ticks = Column(BigInteger, nullable=True)  # Current position in ticks
+    runtime_ticks = Column(BigInteger, nullable=True)  # Total runtime in ticks
     played_percentage = Column(Float, default=0)  # 0-100
     
     # Is this an active/live session?

@@ -875,3 +875,7 @@ async def _sync_active_sessions(
         
     except Exception as e:
         logger.warning(f"Failed to sync active sessions: {e}")
+        try:
+            await db.rollback()
+        except Exception:
+            pass

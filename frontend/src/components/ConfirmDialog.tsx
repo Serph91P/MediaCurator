@@ -1,3 +1,4 @@
+import { useEffect, useRef, useCallback } from 'react'
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 
 interface ConfirmDialogProps {
@@ -21,6 +22,50 @@ export default function ConfirmDialog({
   onCancel,
   variant = 'danger',
 }: ConfirmDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onCancel()
+      return
+    }
+    if (e.key === 'Tab' && dialogRef.current) {
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+  }, [onCancel])
+
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement
+      document.addEventListener('keydown', handleKeyDown)
+      // Focus the dialog after a tick so it renders first
+      requestAnimationFrame(() => {
+        const firstButton = dialogRef.current?.querySelector<HTMLElement>('button')
+        firstButton?.focus()
+      })
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+    // Restore focus when closing
+    return () => previousFocusRef.current?.focus()
+  }, [isOpen, handleKeyDown])
+
   if (!isOpen) return null
 
   const variantStyles = {
@@ -30,8 +75,15 @@ export default function ConfirmDialog({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-2xl w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onCancel}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-2xl w-full max-w-md mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
@@ -46,7 +98,7 @@ export default function ConfirmDialog({
               }`} />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{title}</h3>
+              <h3 id="confirm-dialog-title" className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{title}</h3>
               <p className="text-sm text-gray-600 dark:text-dark-300">{message}</p>
             </div>
           </div>

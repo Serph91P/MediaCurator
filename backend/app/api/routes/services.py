@@ -264,9 +264,13 @@ async def sync_service(
     except Exception as e:
         # Update execution log with error
         end_time = datetime.now(timezone.utc)
-        execution_log.status = "error"
-        execution_log.completed_at = end_time
-        execution_log.duration_seconds = (end_time - start_time).total_seconds()
-        execution_log.error_message = str(e)
-        await db.commit()
+        try:
+            await db.rollback()
+            execution_log.status = "error"
+            execution_log.completed_at = end_time
+            execution_log.duration_seconds = (end_time - start_time).total_seconds()
+            execution_log.error_message = str(e)
+            await db.commit()
+        except Exception:
+            pass
         raise

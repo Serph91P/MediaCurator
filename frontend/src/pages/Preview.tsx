@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import { formatBytes } from '../lib/utils'
+import ResponsiveTable from '../components/ResponsiveTable'
 import type { CleanupRule } from '../types'
 
 interface PreviewItem {
@@ -409,112 +410,103 @@ export default function Preview() {
           {activeTab === 'series' ? (
             <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">
               {groupedSeries.length > 0 ? (
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-dark-700/50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                        Series
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                        Seasons
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                        Size
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                        Rule
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                        Reason
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-dark-700">
-                    {groupedSeries.map((series) => (
-                      <>
-                        <tr 
-                          key={series.seriesTitle}
-                          className={`hover:bg-gray-50 dark:hover:bg-dark-700/30 ${series.seasons.size > 0 ? 'cursor-pointer' : ''}`}
-                          onClick={() => series.seasons.size > 0 && toggleSeriesExpanded(series.seriesTitle)}
-                        >
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              {series.seasons.size > 0 ? (
-                                expandedSeries.has(series.seriesTitle) ? (
-                                  <ChevronDownIcon className="w-4 h-4 text-gray-400" />
-                                ) : (
-                                  <ChevronRightIcon className="w-4 h-4 text-gray-400" />
-                                )
-                              ) : (
-                                <div className="w-4 h-4" /> /* Spacer when no seasons */
-                              )}
-                              <TvIcon className="w-5 h-5 text-primary-500" />
-                              <span className="font-medium text-gray-900 dark:text-white">
-                                {series.seriesTitle}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-gray-600 dark:text-dark-300">
-                            {series.isEntireSeries ? (
-                              <span className="inline-flex items-center gap-1.5 text-red-500 dark:text-red-400 font-medium">
-                                Entire Series
-                                {(series.seasonCount > 0 || series.seasons.size > 0) && (
-                                  <span className="text-gray-400 dark:text-dark-500 font-normal">
-                                    ({series.seasonCount || series.seasons.size} seasons, {series.episodeCount || Array.from(series.seasons.values()).reduce((sum, s) => sum + s.episodes.length, 0)} episodes)
-                                  </span>
-                                )}
-                              </span>
-                            ) : series.seasons.size > 0 ? (
-                              <span>
-                                {Array.from(series.seasons.keys())
-                                  .sort((a, b) => a - b)
-                                  .map(s => s === 0 ? 'Specials' : `S${s.toString().padStart(2, '0')}`)
-                                  .join(', ')}
-                              </span>
+                <ResponsiveTable
+                  columns={[
+                    {
+                      header: 'Series',
+                      accessor: 'seriesTitle',
+                      cell: (series: GroupedSeries) => (
+                        <div className="flex items-center gap-2">
+                          {series.seasons.size > 0 ? (
+                            expandedSeries.has(series.seriesTitle) ? (
+                              <ChevronDownIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                             ) : (
-                              <span className="text-gray-400 dark:text-dark-500">No episodes</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-gray-600 dark:text-dark-300">
-                            {formatBytes(series.totalSize)}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-500/20 text-primary-800 dark:text-primary-400">
-                              {series.ruleName}
+                              <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            )
+                          ) : (
+                            <div className="w-4 h-4 flex-shrink-0" />
+                          )}
+                          <TvIcon className="w-5 h-5 text-primary-500 flex-shrink-0" />
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {series.seriesTitle}
+                          </span>
+                        </div>
+                      ),
+                    },
+                    {
+                      header: 'Seasons',
+                      accessor: 'seasons',
+                      mobileHide: true,
+                      cell: (series: GroupedSeries) => series.isEntireSeries ? (
+                        <span className="inline-flex items-center gap-1.5 text-red-500 dark:text-red-400 font-medium">
+                          Entire Series
+                          {(series.seasonCount > 0 || series.seasons.size > 0) && (
+                            <span className="text-gray-400 dark:text-dark-500 font-normal">
+                              ({series.seasonCount || series.seasons.size} seasons, {series.episodeCount || Array.from(series.seasons.values()).reduce((sum, s) => sum + s.episodes.length, 0)} episodes)
                             </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-red-600 dark:text-red-400">
-                            {series.reasons[0]}
-                          </td>
-                        </tr>
-                        {/* Expanded season details */}
-                        {expandedSeries.has(series.seriesTitle) && series.seasons.size > 0 && (
-                          <tr key={`${series.seriesTitle}-details`}>
-                            <td colSpan={5} className="px-6 py-3 bg-gray-50 dark:bg-dark-700/20">
-                              <div className="ml-8 space-y-2">
-                                {Array.from(series.seasons.values())
-                                  .sort((a, b) => a.seasonNumber - b.seasonNumber)
-                                  .map(season => (
-                                    <div key={season.seasonNumber} className="flex items-center justify-between text-sm">
-                                      <span className="text-gray-600 dark:text-dark-300">
-                                        {season.seasonNumber === 0 ? 'Specials' : `Season ${season.seasonNumber}`}
-                                        <span className="text-gray-400 dark:text-dark-500 ml-2">
-                                          ({season.episodes.length} episodes)
-                                        </span>
-                                      </span>
-                                      <span className="text-gray-500 dark:text-dark-400">
-                                        {formatBytes(season.totalSize)}
-                                      </span>
-                                    </div>
-                                  ))}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    ))}
-                  </tbody>
-                </table>
+                          )}
+                        </span>
+                      ) : series.seasons.size > 0 ? (
+                        <span className="text-gray-600 dark:text-dark-300">
+                          {Array.from(series.seasons.keys())
+                            .sort((a, b) => a - b)
+                            .map(s => s === 0 ? 'Specials' : `S${s.toString().padStart(2, '0')}`)
+                            .join(', ')}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 dark:text-dark-500">No episodes</span>
+                      ),
+                    },
+                    {
+                      header: 'Size',
+                      accessor: 'totalSize',
+                      cell: (series: GroupedSeries) => (
+                        <span className="text-gray-600 dark:text-dark-300">{formatBytes(series.totalSize)}</span>
+                      ),
+                    },
+                    {
+                      header: 'Rule',
+                      accessor: 'ruleName',
+                      mobileHide: true,
+                      cell: (series: GroupedSeries) => (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-500/20 text-primary-800 dark:text-primary-400">
+                          {series.ruleName}
+                        </span>
+                      ),
+                    },
+                    {
+                      header: 'Reason',
+                      accessor: 'reasons',
+                      cell: (series: GroupedSeries) => (
+                        <span className="text-sm text-red-600 dark:text-red-400">{series.reasons[0]}</span>
+                      ),
+                    },
+                  ]}
+                  data={groupedSeries}
+                  keyExtractor={(series) => series.seriesTitle}
+                  onRowClick={(series) => series.seasons.size > 0 && toggleSeriesExpanded(series.seriesTitle)}
+                  isExpanded={(series) => expandedSeries.has(series.seriesTitle) && series.seasons.size > 0}
+                  expandedContent={(series: GroupedSeries) => (
+                    <div className="ml-8 space-y-2">
+                      {Array.from(series.seasons.values())
+                        .sort((a: { seasonNumber: number }, b: { seasonNumber: number }) => a.seasonNumber - b.seasonNumber)
+                        .map((season: { seasonNumber: number; episodes: PreviewItem[]; totalSize: number }) => (
+                          <div key={season.seasonNumber} className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600 dark:text-dark-300">
+                              {season.seasonNumber === 0 ? 'Specials' : `Season ${season.seasonNumber}`}
+                              <span className="text-gray-400 dark:text-dark-500 ml-2">
+                                ({season.episodes.length} episodes)
+                              </span>
+                            </span>
+                            <span className="text-gray-500 dark:text-dark-400">
+                              {formatBytes(season.totalSize)}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                  emptyMessage="No series would be deleted"
+                />
               ) : (
                 <div className="p-12 text-center">
                   <CheckCircleIcon className="w-12 h-12 mx-auto text-green-500" />
@@ -525,49 +517,49 @@ export default function Preview() {
           ) : (
             <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg overflow-hidden">
               {movies.length > 0 ? (
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-dark-700/50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                        Movie
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                        Size
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                        Rule
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                        Reason
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-dark-700">
-                    {movies.map((movie) => (
-                      <tr key={movie.item_id} className="hover:bg-gray-50 dark:hover:bg-dark-700/30">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <FilmIcon className="w-5 h-5 text-primary-500" />
-                            <span className="font-medium text-gray-900 dark:text-white">
-                              {movie.title}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600 dark:text-dark-300">
-                          {formatBytes(movie.size_bytes)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-500/20 text-primary-800 dark:text-primary-400">
-                            {movie.rule_name}
+                <ResponsiveTable
+                  columns={[
+                    {
+                      header: 'Movie',
+                      accessor: 'title',
+                      cell: (movie: PreviewItem) => (
+                        <div className="flex items-center gap-2">
+                          <FilmIcon className="w-5 h-5 text-primary-500 flex-shrink-0" />
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {movie.title}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-red-600 dark:text-red-400">
-                          {movie.reasons[0]}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      ),
+                    },
+                    {
+                      header: 'Size',
+                      accessor: 'size_bytes',
+                      cell: (movie: PreviewItem) => (
+                        <span className="text-gray-600 dark:text-dark-300">{formatBytes(movie.size_bytes)}</span>
+                      ),
+                    },
+                    {
+                      header: 'Rule',
+                      accessor: 'rule_name',
+                      mobileHide: true,
+                      cell: (movie: PreviewItem) => (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-500/20 text-primary-800 dark:text-primary-400">
+                          {movie.rule_name}
+                        </span>
+                      ),
+                    },
+                    {
+                      header: 'Reason',
+                      accessor: 'reasons',
+                      cell: (movie: PreviewItem) => (
+                        <span className="text-sm text-red-600 dark:text-red-400">{movie.reasons[0]}</span>
+                      ),
+                    },
+                  ]}
+                  data={movies}
+                  keyExtractor={(movie) => movie.item_id}
+                  emptyMessage="No movies would be deleted"
+                />
               ) : (
                 <div className="p-12 text-center">
                   <CheckCircleIcon className="w-12 h-12 mx-auto text-green-500" />

@@ -10,7 +10,12 @@ import {
   EyeSlashIcon,
   EyeIcon,
   FilmIcon,
-  TvIcon
+  TvIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ComputerDesktopIcon,
+  GlobeAltIcon,
+  SignalIcon
 } from '@heroicons/react/24/outline'
 import api from '../lib/api'
 import { formatRelativeTime, formatDurationLong, formatWatchTime } from '../lib/utils'
@@ -104,6 +109,16 @@ export default function UserDetail() {
   const [activeTab, setActiveTab] = useState<'overview' | 'activity'>('overview')
   const [activityPage, setActivityPage] = useState(1)
   const [activityLibraryFilter, setActivityLibraryFilter] = useState<string>('')
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
+
+  const toggleExpanded = (id: number) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const { data: user, isLoading } = useQuery({
     queryKey: ['mediaUser', userId],
@@ -338,6 +353,19 @@ export default function UserDetail() {
               <ResponsiveTable
                 columns={[
                   {
+                    header: '',
+                    accessor: '_expand',
+                    mobileHide: true,
+                    className: 'w-8',
+                    cell: (item: ActivityItem) => (
+                      expandedRows.has(item.id) ? (
+                        <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+                      ) : (
+                        <ChevronRightIcon className="w-4 h-4 text-gray-400" />
+                      )
+                    )
+                  },
+                  {
                     header: 'Title',
                     accessor: 'media_title',
                     cell: (item: ActivityItem) => (
@@ -401,6 +429,57 @@ export default function UserDetail() {
                 ]}
                 data={activityData.items}
                 keyExtractor={(item: ActivityItem) => item.id}
+                onRowClick={(item: ActivityItem) => toggleExpanded(item.id)}
+                isExpanded={(item: ActivityItem) => expandedRows.has(item.id)}
+                expandedContent={(item: ActivityItem) => (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-gray-500 dark:text-dark-400 mb-1">
+                        <GlobeAltIcon className="w-4 h-4" />
+                        <span className="font-medium">IP Address</span>
+                      </div>
+                      <span className="text-gray-900 dark:text-white font-mono text-xs">{item.ip_address || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5 text-gray-500 dark:text-dark-400 mb-1">
+                        <ComputerDesktopIcon className="w-4 h-4" />
+                        <span className="font-medium">Device</span>
+                      </div>
+                      <span className="text-gray-900 dark:text-white">{item.device_name || 'Unknown'}</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5 text-gray-500 dark:text-dark-400 mb-1">
+                        <SignalIcon className="w-4 h-4" />
+                        <span className="font-medium">Play Method</span>
+                      </div>
+                      <span className={item.is_transcoding ? 'text-yellow-500' : 'text-green-500'}>
+                        {item.play_method || 'Unknown'}
+                        {item.is_transcoding && (
+                          <span className="text-gray-400 dark:text-dark-500 ml-1">
+                            ({[item.transcode_video && 'Video', item.transcode_audio && 'Audio'].filter(Boolean).join(' + ')})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5 text-gray-500 dark:text-dark-400 mb-1">
+                        <PlayIcon className="w-4 h-4" />
+                        <span className="font-medium">Progress</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-gray-200 dark:bg-dark-600 rounded-full overflow-hidden max-w-24">
+                          <div
+                            className="h-full bg-primary-500 rounded-full"
+                            style={{ width: `${Math.min(100, item.played_percentage || 0)}%` }}
+                          />
+                        </div>
+                        <span className="text-gray-900 dark:text-white text-xs">
+                          {(item.played_percentage || 0).toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 emptyMessage="No activity found"
               />
 

@@ -1,7 +1,7 @@
 """
 System API routes (health, stats, settings).
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List, Dict, Any, Optional
@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 from ...core.database import get_db
 from ...core.config import get_settings
+from ...core.rate_limit import limiter, RateLimits
 from ...models import MediaItem, CleanupLog, SystemSettings, MediaType, User
 from ...schemas import SystemStats, HealthCheck, DiskSpaceInfo, SystemSettingResponse, SystemSettingUpdate, SystemSettingsResponse, SystemSettingsUpdate
 from ...services.version import version_service
@@ -54,7 +55,8 @@ class UpdateInfo(BaseModel):
 
 
 @router.get("/version", response_model=VersionInfo)
-async def get_version_info(current_user = Depends(get_current_user)):
+@limiter.limit(RateLimits.API_READ)
+async def get_version_info(request: Request, current_user = Depends(get_current_user)):
     """Get detailed version information (requires auth)."""
     info = version_service.get_version_info()
     # Remove sensitive fields
@@ -64,7 +66,8 @@ async def get_version_info(current_user = Depends(get_current_user)):
 
 
 @router.get("/check-updates", response_model=UpdateInfo)
-async def check_for_updates(current_user = Depends(get_current_user)):
+@limiter.limit(RateLimits.API_READ)
+async def check_for_updates(request: Request, current_user = Depends(get_current_user)):
     """Check if updates are available on GitHub (requires auth)."""
     git_info = version_service.get_git_info()
     update_info = await version_service.check_for_updates()
@@ -81,7 +84,9 @@ async def check_for_updates(current_user = Depends(get_current_user)):
 
 
 @router.get("/health", response_model=HealthCheck)
+@limiter.limit(RateLimits.HEALTH_CHECK)
 async def health_check(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_user)
 ):
@@ -112,7 +117,9 @@ async def health_check(
 
 
 @router.get("/stats", response_model=SystemStats)
+@limiter.limit(RateLimits.API_READ)
 async def get_system_stats(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -218,7 +225,9 @@ async def _set_setting_value(db: AsyncSession, key: str, value: Any, description
 
 
 @router.get("/settings", response_model=SystemSettingsResponse)
+@limiter.limit(RateLimits.API_READ)
 async def get_system_settings(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_active_admin)
 ):
@@ -235,7 +244,9 @@ async def get_system_settings(
 
 
 @router.put("/settings", response_model=SystemSettingsResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_system_settings(
+    request: Request,
     settings_data: SystemSettingsUpdate,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_active_admin)
@@ -270,7 +281,9 @@ async def update_system_settings(
 
 
 @router.put("/settings/{key}", response_model=SystemSettingResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_system_setting(
+    request: Request,
     key: str,
     setting_data: SystemSettingUpdate,
     db: AsyncSession = Depends(get_db),
@@ -292,7 +305,9 @@ async def update_system_setting(
 
 
 @router.post("/cleanup/run")
+@limiter.limit(RateLimits.CLEANUP_OPERATION)
 async def trigger_cleanup_run(
+    request: Request,
     dry_run: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_active_admin)
@@ -312,7 +327,9 @@ async def trigger_cleanup_run(
 
 
 @router.get("/cleanup/preview")
+@limiter.limit(RateLimits.API_READ)
 async def preview_cleanup(
+    request: Request,
     rule_id: int = None,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_active_admin)
@@ -329,7 +346,9 @@ async def preview_cleanup(
 
 
 @router.post("/sync/run")
+@limiter.limit(RateLimits.SYNC_OPERATION)
 async def trigger_sync_run(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_active_admin)
 ):

@@ -345,3 +345,19 @@ async def migrate_database(db: AsyncSession):
             await db.execute(text("ALTER TABLE playback_activities ALTER COLUMN runtime_ticks TYPE BIGINT"))
             await db.commit()
             logger.info("Migration completed: playback_activities tick columns are now BIGINT")
+
+    # Add account lockout columns to users table
+    has_failed_login = await column_exists(db, 'users', 'failed_login_attempts')
+
+    if not has_failed_login:
+        logger.info("Migrating users: adding account lockout columns")
+
+        if is_postgres:
+            await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0"))
+            await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITH TIME ZONE"))
+        else:
+            await db.execute(text("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0"))
+            await db.execute(text("ALTER TABLE users ADD COLUMN locked_until TIMESTAMP"))
+
+        await db.commit()
+        logger.info("Migration completed: account lockout columns added to users")

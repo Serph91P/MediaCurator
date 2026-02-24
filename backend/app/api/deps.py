@@ -1,7 +1,7 @@
 """
 Authentication dependencies and utilities.
 """
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -11,21 +11,30 @@ from ..core.database import get_db
 from ..core.security import decode_token
 from ..models import User
 
-security = HTTPBearer()
+# auto_error=False allows cookie-based auth fallback
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_db)
 ) -> User:
-    """Get the current authenticated user."""
+    """Get the current authenticated user from httpOnly cookie or Authorization header."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    token = credentials.credentials
+    # Try httpOnly cookie first, then Authorization header
+    token = request.cookies.get("access_token")
+    if not token and credentials:
+        token = credentials.credentials
+    
+    if not token:
+        raise credentials_exception
+    
     token_data = decode_token(token)
     
     if token_data is None or token_data.user_id is None:
@@ -61,14 +70,20 @@ async def get_current_active_admin(
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_db)
 ) -> Optional[User]:
     """Get the current user if authenticated, None otherwise."""
-    if credentials is None:
+    # Try httpOnly cookie first, then Authorization header
+    token = request.cookies.get("access_token")
+    if not token and credentials:
+        token = credentials.credentials
+    
+    if not token:
         return None
     
-    token_data = decode_token(credentials.credentials)
+    token_data = decode_token(token)
     if token_data is None or token_data.user_id is None:
         return None
     

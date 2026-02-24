@@ -6,7 +6,7 @@ from sqlalchemy import select, func, desc, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ...core.database import get_db
 from ...api.deps import get_current_user
@@ -142,7 +142,7 @@ async def get_user_detail(
         raise HTTPException(status_code=404, detail="User not found")
     
     # Get time-based stats from PlaybackActivity
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     periods = {
         "last_24h": now - timedelta(hours=24),
         "last_7d": now - timedelta(days=7),

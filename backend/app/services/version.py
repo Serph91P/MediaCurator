@@ -6,7 +6,7 @@ import os
 import aiohttp
 import asyncio
 from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from loguru import logger
 
 
@@ -223,7 +223,7 @@ class VersionService:
         """Check if updates are available on GitHub."""
         # Return cached result if check was recent
         if self._last_update_check:
-            time_since_check = datetime.utcnow() - self._last_update_check
+            time_since_check = datetime.now(timezone.utc) - self._last_update_check
             if time_since_check < self._update_check_interval:
                 return self._cached_update_info or {"update_available": False}
         
@@ -317,7 +317,7 @@ class VersionService:
             logger.warning(f"Failed to check for updates: {e}")
             update_info["error"] = str(e)
         
-        self._last_update_check = datetime.utcnow()
+        self._last_update_check = datetime.now(timezone.utc)
         self._cached_update_info = update_info
         return update_info
     

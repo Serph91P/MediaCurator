@@ -7,7 +7,7 @@ in a dedicated Emby library before permanent deletion.
 import os
 import shutil
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -212,11 +212,11 @@ class StagingService:
             
             # Update media item
             media_item.is_staged = True
-            media_item.staged_at = datetime.utcnow()
+            media_item.staged_at = datetime.now(timezone.utc)
             media_item.original_path = str(original_path)
             media_item.staged_path = str(staged_path)
             media_item.path = str(staged_path)  # Update current path
-            media_item.permanent_delete_at = datetime.utcnow() + timedelta(days=settings['grace_period_days'])
+            media_item.permanent_delete_at = datetime.now(timezone.utc) + timedelta(days=settings['grace_period_days'])
             
             # If Emby service provided, update libraries
             if emby_service:
@@ -477,7 +477,7 @@ class StagingService:
         if not settings['enabled']:
             return {"success": False, "error": "Staging is not enabled"}
         
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         # Find expired staged items
         from sqlalchemy.orm import joinedload

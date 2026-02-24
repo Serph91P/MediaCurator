@@ -6,7 +6,7 @@ from sqlalchemy import select, func, desc, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ...core.database import get_db
 from ...api.deps import get_current_user
@@ -135,7 +135,7 @@ async def get_activity_stats(
 ):
     """Get activity statistics for the specified time period."""
     
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Total plays
     total_plays_result = await db.execute(

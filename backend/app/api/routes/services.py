@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ...core.database import get_db
 from ...core.rate_limit import limiter, RateLimits
@@ -182,7 +182,7 @@ async def test_service(
         
         # Update last sync time on success
         if test_result.get("success"):
-            service.last_sync = datetime.utcnow()
+            service.last_sync = datetime.now(timezone.utc)
             await db.commit()
         
         return ServiceConnectionTest(**test_result)

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func, or_
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from loguru import logger
 
 from ...core.database import get_db
@@ -243,7 +243,7 @@ async def get_library_details(
     service = service_result.scalar_one_or_none()
     
     # Time periods
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     day_ago = now - timedelta(days=1)
     week_ago = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
@@ -750,7 +750,7 @@ async def sync_all_libraries(
                     lib.name = name
                     lib.path = path
                     lib.media_type = media_type
-                    lib.last_synced_at = datetime.utcnow()
+                    lib.last_synced_at = datetime.now(timezone.utc)
                 else:
                     # Create new library
                     new_lib = Library(
@@ -760,7 +760,7 @@ async def sync_all_libraries(
                         media_type=media_type,
                         path=path,
                         is_enabled=True,
-                        last_synced_at=datetime.utcnow()
+                        last_synced_at=datetime.now(timezone.utc)
                     )
                     db.add(new_lib)
                     total_synced += 1
@@ -772,7 +772,7 @@ async def sync_all_libraries(
                     total_removed += 1
             
             # Update service sync time
-            service.last_sync = datetime.utcnow()
+            service.last_sync = datetime.now(timezone.utc)
             
         except Exception as e:
             logger.error(f"Error syncing libraries from {service.name}: {e}")
@@ -858,7 +858,7 @@ async def sync_service_libraries(
                 lib.name = name
                 lib.path = path
                 lib.media_type = media_type
-                lib.last_synced_at = datetime.utcnow()
+                lib.last_synced_at = datetime.now(timezone.utc)
             else:
                 # Create new
                 new_lib = Library(
@@ -868,7 +868,7 @@ async def sync_service_libraries(
                     media_type=media_type,
                     path=path,
                     is_enabled=True,
-                    last_synced_at=datetime.utcnow()
+                    last_synced_at=datetime.now(timezone.utc)
                 )
                 db.add(new_lib)
                 synced += 1
@@ -879,7 +879,7 @@ async def sync_service_libraries(
                 await db.delete(lib)
                 removed += 1
         
-        service.last_sync = datetime.utcnow()
+        service.last_sync = datetime.now(timezone.utc)
         await db.commit()
         
         message = f"Synced {synced} new libraries from {service.name}"

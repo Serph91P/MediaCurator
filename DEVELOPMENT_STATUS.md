@@ -4,7 +4,7 @@
 
 **Letzte Aktualisierung**: 22. Februar 2026 (Session 6)
 **Branch**: `feature/phase2-enhancements-and-docs` (von `develop`)
-**Letzter Commit**: `ea6e64c` (Session 6)
+**Letzter Commit**: `0ac7124` (Session 6)
 **Version**: `vdev.0.0.147`
 **Repo**: `https://github.com/Serph91P/MediaCurator.git`
 

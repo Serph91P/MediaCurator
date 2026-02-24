@@ -13,7 +13,7 @@ from loguru import logger
 
 from ...core.database import get_db
 from ...core.rate_limit import limiter, RateLimits
-from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats, CleanupLog, MediaServerUser, UserWatchHistory
+from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats, CleanupLog, MediaServerUser, UserWatchHistory, Library
 from ...schemas import CleanupLogResponse
 from ..deps import get_current_user
 
@@ -811,6 +811,112 @@ async def get_audit_log(
             "total_size_freed_bytes": float(stats.total_size_freed) if stats and stats.total_size_freed else 0
         },
         "action_breakdown": action_breakdown
+    }
+
+
+@router.get("/content-reach")
+@limiter.limit(RateLimits.API_READ)
+async def get_content_reach(
+    request: Request,
+    library_id: Optional[int] = None,
+    media_type: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Shared vs. Solo vs. Unwatched content analysis.
+
+    - Shared: watched by 2+ unique users
+    - Solo: watched by exactly 1 user
+    - Unwatched: not watched by anyone
+    """
+    # Build base media query (movies and series only, not episodes/seasons)
+    media_query = select(MediaItem.id, MediaItem.title, MediaItem.media_type, MediaItem.size_bytes)
+    filters = [MediaItem.media_type.in_(["movie", "series"])]
+    if library_id is not None:
+        filters.append(MediaItem.library_id == library_id)
+    if media_type:
+        filters.append(MediaItem.media_type == media_type)
+    media_query = media_query.where(and_(*filters))
+
+    media_result = await db.execute(media_query)
+    media_items = media_result.all()
+
+    if not media_items:
+        return {
+            "total_items": 0,
+            "shared": {"count": 0, "pct": 0, "size_bytes": 0},
+            "solo": {"count": 0, "pct": 0, "size_bytes": 0},
+            "unwatched": {"count": 0, "pct": 0, "size_bytes": 0},
+            "top_shared": [],
+            "top_solo_large": [],
+        }
+
+    media_ids = [m.id for m in media_items]
+    media_map = {m.id: m for m in media_items}
+
+    # Count unique viewers per media item
+    viewer_query = (
+        select(
+            UserWatchHistory.media_item_id,
+            func.count(func.distinct(UserWatchHistory.user_id)).label("viewer_count"),
+        )
+        .where(and_(
+            UserWatchHistory.media_item_id.in_(media_ids),
+            UserWatchHistory.is_played == True,
+        ))
+        .group_by(UserWatchHistory.media_item_id)
+    )
+    viewer_result = await db.execute(viewer_query)
+    viewer_counts = {row.media_item_id: row.viewer_count for row in viewer_result.all()}
+
+    shared_items = []
+    solo_items = []
+    unwatched_items = []
+
+    for m in media_items:
+        vc = viewer_counts.get(m.id, 0)
+        mt = str(m.media_type)
+        if "." in mt:
+            mt = mt.split(".")[-1]
+        info = {"media_id": m.id, "title": m.title, "media_type": mt, "size_bytes": m.size_bytes or 0, "viewer_count": vc}
+        if vc >= 2:
+            shared_items.append(info)
+        elif vc == 1:
+            solo_items.append(info)
+        else:
+            unwatched_items.append(info)
+
+    total = len(media_items)
+    shared_size = sum(i["size_bytes"] for i in shared_items)
+    solo_size = sum(i["size_bytes"] for i in solo_items)
+    unwatched_size = sum(i["size_bytes"] for i in unwatched_items)
+
+    # Top shared (most viewers)
+    top_shared = sorted(shared_items, key=lambda x: x["viewer_count"], reverse=True)[:10]
+
+    # Top solo items by size (cleanup candidates)
+    top_solo_large = sorted(solo_items, key=lambda x: x["size_bytes"], reverse=True)[:10]
+
+    return {
+        "total_items": total,
+        "shared": {
+            "count": len(shared_items),
+            "pct": round(len(shared_items) / total * 100, 1),
+            "size_bytes": shared_size,
+        },
+        "solo": {
+            "count": len(solo_items),
+            "pct": round(len(solo_items) / total * 100, 1),
+            "size_bytes": solo_size,
+        },
+        "unwatched": {
+            "count": len(unwatched_items),
+            "pct": round(len(unwatched_items) / total * 100, 1),
+            "size_bytes": unwatched_size,
+        },
+        "top_shared": top_shared,
+        "top_solo_large": top_solo_large,
     }
 
 

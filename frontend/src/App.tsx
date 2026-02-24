@@ -25,6 +25,7 @@ const Staging = lazy(() => import('./pages/Staging'))
 const Users = lazy(() => import('./pages/Users'))
 const UserDetail = lazy(() => import('./pages/UserDetail'))
 const Activity = lazy(() => import('./pages/Activity'))
+const Analytics = lazy(() => import('./pages/Analytics'))
 
 interface SetupStatus {
   setup_complete: boolean
@@ -143,6 +144,7 @@ function App() {
         <Route path="users" element={<Suspense fallback={<PageSpinner />}><Users /></Suspense>} />
         <Route path="users/:userId" element={<Suspense fallback={<PageSpinner />}><UserDetail /></Suspense>} />
         <Route path="activity" element={<Suspense fallback={<PageSpinner />}><Activity /></Suspense>} />
+        <Route path="analytics" element={<Suspense fallback={<PageSpinner />}><Analytics /></Suspense>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

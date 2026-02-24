@@ -243,7 +243,9 @@ async def get_user_detail(
 
 
 @router.get("/{user_id}/activity")
+@limiter.limit(RateLimits.API_READ)
 async def get_user_activity(
+    request: Request,
     user_id: int,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
@@ -333,7 +335,9 @@ async def get_user_activity(
 
 
 @router.patch("/{user_id}")
+@limiter.limit(RateLimits.API_WRITE)
 async def update_user(
+    request: Request,
     user_id: int,
     is_hidden: Optional[bool] = None,
     db: AsyncSession = Depends(get_db),

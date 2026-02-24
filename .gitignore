@@ -77,3 +77,5 @@ temp/
 # copilot
 .github/agents
 .github/prompts
+.github/instructions
+.github/skills

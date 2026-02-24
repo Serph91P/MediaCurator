@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any
 from .core.config import get_settings
 from .core.database import async_session_maker
 from .core.websocket import ws_manager
-from .models import ServiceConnection, CleanupRule, SystemSettings, JobExecutionLog
+from .models import ServiceConnection, CleanupRule, SystemSettings, JobExecutionLog, RefreshToken
 from .services.cleanup_engine import CleanupEngine
 from .services.sync import sync_service_media
 from datetime import datetime, timezone
@@ -511,6 +511,27 @@ async def run_audit_retention_job():
             logger.error(f"Audit retention job failed: {e}")
 
 
+async def run_refresh_token_cleanup_job():
+    """Purge expired and revoked refresh tokens from the database."""
+    async with async_session_maker() as db:
+        try:
+            now = datetime.now(timezone.utc)
+            from sqlalchemy import or_, delete
+            stmt = delete(RefreshToken).where(
+                or_(
+                    RefreshToken.expires_at < now,
+                    RefreshToken.revoked_at.isnot(None)
+                )
+            )
+            result = await db.execute(stmt)
+            await db.commit()
+            deleted = result.rowcount
+            if deleted:
+                logger.info(f"Refresh token cleanup: purged {deleted} expired/revoked tokens")
+        except Exception as e:
+            logger.error(f"Refresh token cleanup job failed: {e}")
+
+
 def start_scheduler():
     """Start the scheduler with configured jobs."""
     # Sync job - default every 6 hours (syncs all services)
@@ -555,6 +576,15 @@ def start_scheduler():
         IntervalTrigger(hours=24),
         id="audit_retention_job",
         name="Audit Log Retention",
+        replace_existing=True
+    )
+
+    # Refresh token cleanup - run daily
+    scheduler.add_job(
+        run_refresh_token_cleanup_job,
+        IntervalTrigger(hours=24),
+        id="refresh_token_cleanup_job",
+        name="Refresh Token Cleanup",
         replace_existing=True
     )
     

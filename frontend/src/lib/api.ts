@@ -7,62 +7,35 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 })
 
-// Token management
-const ACCESS_TOKEN_KEY = 'auth_token'
-const REFRESH_TOKEN_KEY = 'refresh_token'
-
-export const setToken = (token: string | null) => {
-  if (token) {
-    localStorage.setItem(ACCESS_TOKEN_KEY, token)
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-  } else {
-    removeToken()
+/**
+ * Get a short-lived token for WebSocket authentication.
+ * Required because the access token is in an httpOnly cookie inaccessible to JS.
+ */
+export const getWsToken = async (): Promise<string | null> => {
+  try {
+    const response = await api.post<{ token: string }>('/auth/ws-token')
+    return response.data.token
+  } catch {
+    return null
   }
-}
-
-export const setRefreshToken = (token: string | null) => {
-  if (token) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, token)
-  } else {
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
-  }
-}
-
-export const getToken = (): string | null => {
-  return localStorage.getItem(ACCESS_TOKEN_KEY)
-}
-
-export const getRefreshToken = (): string | null => {
-  return localStorage.getItem(REFRESH_TOKEN_KEY)
-}
-
-export const removeToken = () => {
-  localStorage.removeItem(ACCESS_TOKEN_KEY)
-  localStorage.removeItem(REFRESH_TOKEN_KEY)
-  delete api.defaults.headers.common['Authorization']
-}
-
-// Initialize token from localStorage
-const token = getToken()
-if (token) {
-  api.defaults.headers.common['Authorization'] = `Bearer ${token}`
 }
 
 // Flag to prevent multiple refresh attempts
 let isRefreshing = false
 let failedQueue: Array<{
-  resolve: (token: string) => void
+  resolve: (value?: unknown) => void
   reject: (error: any) => void
 }> = []
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: any) => {
   failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error)
     } else {
-      prom.resolve(token!)
+      prom.resolve()
     }
   })
   failedQueue = []
@@ -78,7 +51,6 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       // Check if this is the refresh endpoint failing
       if (originalRequest.url === '/auth/refresh') {
-        removeToken()
         window.location.href = '/login'
         return Promise.reject(error)
       }
@@ -88,45 +60,25 @@ api.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
         })
-          .then((token) => {
-            originalRequest.headers['Authorization'] = `Bearer ${token}`
-            return api(originalRequest)
-          })
-          .catch((err) => {
-            return Promise.reject(err)
-          })
+          .then(() => api(originalRequest))
+          .catch((err) => Promise.reject(err))
       }
 
       originalRequest._retry = true
       isRefreshing = true
 
-      const refreshToken = getRefreshToken()
-      
-      if (!refreshToken) {
-        removeToken()
-        window.location.href = '/login'
-        return Promise.reject(error)
-      }
-
       try {
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refresh_token: refreshToken,
+        // Refresh via cookie — no body needed
+        await axios.post(`${API_BASE_URL}/auth/refresh`, {}, {
+          withCredentials: true,
         })
 
-        const newAccessToken = response.data.access_token
-        const newRefreshToken = response.data.refresh_token
-        setToken(newAccessToken)
-        if (newRefreshToken) {
-          setRefreshToken(newRefreshToken)
-        }
-        
-        processQueue(null, newAccessToken)
-        
-        originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`
+        processQueue(null)
+
+        // Retry original request — new cookie is set automatically
         return api(originalRequest)
       } catch (refreshError) {
-        processQueue(refreshError, null)
-        removeToken()
+        processQueue(refreshError)
         window.location.href = '/login'
         return Promise.reject(refreshError)
       } finally {

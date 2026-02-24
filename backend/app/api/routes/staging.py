@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timezone
 
-from ...api.deps import get_current_user, get_db
+from ...api.deps import get_current_user, get_current_active_admin, get_db
 from ...core.config import get_settings
 from ...core.rate_limit import limiter, RateLimits
 from ...models import MediaItem, User, SystemSettings
@@ -305,9 +305,9 @@ async def permanent_delete_item(
     request: Request,
     media_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_admin)
 ):
-    """Permanently delete a staged media item."""
+    """Permanently delete a staged media item (admin only)."""
     result = await db.execute(
         select(MediaItem).where(MediaItem.id == media_id)
     )
@@ -359,9 +359,9 @@ async def update_staging_settings(
     request: Request,
     update: StagingSettingsUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_admin)
 ):
-    """Update staging system settings."""
+    """Update staging system settings (admin only)."""
     updates = update.model_dump(exclude_unset=True)
 
     if 'staging_path' in updates and updates['staging_path'] is not None:
@@ -503,9 +503,9 @@ async def update_library_staging_settings(
     library_id: int,
     update: LibraryStagingSettingsUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_admin)
 ):
-    """Update staging settings for a specific library."""
+    """Update staging settings for a specific library (admin only)."""
     from ...models import Library
     
     result = await db.execute(select(Library).where(Library.id == library_id))
@@ -559,9 +559,9 @@ async def reset_library_staging_settings(
     request: Request,
     library_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_admin)
 ):
-    """Reset library staging settings to use global defaults."""
+    """Reset library staging settings to use global defaults (admin only)."""
     from ...models import Library
     
     result = await db.execute(select(Library).where(Library.id == library_id))

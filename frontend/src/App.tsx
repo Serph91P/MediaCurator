@@ -2,7 +2,6 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useEffect, lazy, Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from './stores/auth'
-import { getToken } from './lib/api'
 import api from './lib/api'
 import Layout from './components/Layout'
 
@@ -37,18 +36,16 @@ interface SetupStatus {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, fetchUser } = useAuthStore()
-  const token = getToken()
   const location = useLocation()
 
-  // Fetch fresh user data on mount if we have a token
+  // Validate session on mount
   useEffect(() => {
-    if (token) {
+    if (isAuthenticated) {
       fetchUser()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   
-  // Check both zustand state and localStorage token
-  if (!isAuthenticated && !token) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
   
@@ -98,8 +95,8 @@ function PageSpinner() {
 
 function App() {
   const { isAuthenticated } = useAuthStore()
-  const token = getToken()
-  const hasAuth = isAuthenticated || !!token
+
+  const hasAuth = isAuthenticated
 
   return (
     <Routes>

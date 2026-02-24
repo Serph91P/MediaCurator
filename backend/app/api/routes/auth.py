@@ -15,6 +15,8 @@ from ...core.security import (
 )
 from ...core.config import get_settings
 from ...core.rate_limit import limiter, RateLimits
+from ...core.csrf import generate_csrf_token, set_csrf_cookie, clear_csrf_cookie
+from ...core.security_events import log_security_event, SecurityEventType
 from ...models import User, RefreshToken
 from ...schemas import (
     Token, TokenRefreshRequest, TokenRefreshResponse,
@@ -28,7 +30,7 @@ settings = get_settings()
 
 
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
-    """Set httpOnly auth cookies on the response."""
+    """Set httpOnly auth cookies and CSRF cookie on the response."""
     is_secure = not settings.debug
     response.set_cookie(
         key="access_token",
@@ -48,12 +50,14 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
         path="/api/auth",
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
     )
+    set_csrf_cookie(response, generate_csrf_token())
 
 
 def _clear_auth_cookies(response: Response) -> None:
-    """Clear httpOnly auth cookies from the response."""
+    """Clear httpOnly auth cookies and CSRF cookie from the response."""
     response.delete_cookie("access_token", path="/api")
     response.delete_cookie("refresh_token", path="/api/auth")
+    clear_csrf_cookie(response)
 
 
 def get_client_ip(request: Request) -> str:
@@ -113,6 +117,14 @@ async def login(
         if lock_time.tzinfo is None:
             lock_time = lock_time.replace(tzinfo=timezone.utc)
         if datetime.now(timezone.utc) < lock_time:
+            log_security_event(
+                SecurityEventType.AUTH_LOGIN_FAILURE,
+                client_ip=get_client_ip(request),
+                username=form_data.username,
+                path="/api/auth/login",
+                method="POST",
+                detail="Account locked",
+            )
             raise HTTPException(
                 status_code=status.HTTP_423_LOCKED,
                 detail="Account temporarily locked due to too many failed login attempts. Try again later.",
@@ -126,7 +138,24 @@ async def login(
             if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
                 from datetime import timedelta
                 user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+                log_security_event(
+                    SecurityEventType.AUTH_ACCOUNT_LOCKED,
+                    client_ip=get_client_ip(request),
+                    user_id=user.id,
+                    username=user.username,
+                    path="/api/auth/login",
+                    method="POST",
+                    detail=f"Account locked after {MAX_FAILED_ATTEMPTS} failed attempts",
+                )
             await db.commit()
+        log_security_event(
+            SecurityEventType.AUTH_LOGIN_FAILURE,
+            client_ip=get_client_ip(request),
+            username=form_data.username,
+            path="/api/auth/login",
+            method="POST",
+            detail="Incorrect username or password",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -163,6 +192,15 @@ async def login(
     await db.commit()
     
     _set_auth_cookies(response, access_token, refresh_token)
+    
+    log_security_event(
+        SecurityEventType.AUTH_LOGIN_SUCCESS,
+        client_ip=get_client_ip(request),
+        user_id=user.id,
+        username=user.username,
+        path="/api/auth/login",
+        method="POST",
+    )
     
     return Token(
         access_token=access_token,
@@ -201,6 +239,15 @@ async def register(
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    
+    log_security_event(
+        SecurityEventType.AUTH_REGISTER,
+        client_ip=get_client_ip(request),
+        user_id=user.id,
+        username=user.username,
+        path="/api/auth/register",
+        method="POST",
+    )
     
     return user
 
@@ -283,6 +330,13 @@ async def refresh_token(
     db_token = result.scalar_one_or_none()
     
     if not db_token:
+        log_security_event(
+            SecurityEventType.AUTH_TOKEN_REFRESH_FAILURE,
+            client_ip=get_client_ip(request),
+            path="/api/auth/refresh",
+            method="POST",
+            detail="Invalid refresh token",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
@@ -334,6 +388,15 @@ async def refresh_token(
     
     _set_auth_cookies(response, access_token, new_refresh_token)
     
+    log_security_event(
+        SecurityEventType.AUTH_TOKEN_REFRESH,
+        client_ip=get_client_ip(request),
+        user_id=user.id,
+        username=user.username,
+        path="/api/auth/refresh",
+        method="POST",
+    )
+    
     return TokenRefreshResponse(
         access_token=access_token,
         refresh_token=new_refresh_token,
@@ -373,6 +436,15 @@ async def logout(
     
     _clear_auth_cookies(response)
     
+    log_security_event(
+        SecurityEventType.AUTH_LOGOUT,
+        client_ip=get_client_ip(request),
+        user_id=current_user.id,
+        username=current_user.username,
+        path="/api/auth/logout",
+        method="POST",
+    )
+    
     return {"message": "Successfully logged out"}
 
 
@@ -402,6 +474,16 @@ async def logout_all_sessions(
     await db.commit()
     
     _clear_auth_cookies(response)
+    
+    log_security_event(
+        SecurityEventType.AUTH_LOGOUT_ALL,
+        client_ip=get_client_ip(request),
+        user_id=current_user.id,
+        username=current_user.username,
+        path="/api/auth/logout-all",
+        method="POST",
+        detail=f"Revoked {len(tokens)} sessions",
+    )
     
     return {"message": f"Revoked {len(tokens)} active sessions"}
 

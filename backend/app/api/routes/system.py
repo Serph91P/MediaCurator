@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 from ...core.database import get_db
 from ...core.config import get_settings
-from ...models import MediaItem, CleanupLog, SystemSettings, MediaType
+from ...models import MediaItem, CleanupLog, SystemSettings, MediaType, User
 from ...schemas import SystemStats, HealthCheck, DiskSpaceInfo, SystemSettingResponse, SystemSettingUpdate, SystemSettingsResponse, SystemSettingsUpdate
 from ...services.version import version_service
 from ..deps import get_current_user, get_optional_user, get_current_active_admin
@@ -82,17 +82,25 @@ async def check_for_updates(current_user = Depends(get_current_user)):
 
 @router.get("/health", response_model=HealthCheck)
 async def health_check(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user)
 ):
-    """Health check endpoint (no auth required)."""
-    # Check database
+    """Health check endpoint. Returns minimal info without auth, full details with auth."""
+    if not current_user:
+        return HealthCheck(
+            status="healthy",
+            version="",
+            database="",
+            scheduler=""
+        )
+
+    # Full details only for authenticated users
     try:
         await db.execute(select(func.count(MediaItem.id)))
         db_status = "healthy"
     except Exception:
         db_status = "unhealthy"
     
-    # Get version from version service
     version_info = version_service.get_git_info()
     
     return HealthCheck(

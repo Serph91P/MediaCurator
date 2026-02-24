@@ -2,12 +2,32 @@ import axios from 'axios'
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '/api'
 
+/**
+ * Read a cookie value by name.
+ */
+function getCookie(name: string): string | undefined {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+  return match ? decodeURIComponent(match[2]) : undefined
+}
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true,
+})
+
+// Attach CSRF token header on state-changing requests
+api.interceptors.request.use((config) => {
+  const method = (config.method || '').toUpperCase()
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    const csrfToken = getCookie('csrf_token')
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken
+    }
+  }
+  return config
 })
 
 /**

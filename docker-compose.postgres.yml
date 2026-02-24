@@ -14,7 +14,7 @@ services:
     
     environment:
       - TZ=${TZ:-Europe/Berlin}
-      - SECRET_KEY=${SECRET_KEY:-please-change-this-secret-key-in-production}
+      - SECRET_KEY=${SECRET_KEY:?ERROR: SECRET_KEY must be set. Generate one with: openssl rand -hex 32}
       
       # PostgreSQL Database Configuration
       - POSTGRES_HOST=postgres

@@ -1,7 +1,7 @@
 # ADR-001: Migrate JWT Storage from localStorage to httpOnly Cookies
 
-**Status:** Proposed  
-**Date:** 2025-01-01  
+**Status:** Implemented  
+**Date:** 2026-02-24  
 **Decision Makers:** Engineering Team
 
 ## Context

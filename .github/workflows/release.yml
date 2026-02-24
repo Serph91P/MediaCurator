@@ -8,6 +8,13 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/mediacurator
@@ -15,6 +22,9 @@ env:
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
       is_prerelease: ${{ steps.version.outputs.is_prerelease }}
@@ -28,19 +38,21 @@ jobs:
 
       - name: Determine version
         id: version
+        env:
+          REF: ${{ github.ref }}
         run: |
           # Get commit count for consistent versioning across branches
           COMMIT_COUNT=$(git rev-list --count HEAD)
           
-          if [[ "${{ github.ref }}" == refs/tags/vdev.* ]]; then
+          if [[ "$REF" == refs/tags/vdev.* ]]; then
             # Dev tag (e.g., vdev.0.0.103 -> dev.0.0.103)
             VERSION=${GITHUB_REF#refs/tags/v}
             IS_PRERELEASE=true
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          elif [[ "$REF" == refs/tags/v* ]]; then
             # Stable tag (e.g., v1.2.3 -> 1.2.3)
             VERSION=${GITHUB_REF#refs/tags/v}
             IS_PRERELEASE=false
-          elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
+          elif [[ "$REF" == refs/heads/main ]]; then
             # Main branch - stable release with same count as dev
             VERSION="0.0.${COMMIT_COUNT}"
             IS_PRERELEASE=false
@@ -60,9 +72,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             # For tagged releases
-            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/vdev') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/vdev') }}
+            type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/vdev') }}
             # For main branch
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=stable,enable=${{ github.ref == 'refs/heads/main' }}
@@ -76,6 +88,7 @@ jobs:
   build-and-push:
     needs: prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -111,6 +124,7 @@ jobs:
   create-release:
     needs: [prepare, build-and-push]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
     # Create releases for tags, develop and main branch pushes
@@ -123,14 +137,18 @@ jobs:
 
       - name: Generate Changelog
         id: changelog
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          # Install git-cliff
-          curl -sSL https://github.com/orhun/git-cliff/releases/download/v2.11.0/git-cliff-2.11.0-x86_64-unknown-linux-gnu.tar.gz | tar -xz
+          # Install git-cliff with integrity verification
+          curl -sSL https://github.com/orhun/git-cliff/releases/download/v2.11.0/git-cliff-2.11.0-x86_64-unknown-linux-gnu.tar.gz -o git-cliff.tar.gz
+          echo "80d89595216c44d5bacde999b30fc17858fda93061e0ae0d0c1b33b8b8150989  git-cliff.tar.gz" | sha256sum -c -
+          tar -xzf git-cliff.tar.gz
           chmod +x git-cliff-2.11.0/git-cliff
           
           # Get the previous tag for comparison
           CURRENT_VERSION="${{ needs.prepare.outputs.version }}"
-          BRANCH="${{ github.ref_name }}"
+          BRANCH="$REF_NAME"
           
           # Find the last tag based on branch
           # For develop: look for vdev.* tags only
@@ -152,11 +170,15 @@ jobs:
           if [ -n "$LAST_TAG" ]; then
             # Generate changelog from last tag to HEAD
             echo "Generating changelog from $LAST_TAG to HEAD..."
-            ./git-cliff-2.11.0/git-cliff --config cliff.toml "$LAST_TAG"..HEAD --strip header > CHANGELOG_CONTENT.md || true
+            if ! ./git-cliff-2.11.0/git-cliff --config cliff.toml "$LAST_TAG"..HEAD --strip header > CHANGELOG_CONTENT.md; then
+              echo "::warning::git-cliff failed to generate changelog from $LAST_TAG, falling back to commit messages"
+            fi
           else
             # No tags exist, generate full changelog
             echo "No previous tags found, generating full changelog..."
-            ./git-cliff-2.11.0/git-cliff --config cliff.toml --strip header > CHANGELOG_CONTENT.md || true
+            if ! ./git-cliff-2.11.0/git-cliff --config cliff.toml --strip header > CHANGELOG_CONTENT.md; then
+              echo "::warning::git-cliff failed to generate full changelog, falling back to commit messages"
+            fi
           fi
           
           # Check if changelog has content
@@ -273,5 +295,4 @@ jobs:
           draft: false
           prerelease: ${{ needs.prepare.outputs.is_prerelease }}
           make_latest: ${{ github.ref == 'refs/heads/main' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}

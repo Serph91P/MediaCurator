@@ -14,7 +14,7 @@ from ...core.config import get_settings
 from ...models import MediaItem, CleanupLog, SystemSettings, MediaType
 from ...schemas import SystemStats, HealthCheck, DiskSpaceInfo, SystemSettingResponse, SystemSettingUpdate, SystemSettingsResponse, SystemSettingsUpdate
 from ...services.version import version_service
-from ..deps import get_current_user, get_optional_user
+from ..deps import get_current_user, get_optional_user, get_current_active_admin
 
 router = APIRouter(prefix="/system", tags=["System"])
 settings = get_settings()
@@ -212,7 +212,7 @@ async def _set_setting_value(db: AsyncSession, key: str, value: Any, description
 @router.get("/settings", response_model=SystemSettingsResponse)
 async def get_system_settings(
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Get all system settings as a single object."""
     return SystemSettingsResponse(
@@ -230,7 +230,7 @@ async def get_system_settings(
 async def update_system_settings(
     settings_data: SystemSettingsUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Update multiple system settings at once."""
     # Update only provided fields
@@ -266,7 +266,7 @@ async def update_system_setting(
     key: str,
     setting_data: SystemSettingUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Update a single system setting by key."""
     if key not in ALLOWED_SETTING_KEYS:
@@ -287,7 +287,7 @@ async def update_system_setting(
 async def trigger_cleanup_run(
     dry_run: bool = False,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Manually trigger a cleanup run."""
     from ...services.cleanup_engine import CleanupEngine
@@ -307,7 +307,7 @@ async def trigger_cleanup_run(
 async def preview_cleanup(
     rule_id: int = None,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """
     Preview what would be cleaned up without actually doing it.
@@ -323,7 +323,7 @@ async def preview_cleanup(
 @router.post("/sync/run")
 async def trigger_sync_run(
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Manually trigger a sync run for all services."""
     from ...models import ServiceConnection

@@ -1,12 +1,12 @@
 """
 Authentication API routes.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Response, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 from ...core.database import get_db
 from ...core.security import (
@@ -25,6 +25,35 @@ from ..deps import get_current_user, get_current_active_admin
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 settings = get_settings()
+
+
+def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    """Set httpOnly auth cookies on the response."""
+    is_secure = not settings.debug
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=is_secure,
+        samesite="lax",
+        path="/api",
+        max_age=settings.access_token_expire_minutes * 60,
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=is_secure,
+        samesite="strict",
+        path="/api/auth",
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
+    )
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    """Clear httpOnly auth cookies from the response."""
+    response.delete_cookie("access_token", path="/api")
+    response.delete_cookie("refresh_token", path="/api/auth")
 
 
 def get_client_ip(request: Request) -> str:
@@ -66,6 +95,7 @@ async def check_setup_required(
 @limiter.limit(RateLimits.AUTH_LOGIN)
 async def login(
     request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
@@ -131,6 +161,8 @@ async def login(
     )
     db.add(db_refresh_token)
     await db.commit()
+    
+    _set_auth_cookies(response, access_token, refresh_token)
     
     return Token(
         access_token=access_token,
@@ -227,13 +259,26 @@ async def update_current_user(
 @limiter.limit(RateLimits.AUTH_LOGIN)
 async def refresh_token(
     request: Request,
-    token_request: TokenRefreshRequest,
+    response: Response,
+    token_request: Optional[TokenRefreshRequest] = Body(None),
     db: AsyncSession = Depends(get_db)
 ):
     """Refresh access token using a valid refresh token. Rotates the refresh token."""
+    # Read refresh token from cookie first, fall back to request body
+    refresh_token_value = request.cookies.get("refresh_token")
+    if not refresh_token_value and token_request:
+        refresh_token_value = token_request.refresh_token
+    
+    if not refresh_token_value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No refresh token provided",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     # Find the refresh token in database
     result = await db.execute(
-        select(RefreshToken).where(RefreshToken.token == token_request.refresh_token)
+        select(RefreshToken).where(RefreshToken.token == refresh_token_value)
     )
     db_token = result.scalar_one_or_none()
     
@@ -287,6 +332,8 @@ async def refresh_token(
     db.add(new_db_token)
     await db.commit()
     
+    _set_auth_cookies(response, access_token, new_refresh_token)
+    
     return TokenRefreshResponse(
         access_token=access_token,
         refresh_token=new_refresh_token,
@@ -298,25 +345,33 @@ async def refresh_token(
 @limiter.limit(RateLimits.API_WRITE)
 async def logout(
     request: Request,
-    token_request: TokenRefreshRequest,
+    response: Response,
+    token_request: Optional[TokenRefreshRequest] = Body(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Logout and revoke the refresh token."""
-    # Find and revoke the refresh token
-    result = await db.execute(
-        select(RefreshToken).where(
-            and_(
-                RefreshToken.token == token_request.refresh_token,
-                RefreshToken.user_id == current_user.id
+    # Get refresh token from cookie or body
+    refresh_token_value = request.cookies.get("refresh_token")
+    if not refresh_token_value and token_request:
+        refresh_token_value = token_request.refresh_token
+    
+    if refresh_token_value:
+        result = await db.execute(
+            select(RefreshToken).where(
+                and_(
+                    RefreshToken.token == refresh_token_value,
+                    RefreshToken.user_id == current_user.id
+                )
             )
         )
-    )
-    db_token = result.scalar_one_or_none()
+        db_token = result.scalar_one_or_none()
+        
+        if db_token:
+            db_token.revoked_at = datetime.now(timezone.utc)
+            await db.commit()
     
-    if db_token:
-        db_token.revoked_at = datetime.now(timezone.utc)
-        await db.commit()
+    _clear_auth_cookies(response)
     
     return {"message": "Successfully logged out"}
 
@@ -325,6 +380,7 @@ async def logout(
 @limiter.limit(RateLimits.API_WRITE)
 async def logout_all_sessions(
     request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -345,6 +401,8 @@ async def logout_all_sessions(
     
     await db.commit()
     
+    _clear_auth_cookies(response)
+    
     return {"message": f"Revoked {len(tokens)} active sessions"}
 
 
@@ -356,8 +414,8 @@ async def list_sessions(
     db: AsyncSession = Depends(get_db)
 ):
     """List all active sessions for the current user."""
-    # Get current refresh token from request (if available)
-    current_token = request.headers.get("x-refresh-token")
+    # Get current refresh token from cookie or header
+    current_token = request.cookies.get("refresh_token") or request.headers.get("x-refresh-token")
     
     result = await db.execute(
         select(RefreshToken).where(
@@ -419,4 +477,16 @@ async def revoke_session(
     await db.commit()
     
     return {"message": "Session revoked successfully"}
+
+
+@router.post("/ws-token")
+@limiter.limit(RateLimits.API_READ)
+async def get_ws_token(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """Get a short-lived token for WebSocket authentication (30 seconds)."""
+    from ...core.security import create_ws_token
+    token = create_ws_token(user_id=current_user.id, username=current_user.username)
+    return {"token": token}
 

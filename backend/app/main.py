@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from .core.security_headers import SecurityHeadersMiddleware
+from .core.csrf import CSRFMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
@@ -86,6 +87,9 @@ app = FastAPI(
 # Security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
+# CSRF double-submit cookie middleware
+app.add_middleware(CSRFMiddleware)
+
 # Global request body size limit (10 MB)
 MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024
 
@@ -104,7 +108,7 @@ app.add_middleware(
     allow_origins=settings.cors_origin_list,
     allow_credentials=_allow_credentials,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Refresh-Token"],
+    allow_headers=["Authorization", "Content-Type", "X-Refresh-Token", "X-CSRF-Token"],
 )
 
 # Setup rate limiting

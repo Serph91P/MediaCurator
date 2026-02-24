@@ -289,6 +289,11 @@ class RuleConditions(BaseModel):
     add_import_exclusion: bool = True  # Add to import exclusion list when deleting
     watched_progress_below: Optional[int] = Field(None, ge=0, le=100)  # Only delete if progress below X%
     exclude_recently_added_days: Optional[int] = Field(None, ge=0)  # Exclude recently added items
+    # Phase 5: Smart Cleanup - Per-user conditions
+    no_user_watched_days: Optional[int] = Field(None, ge=0)  # Delete only if NO user watched in X days
+    exclude_if_user_favorited: List[int] = []  # Never delete if any of these user IDs have it as favorite
+    exclude_active_sessions: bool = True  # Never delete if any user is currently watching
+    min_unique_viewers: Optional[int] = Field(None, ge=0)  # Only delete if fewer than X unique viewers
 
 
 class CleanupRuleBase(BaseModel):

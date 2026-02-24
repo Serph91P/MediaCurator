@@ -920,6 +920,182 @@ async def get_content_reach(
     }
 
 
+@router.get("/cleanup-suggestions")
+@limiter.limit(RateLimits.API_READ)
+async def get_cleanup_suggestions(
+    request: Request,
+    days: int = Query(90, ge=7, le=365),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get analytics-based cleanup suggestions.
+    
+    Analyzes watch patterns and content usage to suggest items for cleanup:
+    - Unwatched content older than X days
+    - Abandoned content (started but never finished by anyone)
+    - Low-engagement content (watched by very few users)
+    - Completed and stale content (fully watched, not rewatched)
+    - Large files with low watch counts (storage hogs)
+    """
+    from ...models import PlaybackActivity
+    
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=days)
+    
+    # Get all media items with sizes
+    items_result = await db.execute(
+        select(MediaItem).where(
+            and_(
+                MediaItem.media_type.in_([MediaType.MOVIE, MediaType.SERIES]),
+                MediaItem.size_bytes > 0
+            )
+        )
+    )
+    all_items = items_result.scalars().all()
+    
+    if not all_items:
+        return {"suggestions": [], "summary": {}}
+    
+    # Pre-fetch per-user data for all items
+    # Get unique viewer counts per item
+    viewer_counts_result = await db.execute(
+        select(
+            UserWatchHistory.media_item_id,
+            func.count(func.distinct(UserWatchHistory.user_id)).label("viewers"),
+            func.max(UserWatchHistory.last_played_at).label("last_played"),
+            func.avg(UserWatchHistory.played_percentage).label("avg_progress")
+        ).where(UserWatchHistory.is_played == True)
+        .group_by(UserWatchHistory.media_item_id)
+    )
+    viewer_data = {
+        row.media_item_id: {
+            "viewers": row.viewers,
+            "last_played": row.last_played,
+            "avg_progress": float(row.avg_progress) if row.avg_progress else 0
+        }
+        for row in viewer_counts_result.all()
+    }
+    
+    # Get abandoned items (started but avg progress < 25%)
+    abandoned_result = await db.execute(
+        select(
+            UserWatchHistory.media_item_id,
+            func.count(func.distinct(UserWatchHistory.user_id)).label("starters"),
+            func.avg(UserWatchHistory.played_percentage).label("avg_pct")
+        ).group_by(UserWatchHistory.media_item_id)
+        .having(func.avg(UserWatchHistory.played_percentage) < 25)
+    )
+    abandoned_ids = {row.media_item_id for row in abandoned_result.all()}
+    
+    # Get active sessions (items currently being watched)
+    active_result = await db.execute(
+        select(PlaybackActivity.media_item_id).where(PlaybackActivity.is_active == True).distinct()
+    )
+    active_ids = {row[0] for row in active_result.all()}
+    
+    suggestions = []
+    
+    # Get total user count (for low-engagement calculation)
+    total_users_result = await db.execute(select(func.count()).select_from(MediaServerUser))
+    total_users = total_users_result.scalar() or 1
+    
+    for item in all_items:
+        # Skip items currently being watched
+        if item.id in active_ids:
+            continue
+        # Skip staged items
+        if getattr(item, 'is_staged', False):
+            continue
+        # Skip already flagged items
+        if getattr(item, 'flagged_for_cleanup', False):
+            continue
+        
+        vdata = viewer_data.get(item.id)
+        unique_viewers = vdata["viewers"] if vdata else 0
+        last_played = vdata["last_played"] if vdata else None
+        avg_progress = vdata["avg_progress"] if vdata else 0
+        
+        suggestion_reasons = []
+        score = 0  # Higher score = stronger suggestion
+        
+        # Category 1: Unwatched content
+        if not item.is_watched and not vdata:
+            age_days = (now - item.added_at).days if item.added_at else 0
+            if age_days > days:
+                suggestion_reasons.append(f"Never watched, added {age_days} days ago")
+                score += 30 + min(age_days // 30, 20)  # Up to +50
+        
+        # Category 2: Abandoned content
+        if item.id in abandoned_ids and vdata:
+            suggestion_reasons.append(f"Abandoned by viewers (avg progress: {avg_progress:.0f}%)")
+            score += 25
+        
+        # Category 3: Low engagement (only 1 viewer on shared server)
+        if total_users > 1 and unique_viewers <= 1 and item.added_at and (now - item.added_at).days > days:
+            suggestion_reasons.append(f"Low engagement: only {unique_viewers} viewer(s) out of {total_users} users")
+            score += 15
+        
+        # Category 4: Completed & stale (watched but not rewatched in X days)
+        if vdata and avg_progress > 90 and last_played and last_played < cutoff:
+            days_since = (now - last_played).days
+            suggestion_reasons.append(f"Fully watched, not revisited in {days_since} days")
+            score += 20 + min(days_since // 30, 10)
+        
+        # Category 5: Storage hogs (large files with low watch count)
+        size_gb = (item.size_bytes or 0) / (1024**3)
+        if size_gb > 5 and (item.watch_count or 0) <= 1:
+            suggestion_reasons.append(f"Large file ({size_gb:.1f} GB) with only {item.watch_count or 0} total plays")
+            score += 15 + int(size_gb)
+        
+        if suggestion_reasons:
+            suggestions.append({
+                "item_id": item.id,
+                "title": item.title,
+                "media_type": item.media_type.value if hasattr(item.media_type, 'value') else str(item.media_type),
+                "size_bytes": item.size_bytes or 0,
+                "added_at": item.added_at.isoformat() if item.added_at else None,
+                "last_watched_at": last_played.isoformat() if last_played else None,
+                "watch_count": item.watch_count or 0,
+                "unique_viewers": unique_viewers,
+                "avg_progress": round(avg_progress, 1),
+                "score": score,
+                "reasons": suggestion_reasons,
+            })
+    
+    # Sort by score descending
+    suggestions.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Limit to top 50
+    suggestions = suggestions[:50]
+    
+    # Build categories for summary
+    cat_counts = {"unwatched": 0, "abandoned": 0, "low_engagement": 0, "stale": 0, "storage_hog": 0}
+    total_reclaimable = 0
+    for s in suggestions:
+        total_reclaimable += s["size_bytes"]
+        for reason in s["reasons"]:
+            if "Never watched" in reason:
+                cat_counts["unwatched"] += 1
+            if "Abandoned" in reason:
+                cat_counts["abandoned"] += 1
+            if "Low engagement" in reason:
+                cat_counts["low_engagement"] += 1
+            if "not revisited" in reason:
+                cat_counts["stale"] += 1
+            if "Large file" in reason:
+                cat_counts["storage_hog"] += 1
+    
+    return {
+        "suggestions": suggestions,
+        "summary": {
+            "total_suggestions": len(suggestions),
+            "total_reclaimable_bytes": total_reclaimable,
+            "days_analyzed": days,
+            "categories": cat_counts,
+        }
+    }
+
+
 # Simple in-memory image cache (max 200 items, TTL 1 hour)
 _image_cache: Dict[int, tuple[bytes, str, datetime]] = {}
 _IMAGE_CACHE_MAX = 200

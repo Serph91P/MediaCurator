@@ -26,6 +26,7 @@ const Users = lazy(() => import('./pages/Users'))
 const UserDetail = lazy(() => import('./pages/UserDetail'))
 const Activity = lazy(() => import('./pages/Activity'))
 const Analytics = lazy(() => import('./pages/Analytics'))
+const CleanupSuggestions = lazy(() => import('./pages/CleanupSuggestions'))
 
 interface SetupStatus {
   setup_complete: boolean
@@ -140,6 +141,7 @@ function App() {
         <Route path="settings" element={<Suspense fallback={<PageSpinner />}><Settings /></Suspense>} />
         <Route path="history" element={<Suspense fallback={<PageSpinner />}><History /></Suspense>} />
         <Route path="preview" element={<Suspense fallback={<PageSpinner />}><Preview /></Suspense>} />
+        <Route path="suggestions" element={<Suspense fallback={<PageSpinner />}><CleanupSuggestions /></Suspense>} />
         <Route path="staging" element={<Suspense fallback={<PageSpinner />}><Staging /></Suspense>} />
         <Route path="users" element={<Suspense fallback={<PageSpinner />}><Users /></Suspense>} />
         <Route path="users/:userId" element={<Suspense fallback={<PageSpinner />}><UserDetail /></Suspense>} />

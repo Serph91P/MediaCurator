@@ -28,6 +28,7 @@ import {
   UsersIcon,
   ChartBarIcon,
   ChartPieIcon,
+  LightBulbIcon,
 } from '@heroicons/react/24/outline'
 
 const navigation = [
@@ -39,6 +40,7 @@ const navigation = [
   { name: 'Services', href: '/services', icon: ServerStackIcon },
   { name: 'Rules', href: '/rules', icon: ClipboardDocumentListIcon },
   { name: 'Preview', href: '/preview', icon: EyeIcon },
+  { name: 'Suggestions', href: '/suggestions', icon: LightBulbIcon },
   { name: 'Staging', href: '/staging', icon: ArchiveBoxIcon },
   { name: 'Jobs', href: '/jobs', icon: CpuChipIcon },
   { name: 'Notifications', href: '/notifications', icon: BellIcon },

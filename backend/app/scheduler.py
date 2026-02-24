@@ -489,6 +489,28 @@ async def run_auto_restore_job():
                 )
 
 
+async def run_audit_retention_job():
+    """Delete audit log entries older than the configured retention period."""
+    from datetime import timedelta
+    from sqlalchemy import delete
+    from .models import AuditLog
+
+    retention_days = settings.audit_retention_days
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+
+    async with async_session_maker() as db:
+        try:
+            result = await db.execute(
+                delete(AuditLog).where(AuditLog.created_at < cutoff)
+            )
+            deleted = result.rowcount
+            await db.commit()
+            if deleted:
+                logger.info(f"Audit retention: purged {deleted} entries older than {retention_days} days")
+        except Exception as e:
+            logger.error(f"Audit retention job failed: {e}")
+
+
 def start_scheduler():
     """Start the scheduler with configured jobs."""
     # Sync job - default every 6 hours (syncs all services)
@@ -524,6 +546,15 @@ def start_scheduler():
         IntervalTrigger(minutes=30),
         id="auto_restore_job",
         name="Auto-Restore Watched",
+        replace_existing=True
+    )
+
+    # Audit log retention - run daily
+    scheduler.add_job(
+        run_audit_retention_job,
+        IntervalTrigger(hours=24),
+        id="audit_retention_job",
+        name="Audit Log Retention",
         replace_existing=True
     )
     

@@ -1,7 +1,7 @@
 """
 Libraries API routes - auto-synced from Emby/Jellyfin.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func, or_
 from typing import List, Dict, Any, Optional
@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from loguru import logger
 
 from ...core.database import get_db
+from ...core.rate_limit import limiter, RateLimits
 from ...models import Library, ServiceConnection, ServiceType, MediaType, MediaItem, UserWatchHistory, PlaybackActivity
 from ...schemas import LibraryUpdate, LibraryResponse, LibrarySyncResponse
 from ...services import EmbyClient
@@ -18,7 +19,9 @@ router = APIRouter(prefix="/libraries", tags=["Libraries"])
 
 
 @router.get("/stats")
+@limiter.limit(RateLimits.API_READ)
 async def get_library_stats(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ) -> List[Dict[str, Any]]:
@@ -191,7 +194,9 @@ async def get_library_stats(
 
 
 @router.get("/", response_model=List[LibraryResponse])
+@limiter.limit(RateLimits.API_READ)
 async def list_libraries(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -201,7 +206,9 @@ async def list_libraries(
 
 
 @router.get("/{library_id}", response_model=LibraryResponse)
+@limiter.limit(RateLimits.API_READ)
 async def get_library(
+    request: Request,
     library_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -220,7 +227,9 @@ async def get_library(
 
 
 @router.get("/{library_id}/details")
+@limiter.limit(RateLimits.API_READ)
 async def get_library_details(
+    request: Request,
     library_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -474,7 +483,9 @@ async def get_library_details(
 
 
 @router.get("/{library_id}/media")
+@limiter.limit(RateLimits.API_READ)
 async def get_library_media(
+    request: Request,
     library_id: int,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
@@ -557,7 +568,9 @@ async def get_library_media(
 
 
 @router.get("/{library_id}/activity")
+@limiter.limit(RateLimits.API_READ)
 async def get_library_activity(
+    request: Request,
     library_id: int,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
@@ -623,7 +636,9 @@ async def get_library_activity(
 
 
 @router.patch("/{library_id}", response_model=LibraryResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_library(
+    request: Request,
     library_id: int,
     library_data: LibraryUpdate,
     db: AsyncSession = Depends(get_db),
@@ -649,7 +664,9 @@ async def update_library(
 
 
 @router.post("/{library_id}/toggle", response_model=LibraryResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def toggle_library(
+    request: Request,
     library_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -683,7 +700,9 @@ def _determine_media_type(collection_type: str) -> MediaType:
 
 
 @router.post("/sync", response_model=LibrarySyncResponse)
+@limiter.limit(RateLimits.SYNC_OPERATION)
 async def sync_all_libraries(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -794,7 +813,9 @@ async def sync_all_libraries(
 
 
 @router.post("/sync/{service_id}", response_model=LibrarySyncResponse)
+@limiter.limit(RateLimits.SYNC_OPERATION)
 async def sync_service_libraries(
+    request: Request,
     service_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)

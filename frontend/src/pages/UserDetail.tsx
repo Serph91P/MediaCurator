@@ -17,10 +17,20 @@ import {
   GlobeAltIcon,
   SignalIcon
 } from '@heroicons/react/24/outline'
+import {
+  ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+} from 'recharts'
 import api from '../lib/api'
 import { formatRelativeTime, formatDurationLong, formatWatchTime } from '../lib/utils'
 import ResponsiveTable from '../components/ResponsiveTable'
 import toast from 'react-hot-toast'
+
+interface GenreStatsResponse {
+  period_days: number
+  total_genres: number
+  genres: { genre: string; plays: number; duration_seconds: number }[]
+}
 
 interface Library {
   id: number
@@ -150,6 +160,16 @@ export default function UserDetail() {
       return res.data
     },
     enabled: !!userId && activeTab === 'activity'
+  })
+
+  // Fetch user's favorite genres
+  const { data: userGenreStats } = useQuery({
+    queryKey: ['user-genre-stats', userId],
+    queryFn: async () => {
+      const res = await api.get<GenreStatsResponse>(`/activity/genre-stats?days=365&user_id=${userId}`)
+      return res.data
+    },
+    enabled: !!userId && activeTab === 'overview',
   })
 
   const toggleHiddenMutation = useMutation({
@@ -282,6 +302,49 @@ export default function UserDetail() {
               </div>
             </div>
           </div>
+
+          {/* Favorite Genres */}
+          {userGenreStats && userGenreStats.genres.length > 0 && (
+            <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Favorite Genres</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={userGenreStats.genres.slice(0, 10).map(g => ({
+                      genre: g.genre,
+                      plays: g.plays,
+                      hours: Math.round(g.duration_seconds / 3600 * 10) / 10
+                    }))}
+                    layout="vertical"
+                    margin={{ left: 70, right: 20, top: 5, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" className="dark:opacity-20" />
+                    <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-gray-500)' }} />
+                    <YAxis
+                      type="category"
+                      dataKey="genre"
+                      tick={{ fontSize: 11, fill: 'var(--color-gray-500)' }}
+                      width={65}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--color-dark-800)',
+                        border: '1px solid var(--color-dark-700)',
+                        borderRadius: '0.5rem',
+                        color: '#fff',
+                        fontSize: '0.875rem'
+                      }}
+                      formatter={(value: number, name: string) => {
+                        if (name === 'plays') return [value, 'Plays']
+                        return [`${value}h`, 'Watch Time']
+                      }}
+                    />
+                    <Bar dataKey="plays" fill="var(--color-primary-500)" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           {/* Recently Watched */}
           <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-6">

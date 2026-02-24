@@ -33,6 +33,12 @@ interface ActivityStats {
   plays_by_day_of_week: { day_of_week: number; plays: number }[]
 }
 
+interface GenreStatsResponse {
+  period_days: number
+  total_genres: number
+  genres: { genre: string; plays: number; duration_seconds: number }[]
+}
+
 // Stat Card Component
 function StatCard({ 
   title, 
@@ -224,6 +230,15 @@ export default function Dashboard() {
     queryKey: ['dashboardActivityStats', statsDays],
     queryFn: async () => {
       const res = await api.get<ActivityStats>(`/activity/stats?days=${statsDays}`)
+      return res.data
+    }
+  })
+
+  // Fetch genre stats for dashboard
+  const { data: genreStats } = useQuery({
+    queryKey: ['dashboardGenreStats', statsDays],
+    queryFn: async () => {
+      const res = await api.get<GenreStatsResponse>(`/activity/genre-stats?days=${statsDays}`)
       return res.data
     }
   })
@@ -528,6 +543,52 @@ export default function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Genre Distribution */}
+      {genreStats && genreStats.genres.length > 0 && (
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg p-4 sm:p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Genre Distribution (Last {statsDays} Days)
+          </h3>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={genreStats.genres.slice(0, 12).map(g => ({
+                  genre: g.genre,
+                  plays: g.plays,
+                  hours: Math.round(g.duration_seconds / 3600 * 10) / 10
+                }))}
+                margin={{ left: 5, right: 20, top: 5, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" className="dark:opacity-20" />
+                <XAxis
+                  dataKey="genre"
+                  tick={{ fontSize: 10, fill: 'var(--color-gray-500)' }}
+                  interval={0}
+                  angle={-35}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--color-gray-500)' }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--color-dark-800)',
+                    border: '1px solid var(--color-dark-700)',
+                    borderRadius: '0.5rem',
+                    color: '#fff',
+                    fontSize: '0.875rem'
+                  }}
+                  formatter={(value: number, name: string) => {
+                    if (name === 'plays') return [value, 'Plays']
+                    return [`${value}h`, 'Watch Time']
+                  }}
+                />
+                <Bar dataKey="plays" fill="var(--color-primary-500)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       )}

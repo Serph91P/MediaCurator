@@ -1,6 +1,7 @@
 """
 Activity API routes - Global activity log and playback history.
 """
+from collections import defaultdict
 from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from sqlalchemy import select, func, desc, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +13,8 @@ from ...core.database import get_db, escape_like
 from ...core.rate_limit import limiter, RateLimits
 from ...api.deps import get_current_user
 from ...models import (
-    User, PlaybackActivity, MediaServerUser, MediaItem, Library
+    User, PlaybackActivity, MediaServerUser, MediaItem, Library,
+    UserWatchHistory
 )
 
 router = APIRouter()
@@ -273,3 +275,124 @@ async def get_active_sessions(
         }
         for s in sessions
     ]
+
+
+@router.get("/genre-stats")
+@limiter.limit(RateLimits.API_READ)
+async def get_genre_stats(
+    request: Request,
+    days: int = Query(30, ge=1, le=365),
+    library_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get genre distribution based on playback activity.
+
+    Returns genre stats aggregated by play count and total watch duration.
+    Optionally filtered by library and/or user.
+    """
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    # Query playback activities with their media items to get genres
+    query = (
+        select(
+            PlaybackActivity.duration_seconds,
+            MediaItem.genres
+        )
+        .join(MediaItem, PlaybackActivity.media_item_id == MediaItem.id)
+        .where(
+            and_(
+                PlaybackActivity.started_at >= since,
+                MediaItem.genres.isnot(None)
+            )
+        )
+    )
+
+    if library_id is not None:
+        query = query.where(PlaybackActivity.library_id == library_id)
+    if user_id is not None:
+        query = query.where(PlaybackActivity.user_id == user_id)
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    # Aggregate per genre
+    genre_plays: dict[str, int] = defaultdict(int)
+    genre_duration: dict[str, int] = defaultdict(int)
+
+    for row in rows:
+        genres = row.genres if isinstance(row.genres, list) else []
+        duration = row.duration_seconds or 0
+        for genre in genres:
+            if isinstance(genre, str) and genre.strip():
+                g = genre.strip()
+                genre_plays[g] += 1
+                genre_duration[g] += duration
+
+    # Build sorted results (by play count descending)
+    genres_by_plays = sorted(
+        [{"genre": g, "plays": c, "duration_seconds": genre_duration[g]}
+         for g, c in genre_plays.items()],
+        key=lambda x: x["plays"],
+        reverse=True
+    )
+
+    return {
+        "period_days": days,
+        "library_id": library_id,
+        "user_id": user_id,
+        "total_genres": len(genres_by_plays),
+        "genres": genres_by_plays
+    }
+
+
+@router.get("/watch-heatmap")
+@limiter.limit(RateLimits.API_READ)
+async def get_watch_heatmap(
+    request: Request,
+    days: int = Query(30, ge=1, le=365),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get a 7×24 watch heatmap (day-of-week × hour-of-day).
+
+    Returns a grid of play counts for each (day, hour) combination,
+    useful for visualising peak viewing times.
+    """
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    result = await db.execute(
+        select(
+            func.extract('dow', PlaybackActivity.started_at).label('dow'),
+            func.extract('hour', PlaybackActivity.started_at).label('hour'),
+            func.count(PlaybackActivity.id).label('plays')
+        )
+        .where(PlaybackActivity.started_at >= since)
+        .group_by(
+            func.extract('dow', PlaybackActivity.started_at),
+            func.extract('hour', PlaybackActivity.started_at)
+        )
+    )
+    rows = result.all()
+
+    # Build 7×24 grid (initialise all cells to 0)
+    heatmap: list[dict] = []
+    grid: dict[tuple[int, int], int] = {}
+    for row in rows:
+        grid[(int(row.dow), int(row.hour))] = row.plays
+
+    for dow in range(7):
+        for hour in range(24):
+            heatmap.append({
+                "day_of_week": dow,
+                "hour": hour,
+                "plays": grid.get((dow, hour), 0)
+            })
+
+    return {
+        "period_days": days,
+        "heatmap": heatmap
+    }

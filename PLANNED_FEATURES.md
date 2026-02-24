@@ -69,7 +69,7 @@ Detailed statistics and activity for a single user.
 ### Overview Tab
 - **User Stats Box**: Play counts and watch time for Last 24 Hours, Last 7 Days, Last 30 Days, All Time
 - **Last Watched**: Grid of recently watched content by this user
-- **Favorite Genres**: What genres this user prefers (derived from watch history)
+- **Favorite Genres**: What genres this user prefers (derived from watch history) ✅ BarChart (Session 9)
 
 ### Activity Tab
 - **Item Activity**: Complete playback history for this user
@@ -141,10 +141,10 @@ Visual charts and graphs for understanding viewing patterns.
 - **Per-Library Breakdown**: See what's watched when
 - **Peak Identification**: Easily spot prime-time hours
 
-### Genre Distribution
-- **Radar/Spider Chart**: Visual representation of genre preferences
-- **Two Views**: By Duration (total watch time) and By Play Count
-- **Library-Specific**: Can be global or per-library
+### Genre Distribution ✅ Implemented (Session 9)
+- **Radar/Spider Chart**: Visual representation of genre preferences ✅ RadarChart on Activity page
+- **Two Views**: By Duration (total watch time) and By Play Count ✅ Radar (plays) + Bar (watch time hours)
+- **Library-Specific**: Can be global or per-library ✅ Filterable by library_id and user_id
 
 ---
 
@@ -159,13 +159,13 @@ Deeper insights derived from watch data.
 - Hour-by-day grid showing viewing patterns
 - Identify each user's "watch schedule"
 
-### Watch Patterns / Heatmap
+### Watch Patterns / Heatmap ✅ Implemented (Session 9)
 **Purpose**: Understand peak viewing times across all users.
 
-- 7x24 grid (days x hours) with color intensity
-- Identify server load patterns
-- Plan maintenance windows during low-activity periods
-- See if weekends differ from weekdays
+- 7x24 grid (days x hours) with color intensity ✅ CSS Grid on Activity page
+- Identify server load patterns ✅
+- Plan maintenance windows during low-activity periods ✅
+- See if weekends differ from weekdays ✅
 
 ### Concurrent Streams Analysis
 **Purpose**: Track how many simultaneous streams occur.
@@ -279,12 +279,12 @@ Delete movie if:
 - [x] Expand-Row on Activity, UserDetail, LibraryDetail (IP, Device, Play Method, Progress)
 - [x] ConfirmDialog accessibility (aria-modal, focus trap, escape key)
 
-### Phase 3 - Statistics & Charts ⚠️ Partially Complete
+### Phase 3 - Statistics & Charts ✅ Complete (Session 4+9)
 - [x] Daily Play Count Chart (Activity page + Dashboard)
 - [x] Play Count by Day of Week Chart (Activity page + Dashboard)
 - [x] Play Count by Hour Chart (Activity page + Dashboard)
-- [ ] Genre Distribution Charts (needs backend genre aggregation API)
-- [ ] Watch Patterns Heatmap
+- [x] Genre Distribution Charts – Backend `/activity/genre-stats` + RadarChart (Activity) + BarChart (Dashboard, LibraryDetail, UserDetail) (Session 9)
+- [x] Watch Patterns Heatmap – Backend `/activity/watch-heatmap` + CSS Grid 7×24 (Activity) (Session 9)
 
 ### Phase 4 - Advanced Analytics
 - [ ] Concurrent Streams Analysis
@@ -297,6 +297,33 @@ Delete movie if:
 - [ ] User-Specific Exclusions
 - [ ] Enhanced Currently Watching detection
 - [ ] Analytics-based cleanup suggestions
+
+### Security Hardening ✅ Complete (Session 7+8)
+- [x] httpOnly Cookie Auth (JWT aus localStorage entfernt, ADR-001)
+- [x] CSRF Double-Submit Cookie Protection
+- [x] Security Headers Middleware (CSP, X-Frame-Options, X-Content-Type-Options)
+- [x] Structured Security Event Logging
+- [x] SSRF-safe URL Validation (outbound requests)
+- [x] Account Lockout Mechanism
+- [x] Refresh Token Rotation
+- [x] WebSocket Authentication (short-lived token)
+- [x] CORS Lockdown (wildcard warning in production)
+- [x] Admin-Only Routes (Rules, Jobs, Staging, Services, Notifications, System)
+- [x] Input Sanitization (escape_like for SQL queries)
+- [x] Outbound URL Validation (Services, Notifications, Setup)
+- [x] Staging Path Validation
+- [x] Request Body Size Limit
+- [x] WebSocket Connection Limits per IP
+- [x] Sensitive Config Masking (API keys, secrets)
+- [x] Password Complexity Enforcement
+- [x] Secret Key Enforcement
+- [x] Audit Log Data Retention Job
+- [x] Refresh Token Cleanup Job
+- [x] Trusted Proxy Configuration
+- [x] CI/CD: Tests + Security Scanning Workflows
+- [x] Pytest Setup with Smoke Tests
+- [x] Dependabot Configuration
+- [x] datetime.utcnow() → timezone-aware datetime.now(timezone.utc)
 
 ---
 
@@ -318,7 +345,7 @@ To enable these features, the following data needs to be tracked:
 - Concurrent stream peaks
 
 ### Storage Considerations
-- Activity logs can grow large - implement retention policies
+- ~~Activity logs can grow large - implement retention policies~~ ✅ Implemented (Session 7: Audit Log Data Retention Job)
 - Consider aggregating old data (daily summaries instead of individual events)
 - Provide cleanup options for activity history
 
@@ -348,6 +375,36 @@ To enable these features, the following data needs to be tracked:
 | - | BUG-011: position_ticks int32→BigInteger | Session 6 | ✅ |
 | - | BUG-012: Radarr folder→file path (movie stats) | Session 6 | ✅ |
 | - | BUG-013: User Last Seen/Watched/Client fallback | Session 6 | ✅ |
+| Sec | CORS Lockdown, Secret Key Enforcement, API Key Masking | Session 7 | ✅ |
+| Sec | Security Headers Middleware (CSP, X-Frame-Options) | Session 7 | ✅ |
+| Sec | Account Lockout + Refresh Token Rotation | Session 7 | ✅ |
+| Sec | WebSocket Auth Token + Frontend Auth Rotation | Session 7 | ✅ |
+| Sec | Trusted Proxy Config + Rate Limit Improvements | Session 7 | ✅ |
+| Sec | Staging Path Validation + Rule Import Size Limit | Session 7 | ✅ |
+| Sec | Audit Log Data Retention Job | Session 7 | ✅ |
+| Sec | datetime.utcnow() → timezone-aware | Session 7 | ✅ |
+| Sec | httpOnly Cookie Auth Migration (ADR-001) | Session 8 | ✅ |
+| Sec | CSRF Double-Submit Cookie Middleware | Session 8 | ✅ |
+| Sec | Security Event Logging (structured JSON) | Session 8 | ✅ |
+| Sec | SSRF-safe URL Validation | Session 8 | ✅ |
+| Sec | SQL Injection Protection (escape_like) | Session 8 | ✅ |
+| Sec | Content-Security-Policy Header | Session 8 | ✅ |
+| Sec | WebSocket Connection Limits per IP | Session 8 | ✅ |
+| Sec | Admin-Only Routes (all sensitive endpoints) | Session 8 | ✅ |
+| Sec | Outbound URL Validation (SSRF) on all endpoints | Session 8 | ✅ |
+| Sec | Body Size Limit + Rate Limiting on all Routes | Session 8 | ✅ |
+| Sec | Refresh Token Cleanup Job | Session 8 | ✅ |
+| Sec | Password Complexity + Input Validation | Session 8 | ✅ |
+| CI | GitHub Actions: tests.yml + security-scan.yml | Session 8 | ✅ |
+| CI | Pytest Setup + Smoke Test | Session 8 | ✅ |
+| CI | Dependabot Configuration | Session 8 | ✅ |
+| 3 | Genre Distribution API (`/activity/genre-stats`) | Session 9 | ✅ |
+| 4 | Watch Patterns Heatmap API (`/activity/watch-heatmap`) | Session 9 | ✅ |
+| 3 | Genre RadarChart on Activity page | Session 9 | ✅ |
+| 4 | Watch Heatmap (7×24 CSS Grid) on Activity page | Session 9 | ✅ |
+| 3 | Genre Charts on LibraryDetail (Radar + Bar) | Session 9 | ✅ |
+| 2 | Favorite Genres BarChart on UserDetail | Session 9 | ✅ |
+| 3 | Genre Distribution BarChart on Dashboard | Session 9 | ✅ |
 
 ---
 

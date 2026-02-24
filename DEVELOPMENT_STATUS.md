@@ -2,10 +2,10 @@
 
 > **Zweck**: Dieses Dokument dient als fortlaufender Stand für die Weiterentwicklung. Es kann in jedem neuen Chat/auf jedem Rechner als Kontext übergeben werden, damit der Assistent sofort weiß, wo es weitergeht.
 
-**Letzte Aktualisierung**: 22. Februar 2026 (Session 6)
-**Branch**: `feature/phase2-enhancements-and-docs` (von `develop`)
-**Letzter Commit**: `0ac7124` (Session 6)
-**Version**: `vdev.0.0.147`
+**Letzte Aktualisierung**: 24. Februar 2026 (Session 8)
+**Branch**: `develop`
+**Letzter Commit**: `657ad70` (Session 8)
+**Version**: `vdev.0.0.231`
 **Repo**: `https://github.com/Serph91P/MediaCurator.git`
 
 ---
@@ -50,7 +50,7 @@ MediaCurator ist ein Self-Hosted Media Management Tool das mit Emby/Jellyfin (Me
 | DB | SQLite (default) / PostgreSQL | |
 | Scheduler | APScheduler | |
 | HTTP Client | httpx (async) | |
-| Auth | JWT (access + refresh tokens) | |
+| Auth | JWT (httpOnly cookies + CSRF) | |
 
 ### Frontend
 | Komponente | Technologie | Version |
@@ -63,7 +63,7 @@ MediaCurator ist ein Self-Hosted Media Management Tool das mit Emby/Jellyfin (Me
 | Client State | Zustand (persist) | 5 |
 | Forms | react-hook-form | 7.49 |
 | Charts | recharts | 3.7 (**in Benutzung**: Activity + Dashboard Charts) |
-| HTTP | Axios (mit Interceptor-Refresh) | 1.6 |
+| HTTP | Axios (httpOnly cookie auth, CSRF) | 1.6 |
 | Toasts | react-hot-toast | 2.4 |
 
 ---
@@ -73,15 +73,19 @@ MediaCurator ist ein Self-Hosted Media Management Tool das mit Emby/Jellyfin (Me
 ### Backend-Struktur
 ```
 backend/app/
-├── main.py                    # FastAPI App, CORS, Router-Mounting, WebSocket Endpoint
-├── scheduler.py               # APScheduler Jobs (Sync, Cleanup, Staging) + WebSocket-Broadcast
+├── main.py                    # FastAPI App, CORS, Middleware-Stack, Router-Mounting, WebSocket Endpoint
+├── scheduler.py               # APScheduler Jobs (Sync, Cleanup, Staging, Token-Cleanup) + WebSocket-Broadcast
 ├── core/
 │   ├── config.py              # Pydantic Settings
+│   ├── csrf.py                # ★ NEU: CSRF Double-Submit Cookie Middleware
 │   ├── database.py            # SQLAlchemy async engine/session
 │   ├── migrations.py          # DB-Migrationen (Alembic-like, manuell)
-│   ├── rate_limit.py          # Rate Limiting
-│   ├── security.py            # JWT, Password Hashing
-│   └── websocket.py           # ★ NEU: ConnectionManager für Real-Time Job-Broadcasting
+│   ├── rate_limit.py          # Rate Limiting (enhanced mit Security-Event-Logging)
+│   ├── security.py            # JWT (httpOnly Cookies), Password Hashing, WebSocket Token
+│   ├── security_events.py     # ★ NEU: Strukturiertes Security-Event-Logging
+│   ├── security_headers.py    # ★ NEU: Security Headers Middleware (CSP, X-Frame-Options, etc.)
+│   ├── url_validation.py      # ★ NEU: SSRF-Safe URL Validation
+│   └── websocket.py           # ConnectionManager für Real-Time Job-Broadcasting (+ IP-Limits)
 ├── models/database.py         # ALLE SQLAlchemy Models (656 Zeilen)
 ├── schemas/__init__.py        # ALLE Pydantic Schemas
 ├── services/
@@ -95,19 +99,22 @@ backend/app/
 │   ├── notifications.py       # Multi-Channel mit Templates
 │   ├── audit.py               # Audit-Logging
 │   └── version.py             # Git/GitHub Version-Check
+├── tests/
+│   ├── __init__.py            # ★ NEU: Test-Setup
+│   └── test_smoke.py          # ★ NEU: Smoke-Test (Settings-Loading)
 └── api/routes/
-    ├── activity.py            # GET /activity/, /stats, /active
+    ├── activity.py            # GET /activity/, /stats, /active (+ Rate Limiting, Input Sanitization)
     ├── audit.py               # GET/DELETE /audit/logs, /recent, etc.
-    ├── auth.py                # POST /auth/login, /register, /refresh, etc.
-    ├── jobs.py                # GET/POST /jobs/, trigger, interval
+    ├── auth.py                # POST /auth/login, /register, /refresh, /logout (httpOnly Cookies, CSRF)
+    ├── jobs.py                # GET/POST /jobs/, trigger, interval (Admin-Only)
     ├── libraries.py           # GET /libraries/, /stats, /{id}/details, /media, /activity
     ├── media.py               # GET /media/stats, /dashboard-stats, /watch-stats, /audit-log
-    ├── notifications.py       # CRUD /notifications/, test, preview-template
-    ├── rules.py               # CRUD /rules/, templates, export/import, bulk
-    ├── services.py            # CRUD /services/, test, sync
-    ├── staging.py             # GET/POST /staging/, restore, delete, settings
-    ├── setup.py               # ★ NEU: GET /setup/status, POST /test-connection, /add-service, /complete, /skip
-    ├── system.py              # GET /system/health, /stats, /settings, cleanup/preview
+    ├── notifications.py       # CRUD /notifications/, test, preview-template (Admin-Only, URL Validation)
+    ├── rules.py               # CRUD /rules/, templates, export/import, bulk (Admin-Only, File Size Limit)
+    ├── services.py            # CRUD /services/, test, sync (Admin-Only, URL Validation)
+    ├── staging.py             # GET/POST /staging/, restore, delete, settings (Admin-Only, Path Validation)
+    ├── setup.py               # GET /setup/status, POST /test-connection, /add-service, /complete, /skip
+    ├── system.py              # GET /system/health, /stats, /settings, cleanup/preview (Admin-Only)
     └── users.py               # GET /users/, /{id}, /{id}/activity, PATCH hide
 ```
 
@@ -126,17 +133,17 @@ frontend/src/
 │   ├── useDebounce.ts         # Generischer Debounce-Hook
 │   └── useJobWebSocket.ts     # ★ NEU: Globaler WebSocket-Hook (Auto-Reconnect, Toasts)
 ├── lib/
-│   ├── api.ts                 # Axios mit Token-Refresh-Interceptor
+│   ├── api.ts                 # Axios mit httpOnly Cookie Auth + CSRF Token Interceptor
 │   └── utils.ts               # formatBytes, formatRelativeTime, formatDate, etc.
 ├── stores/
-│   ├── auth.ts                # Zustand: Login/Logout/Sessions
-│   ├── jobs.ts                # ★ NEU: Zustand: WebSocket Job-State (runningJobs, recentCompletions)
+│   ├── auth.ts                # Zustand: Login/Logout/Sessions (cookie-basiert, kein localStorage-Token)
+│   ├── jobs.ts                # Zustand: WebSocket Job-State (runningJobs, recentCompletions)
 │   └── theme.ts               # Zustand: light/dark/system
 ├── types/index.ts             # TypeScript Interfaces
 └── pages/
     ├── Dashboard.tsx           # Stats, Most Viewed/Popular, Libraries, Disk
     ├── Libraries.tsx           # Library-Grid mit Stats, Sync
-    ├── LibraryDetail.tsx       # 3 Tabs: Overview, Media, Activity  ⚠️ BUGGY
+    ├── LibraryDetail.tsx       # 3 Tabs: Overview, Media, Activity
     ├── Users.tsx               # User-Tabelle mit Stats
     ├── UserDetail.tsx          # 2 Tabs: Overview, Activity
     ├── Activity.tsx            # Active Sessions + Activity-Log
@@ -188,24 +195,25 @@ frontend/src/
 ### Phase 2 – Views & Navigation ✅ WEITGEHEND ERLEDIGT
 | Feature | Backend | Frontend | Qualität | Anmerkungen |
 |---------|---------|----------|----------|-------------|
-| Library Detail – Overview Tab | ✅ API liefert 24h/7d/30d Stats | ✅ Dargestellt | ✅ | Kein Genre-Chart, keine Poster-Bilder |
+| Library Detail – Overview Tab | ✅ API liefert 24h/7d/30d Stats | ✅ Dargestellt + Genre-Charts | ✅ | Genre RadarChart + BarChart hinzugefügt (Session 9) |
 | Library Detail – Media Tab | ✅ Sortierung, Suche, Pagination | ✅ ResponsiveTable | ✅ | Migriert auf ResponsiveTable (Session 5) |
 | Library Detail – Activity Tab | ✅ Pagination | ✅ ResponsiveTable | ✅ | Migriert auf ResponsiveTable (Session 5) |
 | Users Page | ✅ Pagination, Search | ✅ ResponsiveTable | ✅ | Gut implementiert |
-| User Detail – Overview | ✅ Time-based Stats | ✅ | ⚠️ | Kein Favorite Genres |
+| User Detail – Overview | ✅ Time-based Stats | ✅ + Favorite Genres Chart | ✅ | Favorite Genres BarChart hinzugefügt (Session 9) |
 | User Detail – Activity | ✅ Filters + Library-Filter | ✅ Tabelle + Library-Filter | ✅ | Library-Filter hinzugefügt (Session 5) |
 | User Detail – Timeline Tab | ❌ Kein API | ❌ | ❌ | Nicht implementiert |
 | Global Activity Log | ✅ Stats + Active Sessions | ✅ | ✅ | Library-Filter + Items-per-Page hinzugefügt (Session 5) |
 | Activity Stats API | ✅ plays by day/hour/weekday | ✅ Charts | ✅ | recharts Charts auf Activity + Dashboard (Session 4+5) |
 | Active Sessions | ✅ 30s Sync | ✅ 30s Refresh | ✅ | Gut implementiert |
 
-### Phase 3 – Statistics & Charts ⚠️ TEILWEISE ERLEDIGT (Session 4)
+### Phase 3 – Statistics & Charts ✅ ERLEDIGT (Session 4+9)
 | Feature | Backend-API | Frontend | Anmerkungen |
 |---------|------------|----------|-------------|
 | Daily Play Count Chart (Area) | ✅ `/activity/stats` liefert `plays_by_day` | ✅ Activity.tsx | recharts AreaChart mit Gradient |
 | Play Count by Day of Week (Bar) | ✅ `/activity/stats` liefert `plays_by_day_of_week` | ✅ Activity.tsx | recharts BarChart |
 | Play Count by Hour (Bar) | ✅ `/activity/stats` liefert `plays_by_hour` | ✅ Activity.tsx | recharts BarChart mit AM/PM Labels |
-| Genre Distribution (Radar/Spider) | ❌ Kein API | ❌ | Backend müsste Genre-Aggregation liefern |
+| Genre Distribution (Radar/Spider) | ✅ `/activity/genre-stats` | ✅ Activity + Dashboard + LibraryDetail | RadarChart (Activity), BarChart (Dashboard, Library, User) (Session 9) |
+| Watch Patterns Heatmap (7×24) | ✅ `/activity/watch-heatmap` | ✅ Activity.tsx | CSS Grid Heatmap, Day×Hour (Session 9) |
 
 ### ★ NEU: WebSocket Real-Time System ✅ ERLEDIGT (Session 2)
 | Feature | Backend | Frontend | Qualität | Anmerkungen |
@@ -233,9 +241,37 @@ frontend/src/
 | Initial Sync | — | ✅ | ✅ | Sequentieller Sync aller Services mit Status-Anzeige |
 | Skip Option | — | ✅ | ✅ | Setup überspringen möglich |
 
-### Phase 4 – Advanced Analytics ❌ NICHT BEGONNEN
+### ★ NEU: Security Hardening ✅ ERLEDIGT (Session 7+8)
+| Feature | Backend | Frontend | Qualität | Anmerkungen |
+|---------|---------|----------|----------|-------------|
+| httpOnly Cookie Auth | ✅ `security.py` Set-Cookie | ✅ `api.ts` credentials:include | ✅ | JWT aus localStorage entfernt, XSS-sicher (ADR-001) |
+| CSRF Protection | ✅ `csrf.py` Double-Submit Cookie | ✅ `api.ts` X-CSRF-Token Header | ✅ | Automatisch bei state-changing Requests |
+| Security Headers | ✅ `security_headers.py` Middleware | — | ✅ | CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy |
+| Security Event Logging | ✅ `security_events.py` | — | ✅ | Strukturiertes JSON-Logging für Auth, Rate-Limit, CSRF Events |
+| SSRF URL Validation | ✅ `url_validation.py` | — | ✅ | Blockiert private IPs, non-HTTP schemes, Credentials in URLs |
+| Account Lockout | ✅ User Model + Auth | — | ✅ | Nach N fehlgeschlagenen Logins temporäre Sperre |
+| Refresh Token Rotation | ✅ `security.py` + `auth.py` | ✅ `auth.ts` | ✅ | Altes Token wird bei Refresh revoked |
+| WebSocket Auth Token | ✅ Short-lived WS Token | ✅ `useJobWebSocket.ts` | ✅ | Kurzlebiger Token für WS-Verbindung |
+| CORS Lockdown | ✅ `main.py` | — | ✅ | Wildcard-Warnung in Production, strikte Origin-Prüfung |
+| Admin-Only Routes | ✅ Alle sensitiven Routes | — | ✅ | Rules, Jobs, Staging, Services, Notifications nur für Admin |
+| Input Sanitization | ✅ `escape_like()` in Queries | — | ✅ | SQL-Injection-Schutz bei LIKE-Queries |
+| Outbound URL Validation | ✅ Services, Notifications, Setup | — | ✅ | Discord/Slack/Webhook URLs gegen SSRF validiert |
+| Staging Path Validation | ✅ `staging.py` | — | ✅ | Pfade gegen erlaubte Verzeichnisse validiert |
+| Body Size Limit | ✅ `main.py` Middleware | — | ✅ | Request-Body-Größe begrenzt |
+| WS Connection Limits | ✅ `websocket.py` per-IP Limit | — | ✅ | Max Connections pro IP gegen Abuse |
+| Sensitive Config Masking | ✅ API Keys, Notification Secrets | — | ✅ | Secrets werden in API-Responses maskiert |
+| Password Complexity | ✅ `schemas/__init__.py` | — | ✅ | Mindestanforderungen für Passwörter |
+| Secret Key Enforcement | ✅ `config.py` + docker-compose | — | ✅ | Schwache/Default Secret Keys werden abgelehnt |
+| Audit Log Retention | ✅ `scheduler.py` Cleanup-Job | — | ✅ | Automatische Bereinigung alter Audit-Logs |
+| Refresh Token Cleanup | ✅ `scheduler.py` Cleanup-Job | — | ✅ | Expired/revoked Tokens werden automatisch gelöscht |
+| Trusted Proxy Config | ✅ `config.py` + Rate Limiter | — | ✅ | Forwarded Headers nur von trusted Proxies |
+| CI/CD Workflows | ✅ tests.yml + security-scan.yml | — | ✅ | GitHub Actions für Tests + Security-Scanning (SAST/DAST) |
+| Smoke Tests | ✅ `tests/test_smoke.py` + pytest | — | ✅ | Initiales Test-Setup mit pytest-asyncio |
+| Dependabot | ✅ `.github/dependabot.yml` | — | ✅ | Automatische Dependency-Updates auf develop |
+
+### Phase 4 – Advanced Analytics ⚠️ TEILWEISE ERLEDIGT (Session 9)
+- [x] Watch Patterns Heatmap (7x24 Grid) – Activity.tsx (Session 9)
 - [ ] User Activity Timeline / Calendar Heatmap
-- [ ] Watch Patterns Heatmap (7x24 Grid)
 - [ ] Concurrent Streams Analysis
 - [ ] Watch Duration Stats
 - [ ] Completion Rate Analytics
@@ -367,12 +403,12 @@ frontend/src/
 | Jobs.tsx | ✅ ResponsiveTable | ✅ Executions-Tabelle migriert (Session 4) |
 
 ### Fehlende UI-Features (geplant aber nicht implementiert)
-- **Activity-Seite**: ~~IP-Adresse Spalte, Device-Spalte, Expand-Row, Library-Filter, Items-per-Page Selector~~ ✅ Alles implementiert (Session 4+5+6)
-- **LibraryDetail**: Genre-Distribution Charts, Grid-View mit Poster-Bildern, ~~Expand-Row~~ ✅ (Session 6)
-- **UserDetail**: Favorite Genres Sektion, Timeline-Tab, ~~Expand-Row~~ ✅ (Session 6)
+- **Activity-Seite**: ~~IP-Adresse Spalte, Device-Spalte, Expand-Row, Library-Filter, Items-per-Page Selector~~ ✅ Alles implementiert (Session 4+5+6). ~~Genre RadarChart, Watch Heatmap~~ ✅ (Session 9)
+- **LibraryDetail**: ~~Genre-Distribution Charts~~ ✅ (Session 9), Grid-View mit Poster-Bildern offen, ~~Expand-Row~~ ✅ (Session 6)
+- **UserDetail**: ~~Favorite Genres Sektion~~ ✅ (Session 9), Timeline-Tab offen, ~~Expand-Row~~ ✅ (Session 6)
 - **Rules.tsx**: Modal ist sehr lang – kein Wizard/Accordion, keine Genre/Tag-Autocomplete
 - **Settings.tsx**: Cron-Eingaben ohne Hilfe/Validierung
-- **Dashboard**: ~~Keine Charts~~ recharts Charts implementiert (Session 5)
+- **Dashboard**: ~~Keine Charts~~ recharts Charts implementiert (Session 5). ~~Genre Distribution~~ ✅ (Session 9)
 
 ### Performance
 - ~~**Kein Code-Splitting**~~: ✅ Alle Seiten (außer Login/Register) auf `React.lazy` + `Suspense` migriert (Session 4).
@@ -401,10 +437,11 @@ frontend/src/
 Das Backend ist gut strukturiert mit:
 - Sauberer Abstraktion (BaseServiceClient → Emby/Radarr/Sonarr)
 - Vollständige API-Coverage für alle Features
-- Rate Limiting auf allen Routes
-- Audit-Logging
+- Rate Limiting auf allen Routes mit Security-Event-Logging
+- Audit-Logging mit automatischer Retention
 - Proper Error Handling
 - Caching in EmbyClient (SimpleCache mit TTL)
+- Umfassende Security-Härtung (httpOnly Cookies, CSRF, CSP, SSRF-Schutz, Account Lockout)
 
 ---
 
@@ -423,7 +460,7 @@ Das Backend ist gut strukturiert mit:
 - **Staging UI**: Durchdachtes 2-Tab-Layout, Urgency-Farbcodierung, Global + Per-Library Settings
 - **Notifications**: Multi-URL-Input, Template-Editor mit Variable-Suggestions, Live-Preview
 - **Services & Jobs**: Übersichtlich, Test-Verbindung, manueller Sync-Trigger, editierbare Intervalle
-- **Auth-Flow**: Setup-Required Check, Refresh-Token mit Queue für Concurrent Requests
+- **Auth-Flow**: httpOnly Cookie Auth, CSRF Protection, Refresh-Token Rotation, Account Lockout
 - **ResponsiveTable-Komponente**: Gut gebaut (Table→Cards auf Mobile), jetzt auf allen Seiten eingesetzt inkl. Expand-Row-Support
 
 ---
@@ -439,26 +476,38 @@ Das Backend ist gut strukturiert mit:
 4. ~~**Mobile Tables**: ResponsiveTable in Activity, UserDetail, Staging, Jobs, Preview einsetzen~~ ✅ (Session 4+6). Alle Seiten migriert.
 5. ~~**BUG-005**: Toast-Theming fixen~~ ✅
 
-### ~~Priorität 3: Phase 3 – Charts implementieren~~ ⚠️ TEILWEISE ERLEDIGT (Session 4)
+### ~~Priorität 3: Phase 3 – Charts implementieren~~ ✅ ERLEDIGT (Session 4+9)
 6. ~~**Daily Play Count Chart**: Area Chart mit recharts auf Activity-Seite~~ ✅
 7. ~~**Plays by Day of Week**: Bar Chart auf Activity-Seite~~ ✅
 8. ~~**Plays by Hour**: Bar Chart auf Activity-Seite~~ ✅
-9. **Genre Distribution**: Backend-API für Genre-Aggregation nötig, dann Radar/Spider Chart – offen
+9. ~~**Genre Distribution**: Backend-API `/activity/genre-stats` + RadarChart (Activity) + BarChart (Dashboard, LibraryDetail, UserDetail)~~ ✅ (Session 9)
 
-### Priorität 4: Fehlende Phase 2 Features
+### ~~Priorität 4: Fehlende Phase 2 Features~~ ✅ ERLEDIGT
 10. ~~**Activity-Seite erweitern**: IP, Device Spalten, Library-Filter, Items-per-Page, Expand-Row~~ ✅ (Session 4+5+6).
-11. ~~**UserDetail erweitern**: Library-Filter auf Activity, Expand-Row~~ ✅ (Session 5+6). Favorite Genres offen.
-12. **LibraryDetail erweitern**: ~~ResponsiveTable, Expand-Row~~ ✅ (Session 5+6). Genre-Charts, Grid-View offen.
-13. ~~**Dashboard Charts**: Daily Plays, Day-of-Week, Hour-of-Day recharts Charts~~ ✅ (Session 5).
+11. ~~**UserDetail erweitern**: Library-Filter auf Activity, Expand-Row, Favorite Genres~~ ✅ (Session 5+6+9).
+12. ~~**LibraryDetail erweitern**: ResponsiveTable, Expand-Row, Genre-Charts~~ ✅ (Session 5+6+9). Grid-View offen.
+13. ~~**Dashboard Charts**: Daily Plays, Day-of-Week, Hour-of-Day, Genre Distribution recharts Charts~~ ✅ (Session 5+9).
 
 ### ~~Priorität 5: Code-Qualität~~ ✅ ERLEDIGT (Session 3+4)
 13. ~~Code-Splitting mit React.lazy~~ ✅ (Session 4) – 13 Seiten lazy-loaded mit Suspense-Fallback
 14. ~~BUG-008: fetchUser bei App-Init~~ ✅
 15. ~~BUG-009/010: Code-Duplizierung/Debounce aufräumen~~ ✅
 
-### Priorität 6: Phase 4+ (Zukunft)
-16. Advanced Analytics (Heatmaps, Completion Rates, Binge Detection)
-17. Smart Cleanup Rules (Per-User Conditions)
+### ~~Priorität 6: Security Hardening~~ ✅ ERLEDIGT (Session 7+8)
+16. ~~httpOnly Cookie Migration (ADR-001)~~ ✅
+17. ~~CSRF Protection~~ ✅
+18. ~~Security Headers, SSRF Validation, Account Lockout~~ ✅
+19. ~~Admin-Only Routes, Input Sanitization, Sensitive Config Masking~~ ✅
+20. ~~CI/CD: Tests + Security Scanning Workflows~~ ✅
+21. ~~Dependabot Setup~~ ✅
+
+### Priorität 7: Phase 4+ (Zukunft)
+22. Advanced Analytics (~~Heatmaps~~ ✅ Session 9, Completion Rates, Binge Detection)
+23. Smart Cleanup Rules (Per-User Conditions)
+24. ~~Genre Distribution Charts~~ ✅ (Session 9)
+25. ~~User Detail: Favorite Genres~~ ✅ (Session 9), Timeline-Tab offen
+26. ~~LibraryDetail: Genre-Charts~~ ✅ (Session 9), Grid-View mit Poster-Bildern offen
+27. i18n / Lokalisierung
 
 ---
 
@@ -474,6 +523,10 @@ Das Backend ist gut strukturiert mit:
 | `frontend/package.json` | Node Dependencies |
 | `frontend/vite.config.ts` | Vite Config (Proxy → Backend) |
 | `frontend/src/index.css` | Tailwind @theme Definition |
+| `docs/adr/001-httponly-cookie-migration.md` | ADR: JWT localStorage → httpOnly Cookies |
+| `.github/workflows/tests.yml` | CI: Backend + Frontend Tests |
+| `.github/workflows/security-scan.yml` | CI: SAST/DAST Security Scanning |
+| `.github/dependabot.yml` | Dependabot Config (target: develop) |
 
 ### API-Endpunkte (Kurzreferenz)
 | Prefix | Router | Beschreibung |
@@ -524,4 +577,6 @@ docker compose -f docker-compose.dev.yml up --build
 | 22.02.2026 (4) | **Session 4 – UX & Charts**: Layout.tsx deutsche Strings → Englisch (BUG-006 abgeschlossen). ResponsiveTable Light-Mode-Fix (fehlende `dark:` Varianten). Activity.tsx: `useDebounce` statt setTimeout, shared Utils (`formatDurationLong`, `formatWatchTime`), ResponsiveTable-Migration, 3× recharts Charts (Daily Plays Area, Day-of-Week Bar, Hour-of-Day Bar). UserDetail.tsx: shared Utils + ResponsiveTable. Staging.tsx: ResponsiveTable. Jobs.tsx: Executions-Tabelle → ResponsiveTable. App.tsx: React.lazy Code-Splitting (13 Seiten). Branch: `feature/ux-improvements-and-charts` |
 | 22.02.2026 (5) | **Session 5 – Phase 2 Enhancements & Docs**: LibraryDetail.tsx Media+Activity Tabs → ResponsiveTable. Activity.tsx: Library-Filter Dropdown + Items-per-Page Selector (10/25/50/100). UserDetail.tsx: Library-Filter auf Activity-Tab. Dashboard.tsx: 3× recharts Charts (Daily Plays Area, Day-of-Week Bar, Hour-of-Day Bar) mit Dashboard-eigenem statsDays-Selector. PLANNED_FEATURES.md: Phase 2/3 Status aktualisiert, Implementation History Tabelle. Branch: `feature/phase2-enhancements-and-docs` |
 | 22.02.2026 (6) | **Session 6 – Bugfix & Expand-Rows**: BUG-011 behoben: PlaybackActivity `position_ticks`/`runtime_ticks` Integer→BigInteger (PostgreSQL int32 overflow bei Emby-Ticks >2.1B). DB-Migration hinzugefügt. Fehlerbehandlung in `_sync_active_sessions` und `services.py` mit `db.rollback()`. ResponsiveTable: Expand-Row-Support (`onRowClick`, `isExpanded`, `expandedContent`). Preview.tsx: Beide Tabellen (Series+Movies) auf ResponsiveTable migriert (letzte Seite). Expand-Rows auf Activity, UserDetail, LibraryDetail (IP, Device, Play Method, Progress-Bar). ConfirmDialog: `aria-modal`, Focus-Trap, Escape-Key, Click-Outside. Library Activity API: `ip_address`, `transcode_video`, `transcode_audio` hinzugefügt. BUG-012: Radarr-Pfad Ordner→Datei-Pfad (Movie-Watch-Statistiken). BUG-013: User Last Seen/Watched/Client Fallback-Logik. Branch: `feature/phase2-enhancements-and-docs` |
+| 24.02.2026 (7) | **Session 7 – Security Hardening I** (PR #19 `feature/security-hardening`): CORS Lockdown (Wildcard-Warnung in Production). API-Key/Notification-Secret Masking. Password Complexity Enforcement. Security Headers Middleware (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy). WebSocket Auth (kurzlebiger Token). Refresh Token Rotation (altes Token revoked). Account Lockout (DB-Migration für `failed_login_attempts`, `locked_until`). Trusted Proxy Config. Rate-Limit Improvements. System Settings Allowlist. Staging Path Validation. Rule Import File Size Limit. `datetime.utcnow()` → `datetime.now(timezone.utc)`. Audit Log Data Retention Job. SECRET_KEY Enforcement in docker-compose. Frontend WebSocket Auth + Refresh Token Rotation Support. Branch: `feature/security-hardening`, Commit: `3058956` (PR #19) |
+| 24.02.2026 (8) | **Session 8 – Security Hardening II + httpOnly Cookies** (PRs #20, #21, #22): httpOnly Cookie Auth Migration (ADR-001) – JWT aus localStorage entfernt, Set-Cookie im Backend, `credentials: 'include'` im Frontend, Cookie-Clearing bei Logout. CSRF Double-Submit Cookie Middleware (`csrf.py`). Security Event Logging (`security_events.py` – strukturiertes JSON für Auth/Rate-Limit/CSRF Events). SSRF-Safe URL Validation (`url_validation.py`). `escape_like()` für SQL-Injection-Schutz. Content-Security-Policy Header. WebSocket Connection Limits per IP. Body Size Limit Middleware. Admin-Only auf Rules, Jobs, Staging, Services, Notifications, System-Settings Routes. Outbound URL Validation auf alle Service-Connection/Notification/Setup Endpoints. Enhanced Rate Limiting mit Security-Event-Logging auf allen API-Routes. Refresh Token Cleanup Scheduler-Job. CI/CD: `tests.yml` (Backend+Frontend Tests), `security-scan.yml` (SAST/DAST). Pytest Setup mit Smoke Test. Dependabot Config. npm Dependency Bump. Branch: `feature/security-hardening2`, Commits: `148d0f6` (PR #20), `f0eec84` (PR #21), `657ad70` (PR #22) |
 | 30.12.2024 | Initiale Version: Session-Zusammenfassung (Rules Export, Sidebar, Theme Toggle, Staging UI) |

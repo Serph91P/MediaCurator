@@ -19,6 +19,7 @@ import { useDebounce } from '../hooks/useDebounce'
 import ResponsiveTable from '../components/ResponsiveTable'
 import {
   AreaChart, Area, BarChart, Bar,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 
@@ -72,6 +73,37 @@ interface ActivityStats {
   plays_by_day_of_week: { day_of_week: number; plays: number }[]
 }
 
+interface GenreStatsResponse {
+  period_days: number
+  total_genres: number
+  genres: { genre: string; plays: number; duration_seconds: number }[]
+}
+
+interface HeatmapResponse {
+  period_days: number
+  heatmap: { day_of_week: number; hour: number; plays: number }[]
+}
+
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+function getHeatmapColor(value: number, max: number): string {
+  if (value === 0 || max === 0) return 'var(--color-dark-700)'
+  const intensity = value / max
+  if (intensity > 0.75) return 'var(--color-primary-500)'
+  if (intensity > 0.5) return 'var(--color-primary-400)'
+  if (intensity > 0.25) return 'var(--color-primary-300)'
+  return 'var(--color-primary-200)'
+}
+
+function getHeatmapColorLight(value: number, max: number): string {
+  if (value === 0 || max === 0) return 'var(--color-gray-100)'
+  const intensity = value / max
+  if (intensity > 0.75) return 'var(--color-primary-600)'
+  if (intensity > 0.5) return 'var(--color-primary-400)'
+  if (intensity > 0.25) return 'var(--color-primary-300)'
+  return 'var(--color-primary-200)'
+}
+
 export default function Activity() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
@@ -109,6 +141,24 @@ export default function Activity() {
     queryKey: ['activityStats'],
     queryFn: async () => {
       const res = await api.get<ActivityStats>('/activity/stats?days=30')
+      return res.data
+    }
+  })
+
+  // Fetch genre stats
+  const { data: genreStats } = useQuery({
+    queryKey: ['genreStats'],
+    queryFn: async () => {
+      const res = await api.get<GenreStatsResponse>('/activity/genre-stats?days=30')
+      return res.data
+    }
+  })
+
+  // Fetch watch heatmap
+  const { data: heatmapData } = useQuery({
+    queryKey: ['watchHeatmap'],
+    queryFn: async () => {
+      const res = await api.get<HeatmapResponse>('/activity/watch-heatmap?days=30')
       return res.data
     }
   })
@@ -323,6 +373,123 @@ export default function Activity() {
           </div>
         </div>
       )}
+
+      {/* Genre Distribution & Watch Heatmap */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Genre Distribution Radar Chart */}
+        {genreStats && genreStats.genres.length > 0 && (
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Genre Distribution (Last 30 Days)
+            </h3>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={genreStats.genres.slice(0, 12)}>
+                  <PolarGrid stroke="var(--color-gray-300)" className="dark:opacity-30" />
+                  <PolarAngleAxis
+                    dataKey="genre"
+                    tick={{ fontSize: 11, fill: 'var(--color-gray-500)' }}
+                  />
+                  <PolarRadiusAxis
+                    tick={{ fontSize: 10, fill: 'var(--color-gray-400)' }}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--color-dark-800)',
+                      border: '1px solid var(--color-dark-700)',
+                      borderRadius: '0.5rem',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
+                    formatter={(value: number, name: string) => {
+                      if (name === 'plays') return [value, 'Plays']
+                      const hrs = Math.floor(value / 3600)
+                      const mins = Math.floor((value % 3600) / 60)
+                      return [hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`, 'Watch Time']
+                    }}
+                  />
+                  <Radar
+                    name="plays"
+                    dataKey="plays"
+                    stroke="var(--color-primary-500)"
+                    fill="var(--color-primary-500)"
+                    fillOpacity={0.3}
+                    strokeWidth={2}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Watch Patterns Heatmap */}
+        {heatmapData && heatmapData.heatmap.length > 0 && (() => {
+          const maxPlays = Math.max(...heatmapData.heatmap.map(h => h.plays))
+          const grid: Record<string, number> = {}
+          heatmapData.heatmap.forEach(h => {
+            grid[`${h.day_of_week}-${h.hour}`] = h.plays
+          })
+          return (
+            <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Watch Patterns (Last 30 Days)
+              </h3>
+              <div className="overflow-x-auto">
+                <div className="min-w-[500px]">
+                  {/* Hour labels */}
+                  <div className="flex ml-10 mb-1">
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <div key={h} className="flex-1 text-center text-[10px] text-gray-400 dark:text-dark-500">
+                        {h % 3 === 0 ? (h === 0 ? '12a' : h < 12 ? `${h}a` : h === 12 ? '12p' : `${h-12}p`) : ''}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Grid rows */}
+                  {DAY_LABELS.map((day, dow) => (
+                    <div key={dow} className="flex items-center gap-1 mb-0.5">
+                      <div className="w-9 text-xs text-gray-500 dark:text-dark-400 text-right pr-1 shrink-0">
+                        {day}
+                      </div>
+                      {Array.from({ length: 24 }, (_, h) => {
+                        const plays = grid[`${dow}-${h}`] || 0
+                        return (
+                          <div
+                            key={h}
+                            className="flex-1 aspect-square rounded-sm cursor-default transition-colors"
+                            style={{
+                              backgroundColor: document.documentElement.classList.contains('dark')
+                                ? getHeatmapColor(plays, maxPlays)
+                                : getHeatmapColorLight(plays, maxPlays)
+                            }}
+                            title={`${day} ${h}:00 — ${plays} plays`}
+                          />
+                        )
+                      })}
+                    </div>
+                  ))}
+                  {/* Legend */}
+                  <div className="flex items-center justify-end gap-1.5 mt-3">
+                    <span className="text-xs text-gray-400 dark:text-dark-500">Less</span>
+                    {[0, 0.25, 0.5, 0.75, 1].map((intensity, i) => (
+                      <div
+                        key={i}
+                        className="w-3 h-3 rounded-sm"
+                        style={{
+                          backgroundColor: document.documentElement.classList.contains('dark')
+                            ? getHeatmapColor(intensity * 100, 100)
+                            : getHeatmapColorLight(intensity * 100, 100)
+                        }}
+                      />
+                    ))}
+                    <span className="text-xs text-gray-400 dark:text-dark-500">More</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+      </div>
 
       {/* Active Sessions */}
       {activeSessions && activeSessions.length > 0 && (

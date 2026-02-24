@@ -16,9 +16,20 @@ import {
   GlobeAltIcon,
   SignalIcon
 } from '@heroicons/react/24/outline'
+import {
+  ResponsiveContainer,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+} from 'recharts'
 import api from '../lib/api'
 import { formatBytes, formatRelativeTime, formatDuration, formatDate } from '../lib/utils'
 import ResponsiveTable from '../components/ResponsiveTable'
+
+interface GenreStatsResponse {
+  period_days: number
+  total_genres: number
+  genres: { genre: string; plays: number; duration_seconds: number }[]
+}
 
 interface LibraryDetails {
   id: number
@@ -135,6 +146,16 @@ export default function LibraryDetail() {
       return res.data
     },
     enabled: !!libraryId,
+  })
+
+  // Fetch genre stats for this library
+  const { data: genreStats } = useQuery({
+    queryKey: ['library-genre-stats', libraryId],
+    queryFn: async () => {
+      const res = await api.get<GenreStatsResponse>(`/activity/genre-stats?days=90&library_id=${libraryId}`)
+      return res.data
+    },
+    enabled: !!libraryId && activeTab === 'overview',
   })
 
   // Fetch media (only when media tab is active)
@@ -310,6 +331,95 @@ export default function LibraryDetail() {
                 <div className="text-center">
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.item_breakdown.episodes}</p>
                   <p className="text-gray-500 dark:text-dark-400 text-sm">Episodes</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Genre Distribution */}
+          {genreStats && genreStats.genres.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Radar Chart */}
+              <div className="bg-white dark:bg-dark-800 rounded-xl p-6 border border-gray-200 dark:border-dark-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Genre Distribution (Last 90 Days)
+                </h3>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={genreStats.genres.slice(0, 10)}>
+                      <PolarGrid stroke="var(--color-gray-300)" className="dark:opacity-30" />
+                      <PolarAngleAxis
+                        dataKey="genre"
+                        tick={{ fontSize: 11, fill: 'var(--color-gray-500)' }}
+                      />
+                      <PolarRadiusAxis
+                        tick={{ fontSize: 10, fill: 'var(--color-gray-400)' }}
+                        axisLine={false}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'var(--color-dark-800)',
+                          border: '1px solid var(--color-dark-700)',
+                          borderRadius: '0.5rem',
+                          color: '#fff',
+                          fontSize: '0.875rem'
+                        }}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'plays') return [value, 'Plays']
+                          const hrs = Math.floor(value / 3600)
+                          const mins = Math.floor((value % 3600) / 60)
+                          return [hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`, 'Watch Time']
+                        }}
+                      />
+                      <Radar
+                        name="plays"
+                        dataKey="plays"
+                        stroke="var(--color-primary-500)"
+                        fill="var(--color-primary-500)"
+                        fillOpacity={0.3}
+                        strokeWidth={2}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Top Genres Bar Chart */}
+              <div className="bg-white dark:bg-dark-800 rounded-xl p-6 border border-gray-200 dark:border-dark-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Top Genres by Watch Time
+                </h3>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={genreStats.genres.slice(0, 8).map(g => ({
+                        genre: g.genre,
+                        hours: Math.round(g.duration_seconds / 3600 * 10) / 10
+                      }))}
+                      layout="vertical"
+                      margin={{ left: 60, right: 20, top: 5, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" className="dark:opacity-20" />
+                      <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-gray-500)' }} />
+                      <YAxis
+                        type="category"
+                        dataKey="genre"
+                        tick={{ fontSize: 11, fill: 'var(--color-gray-500)' }}
+                        width={55}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'var(--color-dark-800)',
+                          border: '1px solid var(--color-dark-700)',
+                          borderRadius: '0.5rem',
+                          color: '#fff',
+                          fontSize: '0.875rem'
+                        }}
+                        formatter={(value: number) => [`${value}h`, 'Watch Time']}
+                      />
+                      <Bar dataKey="hours" fill="var(--color-primary-500)" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             </div>

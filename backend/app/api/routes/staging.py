@@ -4,13 +4,14 @@ API routes for staging system (soft-delete).
 import os
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timezone
 
 from ...api.deps import get_current_user, get_db
 from ...core.config import get_settings
+from ...core.rate_limit import limiter, RateLimits
 from ...models import MediaItem, User, SystemSettings
 from ...services.staging import StagingService
 from ...services.emby import EmbyService
@@ -118,7 +119,9 @@ class ActionResponse(BaseModel):
 
 
 @router.get("/staged", response_model=List[StagedItemResponse])
+@limiter.limit(RateLimits.API_READ)
 async def get_staged_items(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -133,7 +136,9 @@ async def get_staged_items(
 
 
 @router.get("/stats", response_model=StagingStatsResponse)
+@limiter.limit(RateLimits.API_READ)
 async def get_staging_stats(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -187,8 +192,10 @@ async def get_staging_stats(
 
 
 @router.post("/stage", response_model=ActionResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def stage_media_items(
-    request: StageMediaRequest,
+    request: Request,
+    stage_request: StageMediaRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -200,7 +207,7 @@ async def stage_media_items(
     failed_count = 0
     errors = []
     
-    for media_id in request.media_ids:
+    for media_id in stage_request.media_ids:
         result = await db.execute(
             select(MediaItem).where(MediaItem.id == media_id)
         )
@@ -226,7 +233,9 @@ async def stage_media_items(
 
 
 @router.post("/{media_id}/stage", response_model=ActionResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def stage_single_item(
+    request: Request,
     media_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -256,7 +265,9 @@ async def stage_single_item(
 
 
 @router.post("/{media_id}/restore", response_model=ActionResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def restore_single_item(
+    request: Request,
     media_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -289,7 +300,9 @@ async def restore_single_item(
 
 
 @router.delete("/{media_id}/permanent", response_model=ActionResponse)
+@limiter.limit(RateLimits.CLEANUP_OPERATION)
 async def permanent_delete_item(
+    request: Request,
     media_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -321,7 +334,9 @@ async def permanent_delete_item(
 
 
 @router.get("/settings", response_model=StagingSettingsResponse)
+@limiter.limit(RateLimits.API_READ)
 async def get_staging_settings(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -339,7 +354,9 @@ async def get_staging_settings(
 
 
 @router.put("/settings", response_model=StagingSettingsResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_staging_settings(
+    request: Request,
     update: StagingSettingsUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -391,7 +408,9 @@ async def update_staging_settings(
 
 
 @router.get("/libraries", response_model=List[LibraryStagingSettingsResponse])
+@limiter.limit(RateLimits.API_READ)
 async def get_library_staging_settings(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -434,7 +453,9 @@ async def get_library_staging_settings(
 
 
 @router.get("/libraries/{library_id}", response_model=LibraryStagingSettingsResponse)
+@limiter.limit(RateLimits.API_READ)
 async def get_library_staging_setting(
+    request: Request,
     library_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -476,7 +497,9 @@ async def get_library_staging_setting(
 
 
 @router.put("/libraries/{library_id}", response_model=LibraryStagingSettingsResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_library_staging_settings(
+    request: Request,
     library_id: int,
     update: LibraryStagingSettingsUpdate,
     db: AsyncSession = Depends(get_db),
@@ -531,7 +554,9 @@ async def update_library_staging_settings(
 
 
 @router.delete("/libraries/{library_id}/settings")
+@limiter.limit(RateLimits.API_WRITE)
 async def reset_library_staging_settings(
+    request: Request,
     library_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)

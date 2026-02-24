@@ -121,7 +121,8 @@ export function useJobWebSocket() {
     }
 
     setWsStatus('connecting')
-    const url = getWsUrl()
+    const baseUrl = getWsUrl()
+    const url = `${baseUrl}?token=${encodeURIComponent(token)}`
 
     try {
       const ws = new WebSocket(url)
@@ -144,6 +145,7 @@ export function useJobWebSocket() {
 
         if (!mountedRef.current) return
         if (event.code === 1000) return // Normal close
+        if (event.code === 4001) return // Auth failure — don't reconnect
 
         // Exponential backoff reconnect
         const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000)

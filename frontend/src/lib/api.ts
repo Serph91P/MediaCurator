@@ -114,7 +114,11 @@ api.interceptors.response.use(
         })
 
         const newAccessToken = response.data.access_token
+        const newRefreshToken = response.data.refresh_token
         setToken(newAccessToken)
+        if (newRefreshToken) {
+          setRefreshToken(newRefreshToken)
+        }
         
         processQueue(null, newAccessToken)
         

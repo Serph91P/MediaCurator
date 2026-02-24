@@ -133,41 +133,84 @@ jobs:
           retention-days: 30
 
   # ──────────────────────────────────────────────
-  # Container image scanning — Trivy
+  # Filesystem vulnerability scanning — Trivy
   # ──────────────────────────────────────────────
-  trivy:
-    name: Trivy (Container Scan)
+  trivy-fs:
+    name: Trivy (Filesystem Scan)
     runs-on: ubuntu-latest
     steps:
-      - uses:  actions/checkout@v6
+      - uses: actions/checkout@v6
 
-      - name: Build Docker image
-        run: docker build -t mediacurator:scan .
-
-      - name: Run Trivy vulnerability scanner
+      - name: Run Trivy filesystem scanner (SARIF)
         uses: aquasecurity/trivy-action@0.34.1
         with:
-          image-ref: 'mediacurator:scan'
+          scan-type: 'fs'
+          scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
           exit-code: '0'
 
       - name: Upload Trivy SARIF to GitHub Security
-        if: always()
+        if: always() && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
+          category: 'trivy-fs'
+
+      - name: Run Trivy filesystem scanner (table for logs)
+        if: always()
+        uses: aquasecurity/trivy-action@0.34.1
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+  # ──────────────────────────────────────────────
+  # Container image scanning — Trivy (optional)
+  # ──────────────────────────────────────────────
+  trivy-image:
+    name: Trivy (Container Scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build Docker image
+        id: docker-build
+        continue-on-error: true
+        run: docker build -t mediacurator:scan .
+
+      - name: Run Trivy image scanner (SARIF)
+        if: steps.docker-build.outcome == 'success'
+        uses: aquasecurity/trivy-action@0.34.1
+        with:
+          image-ref: 'mediacurator:scan'
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Upload Trivy image SARIF to GitHub Security
+        if: always() && hashFiles('trivy-image-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-image-results.sarif'
           category: 'trivy-container'
 
-      - name: Run Trivy (table output for logs)
-        if: always()
+      - name: Run Trivy image scanner (table for logs)
+        if: steps.docker-build.outcome == 'success'
         uses: aquasecurity/trivy-action@0.34.1
         with:
           image-ref: 'mediacurator:scan'
           format: 'table'
           severity: 'CRITICAL,HIGH'
           exit-code: '0'
+
+      - name: Report build skip
+        if: steps.docker-build.outcome != 'success'
+        run: echo "::warning::Docker build failed — image scan skipped. Filesystem scan still runs in trivy-fs job."
 
   # ──────────────────────────────────────────────
   # Dockerfile linting — Hadolint

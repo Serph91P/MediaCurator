@@ -297,11 +297,11 @@ Delete movie if:
 - [x] Binge-Watch Detection – Backend `/activity/binge-stats` + Frontend Analytics page (Session 10)
 - [x] Shared vs. Solo Content – Backend `/media/content-reach` + Frontend Analytics page (Session 10)
 
-### Phase 5 - Smart Cleanup Integration
-- [ ] Cleanup Rules per User condition
-- [ ] User-Specific Exclusions
-- [ ] Enhanced Currently Watching detection
-- [ ] Analytics-based cleanup suggestions
+### Phase 5 - Smart Cleanup Integration ✅ Complete (Session 11)
+- [x] Cleanup Rules per User condition – `no_user_watched_days` in RuleConditions (Session 11)
+- [x] User-Specific Exclusions – `exclude_if_user_favorited` + `min_unique_viewers` in RuleConditions (Session 11)
+- [x] Enhanced Currently Watching detection – `exclude_active_sessions` checks PlaybackActivity.is_active (Session 11)
+- [x] Analytics-based cleanup suggestions – `/media/cleanup-suggestions` endpoint + CleanupSuggestions page (Session 11)
 
 ### Security Hardening ✅ Complete (Session 7+8)
 - [x] httpOnly Cookie Auth (JWT aus localStorage entfernt, ADR-001)
@@ -421,6 +421,11 @@ To enable these features, the following data needs to be tracked:
 | 4 | Binge Stats API (`/activity/binge-stats`) | Session 10 | ✅ |
 | 4 | Content Reach API (`/media/content-reach`) | Session 10 | ✅ |
 | 4 | Analytics Page (5-tab: Concurrent, Duration, Completion, Binge, Reach) | Session 10 | ✅ |
+| 5 | Per-User Rule Conditions (no_user_watched_days, exclude_if_user_favorited) | Session 11 | ✅ |
+| 5 | Active Session Protection (exclude_active_sessions) | Session 11 | ✅ |
+| 5 | Min Unique Viewers Rule Condition | Session 11 | ✅ |
+| 5 | Cleanup Suggestions API (`/media/cleanup-suggestions`) | Session 11 | ✅ |
+| 5 | Cleanup Suggestions Page (CleanupSuggestions.tsx) | Session 11 | ✅ |
 
 ---
 

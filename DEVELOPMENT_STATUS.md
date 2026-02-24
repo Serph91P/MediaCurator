@@ -2,7 +2,7 @@
 
 > **Zweck**: Dieses Dokument dient als fortlaufender Stand für die Weiterentwicklung. Es kann in jedem neuen Chat/auf jedem Rechner als Kontext übergeben werden, damit der Assistent sofort weiß, wo es weitergeht.
 
-**Letzte Aktualisierung**: 26. Februar 2026 (Session 10)
+**Letzte Aktualisierung**: 26. Februar 2026 (Session 11)
 **Branch**: `develop`
 **Letzter Commit**: `55e4bf7` (Session 9)
 **Version**: `vdev.0.0.231`
@@ -280,11 +280,13 @@ frontend/src/
 - [x] Binge-Watch Detection – Analytics.tsx (Session 10)
 - [x] Shared vs. Solo Content Analysis – Analytics.tsx (Session 10)
 
-### Phase 5 – Smart Cleanup Integration ❌ NICHT BEGONNEN
-- [ ] Cleanup Rules per User ("Delete only if NO user watched in X days")
-- [ ] User-Specific Exclusions ("Never delete if User X has favorite")
-- [ ] Enhanced Currently Watching Detection
-- [ ] Analytics-based Cleanup Suggestions
+### Phase 5 – Smart Cleanup Integration ✅ ERLEDIGT
+- [x] Per-User Cleanup Rules: `no_user_watched_days` – checks UserWatchHistory per user (Session 11)
+- [x] User-Specific Exclusions: `exclude_if_user_favorited` – protects favorites of specific users (Session 11)
+- [x] Enhanced Currently Watching: `exclude_active_sessions` – checks PlaybackActivity.is_active (Session 11)
+- [x] Min Unique Viewers: `min_unique_viewers` – only delete if fewer than X viewers (Session 11)
+- [x] Analytics-based Cleanup Suggestions: `/media/cleanup-suggestions` endpoint (Session 11)
+- [x] Cleanup Suggestions UI: CleanupSuggestions.tsx with category filters + scoring (Session 11)
 
 ---
 
@@ -503,9 +505,9 @@ Das Backend ist gut strukturiert mit:
 20. ~~CI/CD: Tests + Security Scanning Workflows~~ ✅
 21. ~~Dependabot Setup~~ ✅
 
-### Priorität 7: Phase 4+ (Zukunft)
+### ~~Priorität 7: Phase 4+5~~ ✅ ERLEDIGT (Session 9+10+11)
 22. ~~Advanced Analytics~~ ✅ (Session 9+10): Heatmaps, User Timeline, Concurrent Streams, Duration Stats, Completion Rates, Binge Detection, Content Reach
-23. Smart Cleanup Rules (Per-User Conditions)
+23. ~~Smart Cleanup Rules (Per-User Conditions)~~ ✅ (Session 11): no_user_watched_days, exclude_if_user_favorited, exclude_active_sessions, min_unique_viewers, Cleanup Suggestions API + UI
 24. ~~Genre Distribution Charts~~ ✅ (Session 9)
 25. ~~User Detail: Favorite Genres~~ ✅ (Session 9), ~~Timeline-Tab~~ ✅ (Session 10)
 26. ~~LibraryDetail: Genre-Charts~~ ✅ (Session 9), ~~Grid-View mit Poster-Bildern~~ ✅ (Session 10)
@@ -581,5 +583,4 @@ docker compose -f docker-compose.dev.yml up --build
 | 22.02.2026 (6) | **Session 6 – Bugfix & Expand-Rows**: BUG-011 behoben: PlaybackActivity `position_ticks`/`runtime_ticks` Integer→BigInteger (PostgreSQL int32 overflow bei Emby-Ticks >2.1B). DB-Migration hinzugefügt. Fehlerbehandlung in `_sync_active_sessions` und `services.py` mit `db.rollback()`. ResponsiveTable: Expand-Row-Support (`onRowClick`, `isExpanded`, `expandedContent`). Preview.tsx: Beide Tabellen (Series+Movies) auf ResponsiveTable migriert (letzte Seite). Expand-Rows auf Activity, UserDetail, LibraryDetail (IP, Device, Play Method, Progress-Bar). ConfirmDialog: `aria-modal`, Focus-Trap, Escape-Key, Click-Outside. Library Activity API: `ip_address`, `transcode_video`, `transcode_audio` hinzugefügt. BUG-012: Radarr-Pfad Ordner→Datei-Pfad (Movie-Watch-Statistiken). BUG-013: User Last Seen/Watched/Client Fallback-Logik. Branch: `feature/phase2-enhancements-and-docs` |
 | 24.02.2026 (7) | **Session 7 – Security Hardening I** (PR #19 `feature/security-hardening`): CORS Lockdown (Wildcard-Warnung in Production). API-Key/Notification-Secret Masking. Password Complexity Enforcement. Security Headers Middleware (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy). WebSocket Auth (kurzlebiger Token). Refresh Token Rotation (altes Token revoked). Account Lockout (DB-Migration für `failed_login_attempts`, `locked_until`). Trusted Proxy Config. Rate-Limit Improvements. System Settings Allowlist. Staging Path Validation. Rule Import File Size Limit. `datetime.utcnow()` → `datetime.now(timezone.utc)`. Audit Log Data Retention Job. SECRET_KEY Enforcement in docker-compose. Frontend WebSocket Auth + Refresh Token Rotation Support. Branch: `feature/security-hardening`, Commit: `3058956` (PR #19) |
 | 24.02.2026 (8) | **Session 8 – Security Hardening II + httpOnly Cookies** (PRs #20, #21, #22): httpOnly Cookie Auth Migration (ADR-001) – JWT aus localStorage entfernt, Set-Cookie im Backend, `credentials: 'include'` im Frontend, Cookie-Clearing bei Logout. CSRF Double-Submit Cookie Middleware (`csrf.py`). Security Event Logging (`security_events.py` – strukturiertes JSON für Auth/Rate-Limit/CSRF Events). SSRF-Safe URL Validation (`url_validation.py`). `escape_like()` für SQL-Injection-Schutz. Content-Security-Policy Header. WebSocket Connection Limits per IP. Body Size Limit Middleware. Admin-Only auf Rules, Jobs, Staging, Services, Notifications, System-Settings Routes. Outbound URL Validation auf alle Service-Connection/Notification/Setup Endpoints. Enhanced Rate Limiting mit Security-Event-Logging auf allen API-Routes. Refresh Token Cleanup Scheduler-Job. CI/CD: `tests.yml` (Backend+Frontend Tests), `security-scan.yml` (SAST/DAST). Pytest Setup mit Smoke Test. Dependabot Config. npm Dependency Bump. Branch: `feature/security-hardening2`, Commits: `148d0f6` (PR #20), `f0eec84` (PR #21), `657ad70` (PR #22) |
-| 26.02.2026 (10) | **Session 10 \u2013 Phase 2 Completion + Phase 4 Advanced Analytics**: Phase 2: User Timeline Tab (Backend + Frontend Calendar Heatmap + Session-Gruppierung), Image Proxy (`GET /media/{id}/image`), LibraryDetail Grid View (Table/Grid Toggle mit Poster-Bildern), UserDetail Activity Type-Filter + Suche. Phase 4: Concurrent Streams Analysis, Watch Duration Stats, Completion Rate Analytics, Binge-Watch Detection, Shared vs. Solo Content Analysis. Neue Analytics-Seite mit 5 Tabs. Branches: `feature/phase2-completion`, `feature/phase4-advanced-analytics` |
-| 30.12.2024 | Initiale Version: Session-Zusammenfassung (Rules Export, Sidebar, Theme Toggle, Staging UI) |
+| 26.02.2026 (10) | **Session 10 \u2013 Phase 2 Completion + Phase 4 Advanced Analytics**: Phase 2: User Timeline Tab (Backend + Frontend Calendar Heatmap + Session-Gruppierung), Image Proxy (`GET /media/{id}/image`), LibraryDetail Grid View (Table/Grid Toggle mit Poster-Bildern), UserDetail Activity Type-Filter + Suche. Phase 4: Concurrent Streams Analysis, Watch Duration Stats, Completion Rate Analytics, Binge-Watch Detection, Shared vs. Solo Content Analysis. Neue Analytics-Seite mit 5 Tabs. Branches: `feature/phase2-completion`, `feature/phase4-advanced-analytics` || 26.02.2026 (11) | **Session 11 – Phase 5 Smart Cleanup Integration**: Per-User Rule Conditions (`no_user_watched_days`, `exclude_if_user_favorited`, `exclude_active_sessions`, `min_unique_viewers`) in RuleConditions Schema + CleanupEngine. Analytics-based Cleanup Suggestions API (`GET /media/cleanup-suggestions`). CleanupSuggestions.tsx Frontend-Seite mit Kategorie-Filter (Unwatched, Abandoned, Low Engagement, Stale, Storage Hog) und Score-basiertem Ranking. Rules.tsx: Smart Cleanup Per-User Section. Branch: `feature/phase5-smart-cleanup` || 30.12.2024 | Initiale Version: Session-Zusammenfassung (Rules Export, Sidebar, Theme Toggle, Staging UI) |

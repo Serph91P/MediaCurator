@@ -19,7 +19,7 @@ from ...services.notifications import (
     NotificationService, NotificationEventType as ServiceEventType,
     DEFAULT_TEMPLATES, TemplateRenderer, create_notification_context
 )
-from ..deps import get_current_user
+from ..deps import get_current_user, get_current_active_admin
 
 router = APIRouter(prefix="/notifications", tags=["Notification Channels"])
 
@@ -52,13 +52,14 @@ class TestAppriseRequest(BaseModel):
 async def test_apprise_urls(
     request: Request,
     data: TestAppriseRequest,
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Test Apprise URLs by sending a test notification.
     
     This endpoint allows testing URLs before creating a notification channel.
     """
     import apprise
+    from ...core.url_validation import validate_outbound_url
     
     if not data.urls:
         raise HTTPException(
@@ -66,6 +67,11 @@ async def test_apprise_urls(
             detail="At least one URL is required"
         )
     
+    # Validate any HTTP/HTTPS URLs against SSRF before passing to Apprise
+    for url in data.urls:
+        if url.lower().startswith(("http://", "https://")):
+            validate_outbound_url(url)
+
     # Create Apprise instance
     apobj = apprise.Apprise()
     
@@ -185,7 +191,7 @@ async def create_notification_channel(
     request: Request,
     channel_data: NotificationChannelCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Create a new notification channel."""
     channel = NotificationChannel(**channel_data.model_dump())
@@ -223,7 +229,7 @@ async def update_notification_channel(
     channel_id: int,
     channel_data: NotificationChannelUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Update a notification channel."""
     result = await db.execute(
@@ -251,7 +257,7 @@ async def delete_notification_channel(
     request: Request,
     channel_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Delete a notification channel."""
     result = await db.execute(
@@ -275,7 +281,7 @@ async def test_notification_channel(
     request: Request,
     channel_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Test a notification channel by sending a test message with retry logic."""
     result = await db.execute(

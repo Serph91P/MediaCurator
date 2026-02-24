@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, HttpUrl, EmailStr, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
+import re
 
 
 # ==================== Enums ====================
@@ -104,8 +105,9 @@ class TokenRefreshRequest(BaseModel):
 
 
 class TokenRefreshResponse(BaseModel):
-    """Response from token refresh."""
+    """Response from token refresh (includes rotated refresh token)."""
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     expires_in: int
 
@@ -141,6 +143,19 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
+
+    @field_validator('password')
+    @classmethod
+    def validate_password_complexity(cls, v: str) -> str:
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain at least one digit')
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\/~`]', v):
+            raise ValueError('Password must contain at least one special character')
+        return v
 
 
 class UserUpdate(BaseModel):
@@ -198,6 +213,14 @@ class ServiceConnectionResponse(ServiceConnectionBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     last_sync: Optional[datetime] = None
+
+    @field_validator('api_key', mode='before')
+    @classmethod
+    def mask_api_key(cls, v: str) -> str:
+        """Mask the API key, showing only first 4 and last 4 characters."""
+        if not v or len(v) <= 8:
+            return '***'
+        return f"{v[:4]}{'*' * (len(v) - 8)}{v[-4:]}"
 
     class Config:
         from_attributes = True
@@ -361,6 +384,21 @@ class NotificationChannelResponse(NotificationChannelBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    SENSITIVE_CONFIG_KEYS = {"webhook_url", "token", "bot_token", "api_key", "password", "secret", "url"}
+
+    @field_validator('config', mode='before')
+    @classmethod
+    def mask_sensitive_config(cls, v):
+        if not isinstance(v, dict):
+            return v
+        masked = {}
+        for key, value in v.items():
+            if any(s in key.lower() for s in cls.SENSITIVE_CONFIG_KEYS) and isinstance(value, str) and len(value) > 8:
+                masked[key] = value[:4] + "***" + value[-4:]
+            else:
+                masked[key] = value
+        return masked
 
     class Config:
         from_attributes = True

@@ -47,7 +47,7 @@ async def sync_service_media(
             }
         
         # Update last sync time
-        service.last_sync = datetime.utcnow()
+        service.last_sync = datetime.now(timezone.utc)
         
         # Create import stats record
         end_time = datetime.now(timezone.utc)
@@ -376,7 +376,7 @@ async def _sync_emby(
                 db_lib.name = name
                 db_lib.path = path
                 db_lib.media_type = media_type
-                db_lib.last_synced_at = datetime.utcnow()
+                db_lib.last_synced_at = datetime.now(timezone.utc)
             else:
                 db_lib = Library(
                     name=name,
@@ -385,7 +385,7 @@ async def _sync_emby(
                     media_type=media_type,
                     path=path,
                     is_enabled=True,
-                    last_synced_at=datetime.utcnow()
+                    last_synced_at=datetime.now(timezone.utc)
                 )
                 db.add(db_lib)
                 await db.flush()
@@ -666,7 +666,7 @@ async def _sync_emby(
             
             if normalized_path in last_watched:
                 item.last_watched_at = last_watched[normalized_path]
-                item.last_progress_update = datetime.utcnow()
+                item.last_progress_update = datetime.now(timezone.utc)
             
             watch_updated += 1
         

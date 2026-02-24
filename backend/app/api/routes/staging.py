@@ -1,13 +1,16 @@
 """
 API routes for staging system (soft-delete).
 """
+import os
+from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ...api.deps import get_current_user, get_db
+from ...core.config import get_settings
 from ...models import MediaItem, User, SystemSettings
 from ...services.staging import StagingService
 from ...services.emby import EmbyService
@@ -15,6 +18,28 @@ from pydantic import BaseModel, Field
 
 
 router = APIRouter()
+
+
+def _validate_staging_path(path: str) -> str:
+    """Validate staging path is absolute and within allowed directories."""
+    settings = get_settings()
+    allowed_roots = [
+        os.path.realpath(settings.data_path),
+        os.path.realpath(settings.media_path),
+    ]
+
+    resolved = os.path.realpath(path)
+
+    if not os.path.isabs(resolved):
+        raise HTTPException(status_code=400, detail="Staging path must be absolute")
+
+    if not any(resolved == root or resolved.startswith(root + os.sep) for root in allowed_roots):
+        raise HTTPException(
+            status_code=400,
+            detail="Staging path must be within the configured data or media directories"
+        )
+
+    return resolved
 
 
 # Schemas
@@ -115,7 +140,7 @@ async def get_staging_stats(
     """Get staging statistics."""
     from datetime import timedelta
     
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     soon_threshold = now + timedelta(days=7)
     
     # Total staged
@@ -321,6 +346,9 @@ async def update_staging_settings(
 ):
     """Update staging system settings."""
     updates = update.model_dump(exclude_unset=True)
+
+    if 'staging_path' in updates and updates['staging_path'] is not None:
+        updates['staging_path'] = _validate_staging_path(updates['staging_path'])
     
     # Map API field names to database keys
     key_mapping = {
@@ -465,6 +493,10 @@ async def update_library_staging_settings(
     
     # Update library staging settings
     updates = update.model_dump(exclude_unset=True)
+
+    if 'staging_path' in updates and updates['staging_path'] is not None:
+        updates['staging_path'] = _validate_staging_path(updates['staging_path'])
+
     for key, value in updates.items():
         setattr(library, key, value)
     

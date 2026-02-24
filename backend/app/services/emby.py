@@ -7,7 +7,7 @@ from sqlalchemy import select
 from .base import BaseServiceClient, ServiceClientError
 from ..models import ServiceConnection
 from loguru import logger
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 
@@ -23,7 +23,7 @@ class SimpleCache:
         """Get value from cache if not expired."""
         if key in self._cache:
             value, expiry = self._cache[key]
-            if datetime.utcnow() < expiry:
+            if datetime.now(timezone.utc) < expiry:
                 return value
             else:
                 del self._cache[key]
@@ -32,7 +32,7 @@ class SimpleCache:
     def set(self, key: str, value: Any, ttl: Optional[int] = None):
         """Set value in cache with TTL in seconds."""
         ttl = ttl or self.default_ttl
-        expiry = datetime.utcnow() + timedelta(seconds=ttl)
+        expiry = datetime.now(timezone.utc) + timedelta(seconds=ttl)
         self._cache[key] = (value, expiry)
     
     def clear(self):
@@ -59,7 +59,7 @@ class EmbyClient(BaseServiceClient):
     def _make_cache_key(self, endpoint: str, params: Optional[Dict] = None) -> str:
         """Generate cache key from endpoint and params."""
         cache_data = f"{self.base_url}:{endpoint}:{json.dumps(params or {}, sort_keys=True)}"
-        return hashlib.md5(cache_data.encode()).hexdigest()
+        return hashlib.sha256(cache_data.encode()).hexdigest()
     
     def _get_headers(self) -> Dict[str, str]:
         return {

@@ -4,8 +4,9 @@ Main FastAPI application.
 from pathlib import Path
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from .core.security_headers import SecurityHeadersMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
 from loguru import logger
 import sys
@@ -14,7 +15,9 @@ from .core.config import get_settings
 from .core.database import init_db, close_db
 from .core.rate_limit import setup_rate_limiting, limiter, RateLimits
 from .core.websocket import ws_manager
+from .core.security import decode_token
 from .api.routes import auth, services, rules, libraries, notifications, system, jobs, media, staging, audit, activity, users, setup
+from .api.deps import get_current_user
 
 settings = get_settings()
 
@@ -74,13 +77,16 @@ app = FastAPI(
     openapi_url="/api/openapi.json"
 )
 
-# CORS middleware
+# Security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# CORS middleware — use configurable origins from settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly for production
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Refresh-Token"],
 )
 
 # Setup rate limiting
@@ -111,7 +117,7 @@ async def health(request: Request):
 @app.get("/api/health/detailed")
 @limiter.limit(RateLimits.HEALTH_CHECK)
 async def health_detailed(request: Request):
-    """Detailed health check with component status."""
+    """Detailed health check with component status. Requires auth for full details."""
     from .core.database import async_session_maker
     from sqlalchemy import text
     import time
@@ -129,7 +135,8 @@ async def health_detailed(request: Request):
             await db.execute(text("SELECT 1"))
         health_status["components"]["database"] = {"status": "healthy"}
     except Exception as e:
-        health_status["components"]["database"] = {"status": "unhealthy", "error": str(e)}
+        logger.error(f"Health check database error: {e}")
+        health_status["components"]["database"] = {"status": "unhealthy"}
         health_status["status"] = "degraded"
     
     # Check scheduler
@@ -141,18 +148,29 @@ async def health_detailed(request: Request):
             health_status["components"]["scheduler"] = {"status": "stopped"}
             health_status["status"] = "degraded"
     except Exception as e:
-        health_status["components"]["scheduler"] = {"status": "unknown", "error": str(e)}
+        logger.error(f"Health check scheduler error: {e}")
+        health_status["components"]["scheduler"] = {"status": "unknown"}
     
     return health_status
 
 
 @app.websocket("/api/ws/jobs")
 async def websocket_jobs(websocket: WebSocket):
-    """WebSocket endpoint for real-time job status updates."""
+    """WebSocket endpoint for real-time job status updates (requires auth token)."""
+    # Authenticate via query parameter
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4001, reason="Missing authentication token")
+        return
+
+    token_data = decode_token(token, verify_type="access")
+    if not token_data or not token_data.user_id:
+        await websocket.close(code=4001, reason="Invalid or expired token")
+        return
+
     await ws_manager.connect(websocket)
     try:
         while True:
-            # Keep connection alive, listen for pings
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_text('{"type":"pong"}')
@@ -172,13 +190,14 @@ async def serve_frontend(request: Request, full_path: str):
     """Serve frontend for all non-API routes (SPA routing)."""
     # Don't serve frontend for API routes
     if full_path.startswith("api/"):
-        return {"error": "Not found"}, 404
+        return JSONResponse({"error": "Not found"}, status_code=404)
     
-    # Try to serve the requested file
     if STATIC_DIR.exists():
-        # Check if requesting a specific file
-        file_path = STATIC_DIR / full_path
-        if file_path.is_file():
+        # Validate path against directory traversal
+        file_path = (STATIC_DIR / full_path).resolve()
+        static_root = STATIC_DIR.resolve()
+
+        if file_path.is_file() and str(file_path).startswith(str(static_root)):
             return FileResponse(file_path)
         
         # For SPA routing, always serve index.html
@@ -187,9 +206,9 @@ async def serve_frontend(request: Request, full_path: str):
             return FileResponse(index_path)
     
     # Fallback: return API info
-    return {
+    return JSONResponse({
         "name": settings.app_name,
         "version": settings.app_version,
         "docs": "/api/docs",
         "note": "Frontend not found. Make sure static files are built and copied."
-    }
+    })

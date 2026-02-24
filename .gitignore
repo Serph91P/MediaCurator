@@ -74,6 +74,9 @@ temp/
 *.tmp
 *.bak
 
+# Plans
+plan/
+
 # copilot
 .github/agents
 .github/prompts

@@ -91,25 +91,25 @@ class CleanupEngine:
             
             # Skip recently added items
             if conditions.exclude_recently_added_days and item.added_at:
-                days_since_added = (dt.utcnow() - item.added_at).days
+                days_since_added = (dt.now(timezone.utc) - item.added_at).days
                 if days_since_added < conditions.exclude_recently_added_days:
                     continue
             
             # Check not watched days
             if conditions.not_watched_days:
                 if item.last_watched_at:
-                    days_since_watched = (dt.utcnow() - item.last_watched_at).days
+                    days_since_watched = (dt.now(timezone.utc) - item.last_watched_at).days
                     if days_since_watched < conditions.not_watched_days:
                         continue
                 elif item.added_at:
                     # Never watched - use added date
-                    days_since_added = (dt.utcnow() - item.added_at).days
+                    days_since_added = (dt.now(timezone.utc) - item.added_at).days
                     if days_since_added < conditions.not_watched_days:
                         continue
             
             # Check minimum age
             if conditions.min_age_days and item.added_at:
-                days_since_added = (dt.utcnow() - item.added_at).days
+                days_since_added = (dt.now(timezone.utc) - item.added_at).days
                 if days_since_added < conditions.min_age_days:
                     continue
             
@@ -153,7 +153,7 @@ class CleanupEngine:
     ) -> int:
         """Flag items for cleanup with grace period."""
         flagged_count = 0
-        now = dt.utcnow()
+        now = dt.now(timezone.utc)
         scheduled_at = now + timedelta(days=rule.grace_period_days)
         
         for item in items:
@@ -301,7 +301,7 @@ class CleanupEngine:
     
     async def run_scheduled_cleanups(self) -> Dict[str, Any]:
         """Run scheduled cleanups for flagged items past their grace period."""
-        now = dt.utcnow()
+        now = dt.now(timezone.utc)
         
         # Get items due for cleanup
         result = await self.db.execute(
@@ -557,7 +557,7 @@ class CleanupEngine:
         
         # Check recently added
         if getattr(conditions, 'exclude_recently_added_days', None) and item.added_at:
-            days_since_added = (dt.utcnow() - item.added_at).days
+            days_since_added = (dt.now(timezone.utc) - item.added_at).days
             if days_since_added < conditions.exclude_recently_added_days:
                 result["would_delete"] = False
                 result["skip_reasons"].append(
@@ -568,7 +568,7 @@ class CleanupEngine:
         # Check not watched days
         if conditions.not_watched_days:
             if item.last_watched_at:
-                days_since_watched = (dt.utcnow() - item.last_watched_at).days
+                days_since_watched = (dt.now(timezone.utc) - item.last_watched_at).days
                 if days_since_watched < conditions.not_watched_days:
                     result["would_delete"] = False
                     result["skip_reasons"].append(
@@ -580,7 +580,7 @@ class CleanupEngine:
                         f"Not watched for {days_since_watched} days (threshold: {conditions.not_watched_days} days)"
                     )
             elif item.added_at:
-                days_since_added = (dt.utcnow() - item.added_at).days
+                days_since_added = (dt.now(timezone.utc) - item.added_at).days
                 if days_since_added < conditions.not_watched_days:
                     result["would_delete"] = False
                     result["skip_reasons"].append(
@@ -594,7 +594,7 @@ class CleanupEngine:
         
         # Check minimum age
         if conditions.min_age_days and item.added_at:
-            days_since_added = (dt.utcnow() - item.added_at).days
+            days_since_added = (dt.now(timezone.utc) - item.added_at).days
             if days_since_added < conditions.min_age_days:
                 result["would_delete"] = False
                 result["skip_reasons"].append(

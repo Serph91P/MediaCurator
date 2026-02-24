@@ -6,7 +6,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc
 from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ...core.database import get_db
 from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats, CleanupLog, MediaServerUser, UserWatchHistory
@@ -132,7 +132,7 @@ async def get_import_stats(
 ):
     """Get import statistics for the last N days, optionally filtered by service."""
     
-    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Build query
     query = select(ImportStats).where(ImportStats.created_at >= cutoff_date)
@@ -221,7 +221,7 @@ async def get_watch_stats(
     """Get watch statistics (most watched items, recently watched, etc.)."""
     
     # Calculate date filter
-    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Most watched items - prioritize items with actual watch counts
     from sqlalchemy.orm import joinedload
@@ -344,7 +344,7 @@ async def get_dashboard_stats(
     Includes: most viewed movies/series, library overview, watch trends.
     """
     
-    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Get service info for enrichment
     services_result = await db.execute(select(ServiceConnection))

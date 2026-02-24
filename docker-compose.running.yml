@@ -21,7 +21,7 @@ services:
       - TZ=${TZ:-Europe/Berlin}
       
       # Security - IMPORTANT: Change this in production!
-      - SECRET_KEY=${SECRET_KEY:-please-change-this-secret-key-in-production}
+      - SECRET_KEY=${SECRET_KEY:?ERROR: SECRET_KEY must be set. Generate one with: openssl rand -hex 32}
       
       # Database
       - POSTGRES_HOST=postgres

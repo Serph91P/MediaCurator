@@ -3,10 +3,11 @@ Application configuration settings.
 All settings can be configured via environment variables.
 """
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, model_validator
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, List
 import secrets
+import os
 
 
 class Settings(BaseSettings):
@@ -46,6 +47,15 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15  # Short-lived access tokens (15 min)
     refresh_token_expire_days: int = 30  # Long-lived refresh tokens (30 days)
     
+    # CORS — comma-separated origins, e.g. "http://localhost:5173,https://app.example.com"
+    cors_origins: str = "http://localhost:5173,http://localhost:8080"
+    
+    # Trusted proxies — comma-separated IPs that are allowed to set X-Forwarded-For
+    trusted_proxies: str = ""
+    
+    # Audit log retention (days)
+    audit_retention_days: int = 90
+    
     # Initial admin (for first setup)
     initial_admin_user: Optional[str] = None
     initial_admin_password: Optional[str] = None
@@ -60,13 +70,61 @@ class Settings(BaseSettings):
     # Scheduler
     cleanup_check_interval_minutes: int = 60  # Check every hour
     
+    @property
+    def cors_origin_list(self) -> List[str]:
+        """Parse comma-separated CORS origins into a list."""
+        if not self.cors_origins or self.cors_origins.strip() == "*":
+            return ["*"]
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def trusted_proxy_list(self) -> List[str]:
+        """Parse comma-separated trusted proxy IPs into a list."""
+        if not self.trusted_proxies:
+            return []
+        return [p.strip() for p in self.trusted_proxies.split(",") if p.strip()]
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
 
 
+WEAK_SECRET_KEYS = {
+    "please-change-this-secret-key-in-production",
+    "changeme",
+    "secret",
+    "development-secret",
+}
+
+
+def _validate_secret_key(settings: "Settings") -> None:
+    """Warn or raise if the secret key is weak."""
+    import logging
+    log = logging.getLogger(__name__)
+
+    is_weak = (
+        settings.secret_key in WEAK_SECRET_KEYS
+        or len(settings.secret_key) < 32
+    )
+    if not is_weak:
+        return
+
+    if settings.debug:
+        log.warning(
+            "⚠️  SECRET_KEY is weak or default. "
+            "Set a strong SECRET_KEY before deploying to production."
+        )
+    else:
+        raise ValueError(
+            "🚨 SECRET_KEY is weak or a known default. "
+            "Set a strong SECRET_KEY (>= 32 chars) via the SECRET_KEY environment variable."
+        )
+
+
 @lru_cache()
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings()
+    s = Settings()
+    _validate_secret_key(s)
+    return s

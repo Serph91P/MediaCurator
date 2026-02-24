@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { useJobsStore } from '../stores/jobs'
-import { getToken } from '../lib/api'
+import { getWsToken } from '../lib/api'
 
 /**
  * Global WebSocket hook for real-time job status updates.
@@ -110,13 +110,12 @@ export function useJobWebSocket() {
     [jobStarted, jobProgressFn, jobCompleted]
   )
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!mountedRef.current) return
     if (wsRef.current?.readyState === WebSocket.OPEN) return
 
-    const token = getToken()
-    if (!token) {
-      // Not authenticated, don't connect
+    const token = await getWsToken()
+    if (!token || !mountedRef.current) {
       return
     }
 
@@ -189,26 +188,6 @@ export function useJobWebSocket() {
         wsRef.current = null
       }
     }
-  }, [connect])
-
-  // Reconnect when token changes (login/logout)
-  useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'auth_token') {
-        if (e.newValue) {
-          // Token appeared -> connect
-          connect()
-        } else {
-          // Token removed -> disconnect
-          if (wsRef.current) {
-            wsRef.current.close(1000)
-            wsRef.current = null
-          }
-        }
-      }
-    }
-    window.addEventListener('storage', handleStorage)
-    return () => window.removeEventListener('storage', handleStorage)
   }, [connect])
 
   return {

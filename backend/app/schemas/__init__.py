@@ -2,7 +2,7 @@
 Pydantic schemas for API request/response validation.
 """
 from pydantic import BaseModel, Field, HttpUrl, EmailStr, field_validator
-from typing import Optional, List, Dict, Any
+from typing import ClassVar, Optional, List, Dict, Any, Set, Union
 from datetime import datetime
 from enum import Enum
 import re
@@ -361,7 +361,26 @@ class NotificationChannelBase(BaseModel):
 
 
 class NotificationChannelCreate(NotificationChannelBase):
-    pass
+
+    @field_validator('config')
+    @classmethod
+    def validate_config_for_type(cls, v, info):
+        """Validate notification config has required keys for the notification type."""
+        ntype = info.data.get('notification_type')
+        if ntype == NotificationType.DISCORD:
+            if not v.get('webhook_url'):
+                raise ValueError("Discord config requires 'webhook_url'")
+        elif ntype == NotificationType.SLACK:
+            if not v.get('webhook_url'):
+                raise ValueError("Slack config requires 'webhook_url'")
+        elif ntype == NotificationType.WEBHOOK:
+            if not v.get('url'):
+                raise ValueError("Webhook config requires 'url'")
+        elif ntype == NotificationType.APPRISE:
+            urls = v.get('urls')
+            if not urls or not isinstance(urls, list) or len(urls) == 0:
+                raise ValueError("Apprise config requires 'urls' list with at least one entry")
+        return v
 
 
 class NotificationChannelUpdate(BaseModel):
@@ -385,7 +404,7 @@ class NotificationChannelResponse(NotificationChannelBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    SENSITIVE_CONFIG_KEYS = {"webhook_url", "token", "bot_token", "api_key", "password", "secret", "url"}
+    SENSITIVE_CONFIG_KEYS: ClassVar[Set[str]] = {"webhook_url", "token", "bot_token", "api_key", "password", "secret", "url"}
 
     @field_validator('config', mode='before')
     @classmethod
@@ -506,7 +525,14 @@ class SystemSettingResponse(BaseModel):
 
 
 class SystemSettingUpdate(BaseModel):
-    value: Any
+    value: Union[bool, int, str]
+
+    @field_validator('value', mode='before')
+    @classmethod
+    def reject_complex_types(cls, v):
+        if isinstance(v, (list, dict)) or v is None:
+            raise ValueError('Setting value must be a bool, int, or str')
+        return v
 
 
 class SystemSettingsResponse(BaseModel):

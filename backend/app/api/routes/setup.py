@@ -15,7 +15,7 @@ from ...core.rate_limit import limiter, RateLimits
 from ...models import ServiceConnection, ServiceType, SystemSettings, User
 from ...schemas import ServiceConnectionCreate, ServiceConnectionResponse, ServiceConnectionTest
 from ...services import SonarrClient, RadarrClient, EmbyClient
-from ..deps import get_current_user
+from ..deps import get_current_user, get_optional_user
 
 router = APIRouter(prefix="/setup", tags=["Setup Wizard"])
 
@@ -60,11 +60,13 @@ class SetupCompleteResponse(BaseModel):
 @limiter.limit(RateLimits.API_READ)
 async def get_setup_status(
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_optional_user),
 ):
     """
-    Check setup wizard status. No auth required so the frontend
-    can decide whether to redirect to the wizard before login.
+    Check setup wizard status. Returns minimal info without auth
+    so the frontend can decide whether to redirect to the wizard.
+    Full service details only returned for authenticated users.
     """
     # Check if users exist
     user_count = await db.scalar(select(func.count(User.id)))
@@ -102,15 +104,17 @@ async def get_setup_status(
     else:
         current_step = "sync"
 
-    service_infos = [
-        ServiceInfo(
-            id=s.id,
-            name=s.name,
-            service_type=s.service_type.value,
-            is_enabled=s.is_enabled
-        )
-        for s in services
-    ]
+    service_infos = []
+    if current_user:
+        service_infos = [
+            ServiceInfo(
+                id=s.id,
+                name=s.name,
+                service_type=s.service_type.value,
+                is_enabled=s.is_enabled
+            )
+            for s in services
+        ]
 
     return SetupStatusResponse(
         setup_complete=setup_marked_complete,
@@ -130,6 +134,8 @@ async def test_connection(
     current_user=Depends(get_current_user),
 ):
     """Test a service connection during setup without saving it."""
+    from ...core.url_validation import validate_outbound_url
+    validate_outbound_url(data.url, allow_private=True)
     temp = ServiceConnection(
         name="setup_test",
         service_type=ServiceType(data.service_type),
@@ -167,6 +173,8 @@ async def add_service(
     current_user=Depends(get_current_user),
 ):
     """Add a service during setup wizard (same as POST /services/ but scoped to wizard)."""
+    from ...core.url_validation import validate_outbound_url
+    validate_outbound_url(service_data.url, allow_private=True)
     service = ServiceConnection(**service_data.model_dump())
     db.add(service)
     await db.commit()

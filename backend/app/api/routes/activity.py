@@ -1,14 +1,15 @@
 """
 Activity API routes - Global activity log and playback history.
 """
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from sqlalchemy import select, func, desc, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 
-from ...core.database import get_db
+from ...core.database import get_db, escape_like
+from ...core.rate_limit import limiter, RateLimits
 from ...api.deps import get_current_user
 from ...models import (
     User, PlaybackActivity, MediaServerUser, MediaItem, Library
@@ -18,7 +19,9 @@ router = APIRouter()
 
 
 @router.get("/")
+@limiter.limit(RateLimits.API_READ)
 async def get_activities(
+    request: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     library_id: Optional[int] = None,
@@ -58,11 +61,12 @@ async def get_activities(
         conditions.append(MediaItem.media_type == media_type)
     
     if search:
+        escaped = escape_like(search)
         conditions.append(
             or_(
-                PlaybackActivity.media_title.ilike(f"%{search}%"),
-                PlaybackActivity.client_name.ilike(f"%{search}%"),
-                PlaybackActivity.device_name.ilike(f"%{search}%")
+                PlaybackActivity.media_title.ilike(f"%{escaped}%"),
+                PlaybackActivity.client_name.ilike(f"%{escaped}%"),
+                PlaybackActivity.device_name.ilike(f"%{escaped}%")
             )
         )
     
@@ -128,7 +132,9 @@ async def get_activities(
 
 
 @router.get("/stats")
+@limiter.limit(RateLimits.API_READ)
 async def get_activity_stats(
+    request: Request,
     days: int = Query(30, ge=1, le=365),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -228,7 +234,9 @@ async def get_activity_stats(
 
 
 @router.get("/active")
+@limiter.limit(RateLimits.API_READ)
 async def get_active_sessions(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):

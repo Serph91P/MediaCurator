@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import api, { setToken, setRefreshToken, getToken, getRefreshToken, removeToken } from '../lib/api'
-import type { User, Token, Session } from '../types'
+import api from '../lib/api'
+import type { User, Session } from '../types'
 
 interface AuthState {
   user: User | null
@@ -21,13 +21,11 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      isAuthenticated: !!getToken(),
+      isAuthenticated: false,
       isLoading: false,
 
       checkAuth: () => {
-        const hasToken = !!getToken()
-        set({ isAuthenticated: hasToken })
-        return hasToken
+        return get().isAuthenticated
       },
 
       login: async (username: string, password: string) => {
@@ -37,17 +35,13 @@ export const useAuthStore = create<AuthState>()(
           formData.append('username', username)
           formData.append('password', password)
 
-          const response = await api.post<Token>('/auth/login', formData, {
+          await api.post('/auth/login', formData, {
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
             },
           })
 
-          const { access_token, refresh_token } = response.data
-          
-          // Store both tokens
-          setToken(access_token)
-          setRefreshToken(refresh_token)
+          // Cookies are set automatically by the response
           set({ isAuthenticated: true, isLoading: false })
 
           // Now fetch user info
@@ -61,7 +55,7 @@ export const useAuthStore = create<AuthState>()(
       register: async (username: string, password: string, email?: string) => {
         set({ isLoading: true })
         try {
-          await api.post<User>('/auth/register', {
+          await api.post('/auth/register', {
             username,
             password,
             email: email || null,
@@ -77,14 +71,11 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         try {
-          const refreshToken = getRefreshToken()
-          if (refreshToken) {
-            await api.post('/auth/logout', { refresh_token: refreshToken })
-          }
+          // Server clears cookies and revokes refresh token
+          await api.post('/auth/logout')
         } catch {
           // Ignore errors during logout
         } finally {
-          removeToken()
           set({ 
             user: null, 
             isAuthenticated: false 
@@ -96,7 +87,6 @@ export const useAuthStore = create<AuthState>()(
         try {
           await api.post('/auth/logout-all')
         } finally {
-          removeToken()
           set({ 
             user: null, 
             isAuthenticated: false 
@@ -109,18 +99,13 @@ export const useAuthStore = create<AuthState>()(
           const response = await api.get<User>('/auth/me')
           set({ user: response.data, isAuthenticated: true })
         } catch {
-          // Token invalid - clear auth state
-          removeToken()
+          // Cookie invalid or expired — clear auth state
           set({ user: null, isAuthenticated: false })
         }
       },
 
       getSessions: async () => {
-        const response = await api.get<{ sessions: Session[], total: number }>('/auth/sessions', {
-          headers: {
-            'x-refresh-token': getRefreshToken() || ''
-          }
-        })
+        const response = await api.get<{ sessions: Session[], total: number }>('/auth/sessions')
         return response.data.sessions
       },
 
@@ -132,6 +117,7 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage',
       partialize: (state) => ({ 
         user: state.user,
+        isAuthenticated: state.isAuthenticated,
       }),
     }
   )

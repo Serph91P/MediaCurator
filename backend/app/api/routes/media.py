@@ -1,7 +1,7 @@
 """
 Media API routes.
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc
@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta, timezone
 
 from ...core.database import get_db
+from ...core.rate_limit import limiter, RateLimits
 from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats, CleanupLog, MediaServerUser, UserWatchHistory
 from ...schemas import CleanupLogResponse
 from ..deps import get_current_user
@@ -17,7 +18,9 @@ router = APIRouter(prefix="/media", tags=["Media"])
 
 
 @router.get("/stats")
+@limiter.limit(RateLimits.API_READ)
 async def get_media_stats(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -124,7 +127,9 @@ async def get_media_stats(
 
 
 @router.get("/import-stats")
+@limiter.limit(RateLimits.API_READ)
 async def get_import_stats(
+    request: Request,
     days: int = Query(default=30, ge=1, le=365),
     service_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
@@ -212,7 +217,9 @@ async def get_import_stats(
 
 
 @router.get("/watch-stats")
+@limiter.limit(RateLimits.API_READ)
 async def get_watch_stats(
+    request: Request,
     limit: int = Query(default=20, ge=1, le=100),
     days: int = Query(default=30, ge=1, le=365, description="Filter by last N days"),
     db: AsyncSession = Depends(get_db),
@@ -333,7 +340,9 @@ async def get_watch_stats(
 
 
 @router.get("/dashboard-stats")
+@limiter.limit(RateLimits.API_READ)
 async def get_dashboard_stats(
+    request: Request,
     days: int = Query(default=30, ge=1, le=365, description="Filter watch stats by last N days"),
     limit: int = Query(default=5, ge=1, le=20, description="Number of items per category"),
     db: AsyncSession = Depends(get_db),
@@ -683,7 +692,9 @@ async def get_dashboard_stats(
 
 
 @router.get("/audit-log", response_model=Dict[str, Any])
+@limiter.limit(RateLimits.API_READ)
 async def get_audit_log(
+    request: Request,
     action: Optional[str] = Query(None, description="Filter by action type (delete, notify, etc.)"),
     status: Optional[str] = Query(None, description="Filter by status (success, failed, skipped)"),
     start_date: Optional[datetime] = Query(None, description="Start date for filtering"),

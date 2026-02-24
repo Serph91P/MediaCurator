@@ -122,9 +122,28 @@ def _validate_secret_key(settings: "Settings") -> None:
         )
 
 
+def _validate_cors(settings: "Settings") -> None:
+    """Warn if CORS is configured as wildcard, which is insecure with credentials."""
+    import logging
+    log = logging.getLogger(__name__)
+
+    if settings.cors_origin_list == ["*"]:
+        if settings.debug:
+            log.warning(
+                "⚠️  CORS is set to wildcard '*'. "
+                "Set specific CORS_ORIGINS before deploying to production."
+            )
+        else:
+            log.warning(
+                "🚨 CORS wildcard '*' used in production mode. "
+                "allow_credentials will be disabled. Set specific CORS_ORIGINS."
+            )
+
+
 @lru_cache()
 def get_settings() -> Settings:
     """Get cached settings instance."""
     s = Settings()
     _validate_secret_key(s)
+    _validate_cors(s)
     return s

@@ -2,9 +2,11 @@
 Main FastAPI application.
 """
 from pathlib import Path
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from typing import Optional
+from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from .core.security_headers import SecurityHeadersMiddleware
+from .core.csrf import CSRFMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
@@ -17,9 +19,14 @@ from .core.rate_limit import setup_rate_limiting, limiter, RateLimits
 from .core.websocket import ws_manager
 from .core.security import decode_token
 from .api.routes import auth, services, rules, libraries, notifications, system, jobs, media, staging, audit, activity, users, setup
-from .api.deps import get_current_user
+from .api.deps import get_current_user, get_optional_user
 
 settings = get_settings()
+
+# Disable OpenAPI docs in production
+_docs_url = "/api/docs" if settings.debug else None
+_redoc_url = "/api/redoc" if settings.debug else None
+_openapi_url = "/api/openapi.json" if settings.debug else None
 
 # Path to static files (frontend build)
 STATIC_DIR = Path(__file__).parent.parent / "static"
@@ -72,21 +79,36 @@ app = FastAPI(
     version=settings.app_version,
     description="Media library cleanup and management tool",
     lifespan=lifespan,
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json"
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
+    openapi_url=_openapi_url
 )
 
 # Security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
+# CSRF double-submit cookie middleware
+app.add_middleware(CSRFMiddleware)
+
+# Global request body size limit (10 MB)
+MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024
+
+@app.middleware("http")
+async def limit_request_body(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+        return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+    return await call_next(request)
+
 # CORS middleware — use configurable origins from settings
+# Disable credentials when wildcard is used in production
+_allow_credentials = not (settings.cors_origin_list == ["*"] and not settings.debug)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
-    allow_credentials=True,
+    allow_credentials=_allow_credentials,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Refresh-Token"],
+    allow_headers=["Authorization", "Content-Type", "X-Refresh-Token", "X-CSRF-Token"],
 )
 
 # Setup rate limiting
@@ -116,12 +138,16 @@ async def health(request: Request):
 
 @app.get("/api/health/detailed")
 @limiter.limit(RateLimits.HEALTH_CHECK)
-async def health_detailed(request: Request):
+async def health_detailed(request: Request, current_user = Depends(get_optional_user)):
     """Detailed health check with component status. Requires auth for full details."""
     from .core.database import async_session_maker
     from sqlalchemy import text
     import time
     
+    # Unauthenticated: return minimal status only
+    if current_user is None:
+        return {"status": "healthy"}
+
     health_status = {
         "status": "healthy",
         "timestamp": time.time(),
@@ -168,10 +194,23 @@ async def websocket_jobs(websocket: WebSocket):
         await websocket.close(code=4001, reason="Invalid or expired token")
         return
 
-    await ws_manager.connect(websocket)
+    connected = await ws_manager.connect(websocket)
+    if not connected:
+        return
     try:
+        _msg_count = 0
+        _last_reset = __import__('time').monotonic()
         while True:
             data = await websocket.receive_text()
+            # Simple message rate limit: max 10 messages/second
+            now = __import__('time').monotonic()
+            if now - _last_reset >= 1.0:
+                _msg_count = 0
+                _last_reset = now
+            _msg_count += 1
+            if _msg_count > 10:
+                await websocket.close(code=4008, reason="Message rate limit exceeded")
+                break
             if data == "ping":
                 await websocket.send_text('{"type":"pong"}')
     except WebSocketDisconnect:

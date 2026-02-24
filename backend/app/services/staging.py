@@ -414,8 +414,8 @@ class StagingService:
                             parent = parent.parent
                         else:
                             break
-                except:
-                    pass
+                except (OSError, PermissionError) as e:
+                    logger.warning(f"Failed to clean up empty directory: {e}")
             
             # Mark item as deleted in database (keep for history)
             media_item.is_staged = False

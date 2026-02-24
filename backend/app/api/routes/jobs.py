@@ -12,7 +12,7 @@ from ...core.database import get_db
 from ...core.rate_limit import limiter, RateLimits
 from ...models import JobExecutionLog, SystemSettings, ServiceConnection
 from ...scheduler import scheduler, reschedule_job, run_service_sync_job
-from ..deps import get_current_user
+from ..deps import get_current_user, get_current_active_admin
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -164,9 +164,9 @@ async def trigger_service_sync(
     request: Request,
     service_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Manually trigger a sync for a specific service."""
+    """Manually trigger a sync for a specific service (admin only)."""
     import asyncio
     
     # Check if service exists and is enabled
@@ -244,9 +244,9 @@ async def get_recent_executions(
 async def trigger_job(
     request: Request,
     job_id: str,
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Manually trigger a job execution."""
+    """Manually trigger a job execution (admin only)."""
     job = scheduler.get_job(job_id)
     if not job:
         raise HTTPException(
@@ -270,9 +270,9 @@ async def update_job_interval(
     job_id: str,
     update: JobIntervalUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Update the interval for a job."""
+    """Update the interval for a job (admin only)."""
     job = scheduler.get_job(job_id)
     if not job:
         raise HTTPException(

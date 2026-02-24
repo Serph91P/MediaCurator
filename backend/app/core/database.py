@@ -79,3 +79,8 @@ async def init_db():
 async def close_db():
     """Close database connections."""
     await engine.dispose()
+
+
+def escape_like(value: str) -> str:
+    """Escape LIKE/ILIKE metacharacters in user-supplied search strings."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

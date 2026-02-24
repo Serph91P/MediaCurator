@@ -12,6 +12,8 @@ from fastapi import Request, Response
 from typing import Optional, Callable, Union
 from loguru import logger
 
+from .security_events import log_security_event, SecurityEventType
+
 
 def get_client_ip(request: Request) -> str:
     """
@@ -102,8 +104,12 @@ def create_rate_limit_response(request: Request, exc: RateLimitExceeded) -> Resp
     # Extract retry-after from the exception
     retry_after = getattr(exc, "retry_after", 60)
     
-    logger.warning(
-        f"Rate limit exceeded for {get_client_ip(request)} on {request.url.path}"
+    log_security_event(
+        SecurityEventType.RATE_LIMIT_EXCEEDED,
+        client_ip=get_client_ip(request),
+        path=str(request.url.path),
+        method=request.method,
+        detail=f"Retry after {retry_after}s",
     )
     
     response = JSONResponse(

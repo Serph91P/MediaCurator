@@ -1,14 +1,15 @@
 """
 Users API routes - Media server users and their statistics.
 """
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from sqlalchemy import select, func, desc, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 
-from ...core.database import get_db
+from ...core.database import get_db, escape_like
+from ...core.rate_limit import limiter, RateLimits
 from ...api.deps import get_current_user
 from ...models import (
     User, MediaServerUser, UserWatchHistory, PlaybackActivity, MediaItem
@@ -18,7 +19,9 @@ router = APIRouter()
 
 
 @router.get("/")
+@limiter.limit(RateLimits.API_READ)
 async def get_users(
+    request: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     search: Optional[str] = None,
@@ -38,7 +41,7 @@ async def get_users(
         conditions.append(MediaServerUser.is_hidden == False)
     
     if search:
-        conditions.append(MediaServerUser.name.ilike(f"%{search}%"))
+        conditions.append(MediaServerUser.name.ilike(f"%{escape_like(search)}%"))
     
     if conditions:
         query = query.where(and_(*conditions))
@@ -124,7 +127,9 @@ async def get_users(
 
 
 @router.get("/{user_id}")
+@limiter.limit(RateLimits.API_READ)
 async def get_user_detail(
+    request: Request,
     user_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)

@@ -15,7 +15,7 @@ from ...schemas import (
     ServiceConnectionResponse, ServiceConnectionTest
 )
 from ...services import SonarrClient, RadarrClient, EmbyClient
-from ..deps import get_current_user
+from ..deps import get_current_user, get_current_active_admin
 
 router = APIRouter(prefix="/services", tags=["Service Connections"])
 
@@ -68,9 +68,11 @@ async def create_service(
     request: Request,
     service_data: ServiceConnectionCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Create a new service connection."""
+    from ...core.url_validation import validate_outbound_url
+    validate_outbound_url(service_data.url, allow_private=True)
     service = ServiceConnection(**service_data.model_dump())
     db.add(service)
     await db.commit()
@@ -106,7 +108,7 @@ async def update_service(
     service_id: int,
     service_data: ServiceConnectionUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Update a service connection."""
     result = await db.execute(
@@ -134,7 +136,7 @@ async def delete_service(
     request: Request,
     service_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Delete a service connection."""
     result = await db.execute(
@@ -163,7 +165,7 @@ async def test_service(
     request: Request,
     service_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Test a service connection."""
     result = await db.execute(
@@ -191,11 +193,15 @@ async def test_service(
 
 
 @router.post("/test", response_model=ServiceConnectionTest)
+@limiter.limit(RateLimits.TEST_OPERATION)
 async def test_new_service(
+    request: Request,
     service_data: ServiceConnectionCreate,
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Test a service connection without saving it."""
+    from ...core.url_validation import validate_outbound_url
+    validate_outbound_url(service_data.url, allow_private=True)
     # Create a temporary connection object
     temp_service = ServiceConnection(**service_data.model_dump())
     
@@ -211,7 +217,7 @@ async def test_new_service(
 async def sync_service(
     service_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Sync media items from a service."""
     from ...services.sync import sync_service_media

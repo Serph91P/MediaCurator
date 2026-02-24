@@ -130,6 +130,8 @@ async def test_connection(
     current_user=Depends(get_current_user),
 ):
     """Test a service connection during setup without saving it."""
+    from ...core.url_validation import validate_outbound_url
+    validate_outbound_url(data.url, allow_private=True)
     temp = ServiceConnection(
         name="setup_test",
         service_type=ServiceType(data.service_type),
@@ -167,6 +169,8 @@ async def add_service(
     current_user=Depends(get_current_user),
 ):
     """Add a service during setup wizard (same as POST /services/ but scoped to wizard)."""
+    from ...core.url_validation import validate_outbound_url
+    validate_outbound_url(service_data.url, allow_private=True)
     service = ServiceConnection(**service_data.model_dump())
     db.add(service)
     await db.commit()

@@ -41,7 +41,6 @@ class BaseServiceClient(ABC):
                 headers=self._get_headers()
             )
         return self._client
-        return self._client
     
     @abstractmethod
     def _get_headers(self) -> Dict[str, str]:

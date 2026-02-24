@@ -17,7 +17,7 @@ from ...core.config import get_settings
 from ...core.rate_limit import limiter, RateLimits
 from ...models import User, RefreshToken
 from ...schemas import (
-    Token, TokenRefreshRequest, TokenRefreshResponse, 
+    Token, TokenRefreshRequest, TokenRefreshResponse,
     UserCreate, UserResponse, UserUpdate,
     SessionInfo, SessionListResponse
 )
@@ -28,18 +28,19 @@ settings = get_settings()
 
 
 def get_client_ip(request: Request) -> str:
-    """Extract client IP address from request."""
-    # Check for X-Forwarded-For header (when behind proxy/load balancer)
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        # Take the first IP in the list
-        return forwarded_for.split(",")[0].strip()
-    # Check for X-Real-IP header
-    real_ip = request.headers.get("x-real-ip")
-    if real_ip:
-        return real_ip
-    # Fall back to direct client
-    return request.client.host if request.client else "unknown"
+    """Extract client IP address from request, trusting proxies only if configured."""
+    trusted_proxies = settings.trusted_proxy_list
+    direct_ip = request.client.host if request.client else "unknown"
+
+    if trusted_proxies and direct_ip in trusted_proxies:
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip()
+        real_ip = request.headers.get("x-real-ip")
+        if real_ip:
+            return real_ip
+
+    return direct_ip
 
 
 def get_device_info(request: Request) -> str:
@@ -69,12 +70,33 @@ async def login(
     db: AsyncSession = Depends(get_db)
 ):
     """Login and get access and refresh tokens."""
+    MAX_FAILED_ATTEMPTS = 5
+    LOCKOUT_DURATION_MINUTES = 15
+
     result = await db.execute(
         select(User).where(User.username == form_data.username)
     )
     user = result.scalar_one_or_none()
+
+    if user and user.locked_until:
+        lock_time = user.locked_until
+        if lock_time.tzinfo is None:
+            lock_time = lock_time.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) < lock_time:
+            raise HTTPException(
+                status_code=status.HTTP_423_LOCKED,
+                detail="Account temporarily locked due to too many failed login attempts. Try again later.",
+            )
+        user.failed_login_attempts = 0
+        user.locked_until = None
     
     if not user or not verify_password(form_data.password, user.hashed_password):
+        if user:
+            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+            if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
+                from datetime import timedelta
+                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+            await db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -86,6 +108,9 @@ async def login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
         )
+
+    user.failed_login_attempts = 0
+    user.locked_until = None
     
     # Update last login
     user.last_login = datetime.now(timezone.utc)
@@ -205,7 +230,7 @@ async def refresh_token(
     token_request: TokenRefreshRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Refresh access token using a valid refresh token."""
+    """Refresh access token using a valid refresh token. Rotates the refresh token."""
     # Find the refresh token in database
     result = await db.execute(
         select(RefreshToken).where(RefreshToken.token == token_request.refresh_token)
@@ -234,7 +259,6 @@ async def refresh_token(
     user = user_result.scalar_one_or_none()
     
     if not user or not user.is_active:
-        # Revoke the token if user doesn't exist or is inactive
         db_token.revoked_at = datetime.now(timezone.utc)
         await db.commit()
         raise HTTPException(
@@ -243,13 +267,29 @@ async def refresh_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Create new access token
-    access_token = create_access_token(
-        data={"sub": str(user.id), "username": user.username}
+    # Revoke old refresh token
+    db_token.revoked_at = datetime.now(timezone.utc)
+
+    # Create new access + refresh token pair
+    access_token, new_refresh_token, refresh_expires = create_token_pair(
+        user_id=user.id,
+        username=user.username
     )
+
+    # Store the new refresh token
+    new_db_token = RefreshToken(
+        token=new_refresh_token,
+        user_id=user.id,
+        expires_at=refresh_expires,
+        device_info=db_token.device_info,
+        ip_address=get_client_ip(request)
+    )
+    db.add(new_db_token)
+    await db.commit()
     
     return TokenRefreshResponse(
         access_token=access_token,
+        refresh_token=new_refresh_token,
         expires_in=settings.access_token_expire_minutes * 60
     )
 

@@ -2,7 +2,7 @@
 Pydantic schemas for API request/response validation.
 """
 from pydantic import BaseModel, Field, HttpUrl, EmailStr, field_validator
-from typing import Optional, List, Dict, Any, Union
+from typing import ClassVar, Optional, List, Dict, Any, Set, Union
 from datetime import datetime
 from enum import Enum
 import re
@@ -404,7 +404,7 @@ class NotificationChannelResponse(NotificationChannelBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    SENSITIVE_CONFIG_KEYS = {"webhook_url", "token", "bot_token", "api_key", "password", "secret", "url"}
+    SENSITIVE_CONFIG_KEYS: ClassVar[Set[str]] = {"webhook_url", "token", "bot_token", "api_key", "password", "secret", "url"}
 
     @field_validator('config', mode='before')
     @classmethod

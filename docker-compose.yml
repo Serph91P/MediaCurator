@@ -30,6 +30,22 @@ services:
       # Database - stored in /app/config (separate from media paths)
       - DATABASE_URL=sqlite+aiosqlite:////app/config/mediacurator.db
       
+      # ── Cookie Auth & Reverse Proxy ──────────────────────────────────
+      # CORS: Comma-separated origins matching the URL users see in the browser.
+      # Must be set when behind a reverse proxy with a custom domain!
+      # - CORS_ORIGINS=https://media.example.com
+      
+      # Trusted proxy IPs — only these may set X-Forwarded-For / X-Real-IP.
+      # Required for correct client IP resolution (rate limiting, audit logs).
+      # - TRUSTED_PROXIES=172.18.0.1
+      
+      # Optional: Token lifetimes (sensible defaults, rarely need changing)
+      # - ACCESS_TOKEN_EXPIRE_MINUTES=15
+      # - REFRESH_TOKEN_EXPIRE_DAYS=30
+      
+      # Optional: Audit log retention in days
+      # - AUDIT_RETENTION_DAYS=90
+      
       # Optional: Pre-create admin user (useful for automated deployments)
       # If not set, first registered user via web UI becomes admin automatically
       # - INITIAL_ADMIN_USER=${ADMIN_USER:-}

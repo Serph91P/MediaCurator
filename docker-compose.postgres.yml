@@ -22,6 +22,23 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-mediacurator}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mediacurator}
       - POSTGRES_DB=${POSTGRES_DB:-mediacurator}
+      
+      # ── Cookie Auth & Reverse Proxy ──────────────────────────────────
+      # CORS: Comma-separated origins matching the URL users see in the browser.
+      # - CORS_ORIGINS=https://media.example.com
+      
+      # Trusted proxy IPs for correct client IP resolution.
+      # - TRUSTED_PROXIES=172.18.0.1
+      
+      # Optional: Token lifetimes
+      # - ACCESS_TOKEN_EXPIRE_MINUTES=15
+      # - REFRESH_TOKEN_EXPIRE_DAYS=30
+      
+      # Optional: Audit log retention in days
+      # - AUDIT_RETENTION_DAYS=90
+      
+      # Optional: Debug mode (not recommended for production)
+      # - DEBUG=false
     
     volumes:
       - mediacurator_config:/app/config

@@ -4,10 +4,10 @@ System API routes (health, stats, settings).
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ...core.database import get_db
 from ...core.config import get_settings
@@ -19,6 +19,16 @@ from ..deps import get_current_user, get_optional_user
 router = APIRouter(prefix="/system", tags=["System"])
 settings = get_settings()
 
+# Allowlisted system setting keys that can be modified via PUT /settings/{key}
+ALLOWED_SETTING_KEYS = {
+    "cleanup_enabled",
+    "cleanup_schedule",
+    "sync_schedule",
+    "dry_run_mode",
+    "default_grace_period_days",
+    "max_deletions_per_run",
+}
+
 
 class VersionInfo(BaseModel):
     """Version information response."""
@@ -26,10 +36,10 @@ class VersionInfo(BaseModel):
     base_version: str
     branch: str
     commit: str
-    commit_full: str
+    commit_full: Optional[str] = None
     commit_date: str | None
-    is_dirty: bool
-    remote_url: str | None
+    is_dirty: Optional[bool] = None
+    remote_url: Optional[str] = None
 
 
 class UpdateInfo(BaseModel):
@@ -44,14 +54,18 @@ class UpdateInfo(BaseModel):
 
 
 @router.get("/version", response_model=VersionInfo)
-async def get_version_info():
-    """Get detailed version information (no auth required)."""
-    return version_service.get_version_info()
+async def get_version_info(current_user = Depends(get_current_user)):
+    """Get detailed version information (requires auth)."""
+    info = version_service.get_version_info()
+    # Remove sensitive fields
+    info.pop("remote_url", None)
+    info.pop("is_dirty", None)
+    return info
 
 
 @router.get("/check-updates", response_model=UpdateInfo)
-async def check_for_updates():
-    """Check if updates are available on GitHub (no auth required)."""
+async def check_for_updates(current_user = Depends(get_current_user)):
+    """Check if updates are available on GitHub (requires auth)."""
     git_info = version_service.get_git_info()
     update_info = await version_service.check_for_updates()
     
@@ -120,7 +134,7 @@ async def get_system_stats(
     flagged = flagged_result.scalar() or 0
     
     # Deletion stats (last 30 days)
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     deleted_result = await db.execute(
         select(func.count(CleanupLog.id)).where(
             CleanupLog.action == "delete",
@@ -255,6 +269,11 @@ async def update_system_setting(
     current_user = Depends(get_current_user)
 ):
     """Update a single system setting by key."""
+    if key not in ALLOWED_SETTING_KEYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown setting key: '{key}'. Allowed keys: {', '.join(sorted(ALLOWED_SETTING_KEYS))}"
+        )
     await _set_setting_value(db, key, setting_data.value)
     await db.commit()
     

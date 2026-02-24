@@ -1,12 +1,13 @@
 """
 Users API routes - Media server users and their statistics.
 """
+from collections import defaultdict
 from fastapi import APIRouter, Depends, Query, HTTPException, Request
-from sqlalchemy import select, func, desc, and_
+from sqlalchemy import select, func, desc, and_, cast, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 from typing import Optional
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 
 from ...core.database import get_db, escape_like
 from ...core.rate_limit import limiter, RateLimits
@@ -364,4 +365,133 @@ async def update_user(
         "name": user.name,
         "is_hidden": user.is_hidden,
         "message": "User updated successfully"
+    }
+
+
+@router.get("/{user_id}/timeline")
+@limiter.limit(RateLimits.API_READ)
+async def get_user_timeline(
+    request: Request,
+    user_id: int,
+    days: int = Query(90, ge=7, le=365),
+    library_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get a user's watch timeline for calendar heatmap and daily session breakdown.
+
+    Returns:
+    - calendar_heatmap: list of {date, plays, duration_seconds} for each day
+    - sessions: for recent 14 days, grouped watch sessions (gap > 30 min = new session)
+    """
+    # Verify user exists
+    user_result = await db.execute(
+        select(MediaServerUser).where(MediaServerUser.id == user_id)
+    )
+    if not user_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="User not found")
+
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    # Base query for playback activities
+    conditions = [
+        PlaybackActivity.user_id == user_id,
+        PlaybackActivity.started_at >= since,
+    ]
+    if library_id is not None:
+        conditions.append(PlaybackActivity.library_id == library_id)
+
+    # Calendar heatmap: per-day aggregation
+    heatmap_query = (
+        select(
+            func.date(PlaybackActivity.started_at).label("play_date"),
+            func.count().label("plays"),
+            func.coalesce(func.sum(PlaybackActivity.duration_seconds), 0).label("duration_seconds"),
+        )
+        .where(and_(*conditions))
+        .group_by(func.date(PlaybackActivity.started_at))
+        .order_by(func.date(PlaybackActivity.started_at))
+    )
+    heatmap_result = await db.execute(heatmap_query)
+    heatmap_rows = heatmap_result.all()
+
+    calendar_heatmap = [
+        {
+            "date": str(row.play_date),
+            "plays": row.plays,
+            "duration_seconds": int(row.duration_seconds),
+        }
+        for row in heatmap_rows
+    ]
+
+    # Sessions: fetch recent activities (last 14 days) for session grouping
+    session_since = datetime.now(timezone.utc) - timedelta(days=14)
+    session_conditions = [
+        PlaybackActivity.user_id == user_id,
+        PlaybackActivity.started_at >= session_since,
+    ]
+    if library_id is not None:
+        session_conditions.append(PlaybackActivity.library_id == library_id)
+
+    session_query = (
+        select(PlaybackActivity)
+        .options(selectinload(PlaybackActivity.media_item))
+        .where(and_(*session_conditions))
+        .order_by(PlaybackActivity.started_at)
+    )
+    session_result = await db.execute(session_query)
+    activities = session_result.scalars().all()
+
+    # Group into sessions (gap > 30 min = new session)
+    SESSION_GAP = timedelta(minutes=30)
+    sessions: list[dict] = []
+    current_session: list = []
+
+    for activity in activities:
+        if not activity.started_at:
+            continue
+        if current_session:
+            last_end = current_session[-1].ended_at or current_session[-1].started_at
+            if activity.started_at - last_end > SESSION_GAP:
+                # Close current session and start new one
+                sessions.append(_build_session(current_session))
+                current_session = []
+        current_session.append(activity)
+
+    if current_session:
+        sessions.append(_build_session(current_session))
+
+    return {
+        "user_id": user_id,
+        "period_days": days,
+        "calendar_heatmap": calendar_heatmap,
+        "sessions": sessions[-50:],  # Last 50 sessions
+    }
+
+
+def _build_session(activities: list) -> dict:
+    """Build a session dict from a list of consecutive PlaybackActivity records."""
+    first = activities[0]
+    last = activities[-1]
+    total_duration = sum(a.duration_seconds or 0 for a in activities)
+    started_at = first.started_at
+    ended_at = last.ended_at or last.started_at
+
+    return {
+        "started_at": started_at.isoformat() if started_at else None,
+        "ended_at": ended_at.isoformat() if ended_at else None,
+        "duration_seconds": total_duration,
+        "item_count": len(activities),
+        "items": [
+            {
+                "id": a.id,
+                "media_title": a.media_title,
+                "media_type": a.media_item.media_type if a.media_item else None,
+                "duration_seconds": a.duration_seconds or 0,
+                "played_percentage": a.played_percentage or 0,
+                "started_at": a.started_at.isoformat() if a.started_at else None,
+            }
+            for a in activities
+        ],
     }

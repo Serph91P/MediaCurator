@@ -2,9 +2,9 @@
 
 > **Zweck**: Dieses Dokument dient als fortlaufender Stand für die Weiterentwicklung. Es kann in jedem neuen Chat/auf jedem Rechner als Kontext übergeben werden, damit der Assistent sofort weiß, wo es weitergeht.
 
-**Letzte Aktualisierung**: 24. Februar 2026 (Session 8)
+**Letzte Aktualisierung**: 26. Februar 2026 (Session 10)
 **Branch**: `develop`
-**Letzter Commit**: `657ad70` (Session 8)
+**Letzter Commit**: `55e4bf7` (Session 9)
 **Version**: `vdev.0.0.231`
 **Repo**: `https://github.com/Serph91P/MediaCurator.git`
 
@@ -103,19 +103,19 @@ backend/app/
 │   ├── __init__.py            # ★ NEU: Test-Setup
 │   └── test_smoke.py          # ★ NEU: Smoke-Test (Settings-Loading)
 └── api/routes/
-    ├── activity.py            # GET /activity/, /stats, /active (+ Rate Limiting, Input Sanitization)
+    ├── activity.py            # GET /activity/, /stats, /active, /genre-stats, /watch-heatmap (+ Rate Limiting)
     ├── audit.py               # GET/DELETE /audit/logs, /recent, etc.
     ├── auth.py                # POST /auth/login, /register, /refresh, /logout (httpOnly Cookies, CSRF)
     ├── jobs.py                # GET/POST /jobs/, trigger, interval (Admin-Only)
     ├── libraries.py           # GET /libraries/, /stats, /{id}/details, /media, /activity
-    ├── media.py               # GET /media/stats, /dashboard-stats, /watch-stats, /audit-log
+    ├── media.py               # GET /media/stats, /dashboard-stats, /watch-stats, /audit-log, /{id}/image (Poster Proxy)
     ├── notifications.py       # CRUD /notifications/, test, preview-template (Admin-Only, URL Validation)
     ├── rules.py               # CRUD /rules/, templates, export/import, bulk (Admin-Only, File Size Limit)
     ├── services.py            # CRUD /services/, test, sync (Admin-Only, URL Validation)
     ├── staging.py             # GET/POST /staging/, restore, delete, settings (Admin-Only, Path Validation)
     ├── setup.py               # GET /setup/status, POST /test-connection, /add-service, /complete, /skip
     ├── system.py              # GET /system/health, /stats, /settings, cleanup/preview (Admin-Only)
-    └── users.py               # GET /users/, /{id}, /{id}/activity, PATCH hide
+    └── users.py               # GET /users/, /{id}, /{id}/activity, /{id}/timeline, PATCH hide
 ```
 
 ### Frontend-Struktur
@@ -143,9 +143,9 @@ frontend/src/
 └── pages/
     ├── Dashboard.tsx           # Stats, Most Viewed/Popular, Libraries, Disk
     ├── Libraries.tsx           # Library-Grid mit Stats, Sync
-    ├── LibraryDetail.tsx       # 3 Tabs: Overview, Media, Activity
+    ├── LibraryDetail.tsx       # 3 Tabs: Overview, Media (Table+Grid), Activity
     ├── Users.tsx               # User-Tabelle mit Stats
-    ├── UserDetail.tsx          # 2 Tabs: Overview, Activity
+    ├── UserDetail.tsx          # 3 Tabs: Overview, Activity (Type/Search Filter), Timeline (Heatmap)
     ├── Activity.tsx            # Active Sessions + Activity-Log
     ├── History.tsx             # Cleanup-Audit-Log
     ├── Jobs.tsx                # ★ REWRITE: Live-Progress-Bars, WebSocket-Status, Running-Panel
@@ -192,16 +192,17 @@ frontend/src/
 - [x] Basic user stats on Dashboard
 - [x] Library stats API
 
-### Phase 2 – Views & Navigation ✅ WEITGEHEND ERLEDIGT
+### Phase 2 – Views & Navigation ✅ ERLEDIGT
 | Feature | Backend | Frontend | Qualität | Anmerkungen |
 |---------|---------|----------|----------|-------------|
 | Library Detail – Overview Tab | ✅ API liefert 24h/7d/30d Stats | ✅ Dargestellt + Genre-Charts | ✅ | Genre RadarChart + BarChart hinzugefügt (Session 9) |
-| Library Detail – Media Tab | ✅ Sortierung, Suche, Pagination | ✅ ResponsiveTable | ✅ | Migriert auf ResponsiveTable (Session 5) |
+| Library Detail – Media Tab | ✅ Sortierung, Suche, Pagination | ✅ ResponsiveTable + Grid View | ✅ | Grid View mit Poster-Bildern hinzugefügt (Session 10) |
 | Library Detail – Activity Tab | ✅ Pagination | ✅ ResponsiveTable | ✅ | Migriert auf ResponsiveTable (Session 5) |
 | Users Page | ✅ Pagination, Search | ✅ ResponsiveTable | ✅ | Gut implementiert |
 | User Detail – Overview | ✅ Time-based Stats | ✅ + Favorite Genres Chart | ✅ | Favorite Genres BarChart hinzugefügt (Session 9) |
-| User Detail – Activity | ✅ Filters + Library-Filter | ✅ Tabelle + Library-Filter | ✅ | Library-Filter hinzugefügt (Session 5) |
-| User Detail – Timeline Tab | ❌ Kein API | ❌ | ❌ | Nicht implementiert |
+| User Detail – Activity | ✅ Filters + Library-Filter | ✅ Tabelle + Library/Type-Filter + Suche | ✅ | Type-Filter + Suchfeld hinzugefügt (Session 10) |
+| User Detail – Timeline Tab | ✅ `/users/{id}/timeline` | ✅ Calendar Heatmap + Sessions | ✅ | 90-Tage-Heatmap + Session-Gruppierung (Session 10) |
+| Image Proxy | ✅ `/media/{id}/image` | ✅ Im Grid View | ✅ | Poster-Proxy von Emby/Jellyfin mit Cache (Session 10) |
 | Global Activity Log | ✅ Stats + Active Sessions | ✅ | ✅ | Library-Filter + Items-per-Page hinzugefügt (Session 5) |
 | Activity Stats API | ✅ plays by day/hour/weekday | ✅ Charts | ✅ | recharts Charts auf Activity + Dashboard (Session 4+5) |
 | Active Sessions | ✅ 30s Sync | ✅ 30s Refresh | ✅ | Gut implementiert |
@@ -269,9 +270,9 @@ frontend/src/
 | Smoke Tests | ✅ `tests/test_smoke.py` + pytest | — | ✅ | Initiales Test-Setup mit pytest-asyncio |
 | Dependabot | ✅ `.github/dependabot.yml` | — | ✅ | Automatische Dependency-Updates auf develop |
 
-### Phase 4 – Advanced Analytics ⚠️ TEILWEISE ERLEDIGT (Session 9)
+### Phase 4 – Advanced Analytics ⚠️ TEILWEISE ERLEDIGT (Session 9+10)
 - [x] Watch Patterns Heatmap (7x24 Grid) – Activity.tsx (Session 9)
-- [ ] User Activity Timeline / Calendar Heatmap
+- [x] User Activity Timeline / Calendar Heatmap – UserDetail.tsx (Session 10)
 - [ ] Concurrent Streams Analysis
 - [ ] Watch Duration Stats
 - [ ] Completion Rate Analytics
@@ -404,8 +405,8 @@ frontend/src/
 
 ### Fehlende UI-Features (geplant aber nicht implementiert)
 - **Activity-Seite**: ~~IP-Adresse Spalte, Device-Spalte, Expand-Row, Library-Filter, Items-per-Page Selector~~ ✅ Alles implementiert (Session 4+5+6). ~~Genre RadarChart, Watch Heatmap~~ ✅ (Session 9)
-- **LibraryDetail**: ~~Genre-Distribution Charts~~ ✅ (Session 9), Grid-View mit Poster-Bildern offen, ~~Expand-Row~~ ✅ (Session 6)
-- **UserDetail**: ~~Favorite Genres Sektion~~ ✅ (Session 9), Timeline-Tab offen, ~~Expand-Row~~ ✅ (Session 6)
+- **LibraryDetail**: ~~Genre-Distribution Charts~~ ✅ (Session 9), ~~Grid-View mit Poster-Bildern~~ ✅ (Session 10), ~~Expand-Row~~ ✅ (Session 6)
+- **UserDetail**: ~~Favorite Genres Sektion~~ ✅ (Session 9), ~~Timeline-Tab~~ ✅ (Session 10), ~~Expand-Row~~ ✅ (Session 6)
 - **Rules.tsx**: Modal ist sehr lang – kein Wizard/Accordion, keine Genre/Tag-Autocomplete
 - **Settings.tsx**: Cron-Eingaben ohne Hilfe/Validierung
 - **Dashboard**: ~~Keine Charts~~ recharts Charts implementiert (Session 5). ~~Genre Distribution~~ ✅ (Session 9)
@@ -502,11 +503,11 @@ Das Backend ist gut strukturiert mit:
 21. ~~Dependabot Setup~~ ✅
 
 ### Priorität 7: Phase 4+ (Zukunft)
-22. Advanced Analytics (~~Heatmaps~~ ✅ Session 9, Completion Rates, Binge Detection)
+22. Advanced Analytics (~~Heatmaps~~ ✅ Session 9, ~~User Timeline~~ ✅ Session 10, Completion Rates, Binge Detection)
 23. Smart Cleanup Rules (Per-User Conditions)
 24. ~~Genre Distribution Charts~~ ✅ (Session 9)
-25. ~~User Detail: Favorite Genres~~ ✅ (Session 9), Timeline-Tab offen
-26. ~~LibraryDetail: Genre-Charts~~ ✅ (Session 9), Grid-View mit Poster-Bildern offen
+25. ~~User Detail: Favorite Genres~~ ✅ (Session 9), ~~Timeline-Tab~~ ✅ (Session 10)
+26. ~~LibraryDetail: Genre-Charts~~ ✅ (Session 9), ~~Grid-View mit Poster-Bildern~~ ✅ (Session 10)
 27. i18n / Lokalisierung
 
 ---
@@ -534,10 +535,10 @@ Das Backend ist gut strukturiert mit:
 | `/api/auth` | auth.py | Login, Register, Sessions |
 | `/api/services` | services.py | Service CRUD, Test, Sync |
 | `/api/libraries` | libraries.py | Libraries, Stats, Detail, Media |
-| `/api/media` | media.py | Dashboard-Stats, Watch-Stats |
+| `/api/media` | media.py | Dashboard-Stats, Watch-Stats, Image Proxy |
 | `/api/rules` | rules.py | Rules CRUD, Templates, Export |
 | `/api/activity` | activity.py | Activity Log, Stats, Active Sessions |
-| `/api/users` | users.py | Media Server Users |
+| `/api/users` | users.py | Media Server Users, Timeline |
 | `/api/notifications` | notifications.py | Channels CRUD, Templates |
 | `/api/staging` | staging.py | Staging System |
 | `/api/jobs` | jobs.py | Scheduler Jobs |
@@ -579,4 +580,5 @@ docker compose -f docker-compose.dev.yml up --build
 | 22.02.2026 (6) | **Session 6 – Bugfix & Expand-Rows**: BUG-011 behoben: PlaybackActivity `position_ticks`/`runtime_ticks` Integer→BigInteger (PostgreSQL int32 overflow bei Emby-Ticks >2.1B). DB-Migration hinzugefügt. Fehlerbehandlung in `_sync_active_sessions` und `services.py` mit `db.rollback()`. ResponsiveTable: Expand-Row-Support (`onRowClick`, `isExpanded`, `expandedContent`). Preview.tsx: Beide Tabellen (Series+Movies) auf ResponsiveTable migriert (letzte Seite). Expand-Rows auf Activity, UserDetail, LibraryDetail (IP, Device, Play Method, Progress-Bar). ConfirmDialog: `aria-modal`, Focus-Trap, Escape-Key, Click-Outside. Library Activity API: `ip_address`, `transcode_video`, `transcode_audio` hinzugefügt. BUG-012: Radarr-Pfad Ordner→Datei-Pfad (Movie-Watch-Statistiken). BUG-013: User Last Seen/Watched/Client Fallback-Logik. Branch: `feature/phase2-enhancements-and-docs` |
 | 24.02.2026 (7) | **Session 7 – Security Hardening I** (PR #19 `feature/security-hardening`): CORS Lockdown (Wildcard-Warnung in Production). API-Key/Notification-Secret Masking. Password Complexity Enforcement. Security Headers Middleware (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy). WebSocket Auth (kurzlebiger Token). Refresh Token Rotation (altes Token revoked). Account Lockout (DB-Migration für `failed_login_attempts`, `locked_until`). Trusted Proxy Config. Rate-Limit Improvements. System Settings Allowlist. Staging Path Validation. Rule Import File Size Limit. `datetime.utcnow()` → `datetime.now(timezone.utc)`. Audit Log Data Retention Job. SECRET_KEY Enforcement in docker-compose. Frontend WebSocket Auth + Refresh Token Rotation Support. Branch: `feature/security-hardening`, Commit: `3058956` (PR #19) |
 | 24.02.2026 (8) | **Session 8 – Security Hardening II + httpOnly Cookies** (PRs #20, #21, #22): httpOnly Cookie Auth Migration (ADR-001) – JWT aus localStorage entfernt, Set-Cookie im Backend, `credentials: 'include'` im Frontend, Cookie-Clearing bei Logout. CSRF Double-Submit Cookie Middleware (`csrf.py`). Security Event Logging (`security_events.py` – strukturiertes JSON für Auth/Rate-Limit/CSRF Events). SSRF-Safe URL Validation (`url_validation.py`). `escape_like()` für SQL-Injection-Schutz. Content-Security-Policy Header. WebSocket Connection Limits per IP. Body Size Limit Middleware. Admin-Only auf Rules, Jobs, Staging, Services, Notifications, System-Settings Routes. Outbound URL Validation auf alle Service-Connection/Notification/Setup Endpoints. Enhanced Rate Limiting mit Security-Event-Logging auf allen API-Routes. Refresh Token Cleanup Scheduler-Job. CI/CD: `tests.yml` (Backend+Frontend Tests), `security-scan.yml` (SAST/DAST). Pytest Setup mit Smoke Test. Dependabot Config. npm Dependency Bump. Branch: `feature/security-hardening2`, Commits: `148d0f6` (PR #20), `f0eec84` (PR #21), `657ad70` (PR #22) |
+| 26.02.2026 (10) | **Session 10 – Phase 2 Completion**: User Timeline Tab (Backend: `GET /users/{id}/timeline` mit Calendar Heatmap + Session-Gruppierung; Frontend: 90-Tage-Heatmap + Recent Watch Sessions). Image Proxy (Backend: `GET /media/{id}/image` mit In-Memory-Cache, Episode→Series Fallback). LibraryDetail Grid View (Table/Grid Toggle, Poster-Karten mit Bild, Titel, Jahr, Größe, Play-Count). UserDetail Activity: Type-Filter (Movies/Episodes) + Suchfeld. Branch: `feature/phase2-completion` |
 | 30.12.2024 | Initiale Version: Session-Zusammenfassung (Rules Export, Sidebar, Theme Toggle, Staging UI) |

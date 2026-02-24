@@ -1,12 +1,15 @@
 """
 Media API routes.
 """
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta, timezone
+import httpx
+from loguru import logger
 
 from ...core.database import get_db
 from ...core.rate_limit import limiter, RateLimits
@@ -809,4 +812,103 @@ async def get_audit_log(
         },
         "action_breakdown": action_breakdown
     }
+
+
+# Simple in-memory image cache (max 200 items, TTL 1 hour)
+_image_cache: Dict[int, tuple[bytes, str, datetime]] = {}
+_IMAGE_CACHE_MAX = 200
+_IMAGE_CACHE_TTL = timedelta(hours=1)
+
+
+@router.get("/{media_id}/image")
+@limiter.limit(RateLimits.API_READ)
+async def get_media_image(
+    request: Request,
+    media_id: int,
+    max_height: int = Query(300, ge=50, le=1000),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Proxy media poster image from the media server (Emby/Jellyfin).
+
+    Fetches the Primary image for the given media item, caches it in memory,
+    and streams it back to the client. This avoids exposing the media server
+    API key to the frontend.
+    """
+    # Check cache
+    now = datetime.now(timezone.utc)
+    if media_id in _image_cache:
+        img_bytes, content_type, cached_at = _image_cache[media_id]
+        if now - cached_at < _IMAGE_CACHE_TTL:
+            return Response(
+                content=img_bytes,
+                media_type=content_type,
+                headers={"Cache-Control": "public, max-age=3600"}
+            )
+        else:
+            del _image_cache[media_id]
+
+    # Get media item with its service connection
+    result = await db.execute(
+        select(MediaItem)
+        .options(joinedload(MediaItem.service_connection))
+        .where(MediaItem.id == media_id)
+    )
+    media_item = result.scalar_one_or_none()
+
+    if not media_item:
+        raise HTTPException(status_code=404, detail="Media item not found")
+
+    if not media_item.service_connection:
+        raise HTTPException(status_code=404, detail="No service connection for this media item")
+
+    sc = media_item.service_connection
+    base_url = sc.url.rstrip("/")
+    external_id = media_item.external_id
+
+    # For series items, try parent (series) image if episode/season
+    image_item_id = external_id
+    if media_item.media_type in ("episode", "season") and media_item.series_id:
+        # Get the series' external_id for a better poster
+        series_result = await db.execute(
+            select(MediaItem.external_id).where(MediaItem.id == media_item.series_id)
+        )
+        series_ext_id = series_result.scalar_one_or_none()
+        if series_ext_id:
+            image_item_id = series_ext_id
+
+    # Construct image URL based on service type
+    image_url = f"{base_url}/Items/{image_item_id}/Images/Primary"
+    params = {"maxHeight": str(max_height)}
+
+    # Set up headers for the media server
+    if sc.service_type in (ServiceType.EMBY, ServiceType.JELLYFIN):
+        headers = {"X-Emby-Token": sc.api_key}
+    else:
+        headers = {"X-Api-Key": sc.api_key}
+
+    try:
+        async with httpx.AsyncClient(verify=sc.verify_ssl, timeout=15) as client:
+            resp = await client.get(image_url, params=params, headers=headers)
+            if resp.status_code == 200:
+                img_bytes = resp.content
+                content_type = resp.headers.get("content-type", "image/jpeg")
+
+                # Cache (evict oldest if full)
+                if len(_image_cache) >= _IMAGE_CACHE_MAX:
+                    oldest_key = min(_image_cache, key=lambda k: _image_cache[k][2])
+                    del _image_cache[oldest_key]
+                _image_cache[media_id] = (img_bytes, content_type, now)
+
+                return Response(
+                    content=img_bytes,
+                    media_type=content_type,
+                    headers={"Cache-Control": "public, max-age=3600"}
+                )
+            else:
+                raise HTTPException(status_code=404, detail="Image not found on media server")
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to fetch image for media {media_id}: {e}")
+        raise HTTPException(status_code=502, detail="Could not reach media server")
 

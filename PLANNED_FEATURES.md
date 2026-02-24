@@ -27,9 +27,9 @@ Click on any library to see detailed statistics and content.
 - **Last Watched**: Recently watched content in this library with user attribution
 
 ### Media Tab
-- **Content Browser**: Grid view of all media items with poster images
-- **File Size Display**: Show file size on each item (e.g., "16.24 GB")
-- **Sorting Options**: Sort by title, date added, size, play count
+- **Content Browser**: Grid view of all media items with poster images ✅ Grid View with Poster Proxy (Session 10)
+- **File Size Display**: Show file size on each item (e.g., "16.24 GB") ✅
+- **Sorting Options**: Sort by title, date added, size, play count ✅
 - **Filtering**: Filter by genre, year, rating, watched status
 
 ### Activity Tab
@@ -74,15 +74,15 @@ Detailed statistics and activity for a single user.
 ### Activity Tab
 - **Item Activity**: Complete playback history for this user
 - **Columns**: IP Address, Title, Client, Transcode, Device, Date, Total Playback
-- **Library Filter**: Filter activity by library
-- **Type Filter**: Filter by movie/series
-- **Search**: Search within activity
+- **Library Filter**: Filter activity by library ✅
+- **Type Filter**: Filter by movie/series ✅ (Session 10)
+- **Search**: Search within activity ✅ (Session 10)
 
-### Timeline Tab
-- **Visual Timeline**: Chronological view of user's watch activity
-- **Library Filter**: Show only specific libraries
+### Timeline Tab ✅ Implemented (Session 10)
+- **Visual Timeline**: Chronological view of user's watch activity ✅ Calendar Heatmap (90 days)
+- **Library Filter**: Show only specific libraries ✅
 - **Date Range**: Filter by date range
-- **Session Grouping**: Group consecutive plays into sessions
+- **Session Grouping**: Group consecutive plays into sessions ✅ 30-min gap detection
 
 ---
 
@@ -152,12 +152,12 @@ Visual charts and graphs for understanding viewing patterns.
 
 Deeper insights derived from watch data.
 
-### User Activity Timeline
+### User Activity Timeline ✅ Implemented (Session 10)
 **Purpose**: Visualize when each user watches content over time.
 
-- Calendar heatmap showing activity intensity
+- Calendar heatmap showing activity intensity ✅ 90-day GitHub-style heatmap
 - Hour-by-day grid showing viewing patterns
-- Identify each user's "watch schedule"
+- Identify each user's "watch schedule" ✅ Session grouping with 30-min gap
 
 ### Watch Patterns / Heatmap ✅ Implemented (Session 9)
 **Purpose**: Understand peak viewing times across all users.
@@ -268,7 +268,7 @@ Delete movie if:
 ### Phase 2 - Views & Navigation ✅
 - [x] Library Detail View (Overview, Media, Activity tabs)
 - [x] Users Page (list with stats)
-- [x] User Detail View (Overview, Activity tabs)
+- [x] User Detail View (Overview, Activity, Timeline tabs)
 - [x] Global Activity Log
 - [x] Activity stats API (plays by day/hour/week)
 - [x] Active sessions tracking
@@ -278,6 +278,10 @@ Delete movie if:
 - [x] ResponsiveTable on all pages (History, Users, Activity, UserDetail, Staging, Jobs, LibraryDetail, Preview)
 - [x] Expand-Row on Activity, UserDetail, LibraryDetail (IP, Device, Play Method, Progress)
 - [x] ConfirmDialog accessibility (aria-modal, focus trap, escape key)
+- [x] User Timeline Tab (calendar heatmap + session grouping) (Session 10)
+- [x] Image Proxy endpoint (poster images from Emby/Jellyfin) (Session 10)
+- [x] LibraryDetail Grid View with poster images (Session 10)
+- [x] UserDetail Activity type filter + search (Session 10)
 
 ### Phase 3 - Statistics & Charts ✅ Complete (Session 4+9)
 - [x] Daily Play Count Chart (Activity page + Dashboard)
@@ -405,6 +409,11 @@ To enable these features, the following data needs to be tracked:
 | 3 | Genre Charts on LibraryDetail (Radar + Bar) | Session 9 | ✅ |
 | 2 | Favorite Genres BarChart on UserDetail | Session 9 | ✅ |
 | 3 | Genre Distribution BarChart on Dashboard | Session 9 | ✅ |
+| 2 | User Timeline API (`/users/{id}/timeline`) | Session 10 | ✅ |
+| 2 | Image Proxy API (`/media/{id}/image`) | Session 10 | ✅ |
+| 2 | User Timeline Tab (Calendar Heatmap + Sessions) | Session 10 | ✅ |
+| 2 | LibraryDetail Grid View with Poster Images | Session 10 | ✅ |
+| 2 | UserDetail Activity Type Filter + Search | Session 10 | ✅ |
 
 ---
 

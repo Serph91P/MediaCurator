@@ -15,7 +15,8 @@ import {
   ChevronRightIcon,
   ComputerDesktopIcon,
   GlobeAltIcon,
-  SignalIcon
+  SignalIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
 import {
   ResponsiveContainer,
@@ -30,6 +31,26 @@ interface GenreStatsResponse {
   period_days: number
   total_genres: number
   genres: { genre: string; plays: number; duration_seconds: number }[]
+}
+
+interface TimelineResponse {
+  user_id: number
+  period_days: number
+  calendar_heatmap: { date: string; plays: number; duration_seconds: number }[]
+  sessions: {
+    started_at: string | null
+    ended_at: string | null
+    duration_seconds: number
+    item_count: number
+    items: {
+      id: number
+      media_title: string
+      media_type: string | null
+      duration_seconds: number
+      played_percentage: number
+      started_at: string | null
+    }[]
+  }[]
 }
 
 interface Library {
@@ -116,9 +137,11 @@ function StatsBox({ title, stats }: { title: string; stats: UserStats }) {
 export default function UserDetail() {
   const { userId } = useParams<{ userId: string }>()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'overview' | 'activity'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'timeline'>('overview')
   const [activityPage, setActivityPage] = useState(1)
   const [activityLibraryFilter, setActivityLibraryFilter] = useState<string>('')
+  const [activityTypeFilter, setActivityTypeFilter] = useState<string>('')
+  const [activitySearch, setActivitySearch] = useState<string>('')
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
 
   const toggleExpanded = (id: number) => {
@@ -149,13 +172,15 @@ export default function UserDetail() {
   })
 
   const { data: activityData, isLoading: activityLoading } = useQuery({
-    queryKey: ['userActivity', userId, activityPage, activityLibraryFilter],
+    queryKey: ['userActivity', userId, activityPage, activityLibraryFilter, activityTypeFilter, activitySearch],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: activityPage.toString(),
         page_size: '25'
       })
       if (activityLibraryFilter) params.append('library_id', activityLibraryFilter)
+      if (activityTypeFilter) params.append('media_type', activityTypeFilter)
+      if (activitySearch) params.append('search', activitySearch)
       const res = await api.get<ActivityResponse>(`/users/${userId}/activity?${params}`)
       return res.data
     },
@@ -170,6 +195,16 @@ export default function UserDetail() {
       return res.data
     },
     enabled: !!userId && activeTab === 'overview',
+  })
+
+  // Fetch user timeline data
+  const { data: timelineData } = useQuery({
+    queryKey: ['userTimeline', userId],
+    queryFn: async () => {
+      const res = await api.get<TimelineResponse>(`/users/${userId}/timeline?days=90`)
+      return res.data
+    },
+    enabled: !!userId && activeTab === 'timeline',
   })
 
   const toggleHiddenMutation = useMutation({
@@ -280,9 +315,142 @@ export default function UserDetail() {
         >
           Activity
         </button>
+        <button
+          onClick={() => setActiveTab('timeline')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'timeline'
+              ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-500 dark:text-dark-400 hover:text-gray-700 dark:hover:text-dark-200'
+          }`}
+        >
+          Timeline
+        </button>
       </div>
 
       {/* Tab Content */}
+      {activeTab === 'timeline' && (
+        <div className="space-y-6">
+          {/* Calendar Heatmap */}
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Watch Calendar (Last 90 Days)</h3>
+            {timelineData && timelineData.calendar_heatmap.length > 0 ? (() => {
+              const maxPlays = Math.max(...timelineData.calendar_heatmap.map(d => d.plays))
+              const heatmapMap = new Map(timelineData.calendar_heatmap.map(d => [d.date, d]))
+              // Generate last 90 days
+              const days: { date: Date; dateStr: string }[] = []
+              for (let i = 89; i >= 0; i--) {
+                const d = new Date()
+                d.setDate(d.getDate() - i)
+                days.push({ date: d, dateStr: d.toISOString().split('T')[0] })
+              }
+              // Group by week
+              const weeks: typeof days[] = []
+              let currentWeek: typeof days = []
+              days.forEach((d, i) => {
+                currentWeek.push(d)
+                if (d.date.getDay() === 0 || i === days.length - 1) {
+                  weeks.push(currentWeek)
+                  currentWeek = []
+                }
+              })
+              return (
+                <div>
+                  <div className="flex gap-0.5 overflow-x-auto pb-2">
+                    {weeks.map((week, wi) => (
+                      <div key={wi} className="flex flex-col gap-0.5">
+                        {week.map((day) => {
+                          const data = heatmapMap.get(day.dateStr)
+                          const plays = data?.plays || 0
+                          const intensity = maxPlays > 0 ? plays / maxPlays : 0
+                          const isDark = document.documentElement.classList.contains('dark')
+                          let bg = isDark ? 'var(--color-dark-700)' : 'var(--color-gray-100)'
+                          if (plays > 0) {
+                            if (intensity > 0.75) bg = 'var(--color-primary-500)'
+                            else if (intensity > 0.5) bg = 'var(--color-primary-400)'
+                            else if (intensity > 0.25) bg = isDark ? 'var(--color-primary-300)' : 'var(--color-primary-300)'
+                            else bg = isDark ? 'var(--color-primary-200)' : 'var(--color-primary-200)'
+                          }
+                          return (
+                            <div
+                              key={day.dateStr}
+                              className="w-3.5 h-3.5 rounded-sm cursor-default"
+                              style={{ backgroundColor: bg }}
+                              title={`${day.date.toLocaleDateString()} — ${plays} play${plays !== 1 ? 's' : ''}${data ? `, ${Math.round(data.duration_seconds / 60)}m` : ''}`}
+                            />
+                          )
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 dark:text-dark-400">
+                    <span>Less</span>
+                    {[0, 0.25, 0.5, 0.75, 1].map((t, i) => {
+                      const isDark = document.documentElement.classList.contains('dark')
+                      let bg = isDark ? 'var(--color-dark-700)' : 'var(--color-gray-100)'
+                      if (t > 0.75) bg = 'var(--color-primary-500)'
+                      else if (t > 0.5) bg = 'var(--color-primary-400)'
+                      else if (t > 0.25) bg = 'var(--color-primary-300)'
+                      else if (t > 0) bg = 'var(--color-primary-200)'
+                      return <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: bg }} />
+                    })}
+                    <span>More</span>
+                  </div>
+                </div>
+              )
+            })() : (
+              <p className="text-gray-500 dark:text-dark-400 text-center py-4">No watch history in the last 90 days</p>
+            )}
+          </div>
+
+          {/* Recent Sessions */}
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Watch Sessions</h3>
+            {timelineData && timelineData.sessions.length > 0 ? (
+              <div className="space-y-4">
+                {[...timelineData.sessions].reverse().slice(0, 20).map((session, idx) => (
+                  <div key={idx} className="border-l-2 border-primary-500 pl-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ClockIcon className="w-4 h-4 text-primary-500" />
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {session.started_at ? new Date(session.started_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Unknown'}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-dark-400">
+                        {session.started_at ? new Date(session.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                        {session.ended_at ? ` – ${new Date(session.ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 bg-primary-500/20 text-primary-500 rounded-full">
+                        {session.item_count} item{session.item_count !== 1 ? 's' : ''}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-dark-400">
+                        {formatDurationLong(session.duration_seconds)}
+                      </span>
+                    </div>
+                    <div className="space-y-1 ml-1">
+                      {session.items.map((item) => (
+                        <div key={item.id} className="flex items-center gap-2 text-sm">
+                          {item.media_type === 'movie' ? (
+                            <FilmIcon className="w-3.5 h-3.5 text-primary-400 shrink-0" />
+                          ) : (
+                            <TvIcon className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                          )}
+                          <span className="text-gray-900 dark:text-white truncate">{item.media_title}</span>
+                          <span className="text-xs text-gray-400 dark:text-dark-500 shrink-0">
+                            {formatDurationLong(item.duration_seconds)}
+                            {item.played_percentage > 0 && ` (${Math.round(item.played_percentage)}%)`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 dark:text-dark-400 text-center py-4">No recent sessions found</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'overview' ? (
         <div className="space-y-6">
           {/* User Stats */}
@@ -384,6 +552,16 @@ export default function UserDetail() {
         <div className="space-y-4">
           {/* Activity Filters */}
           <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-dark-400" />
+              <input
+                type="text"
+                placeholder="Search by title..."
+                value={activitySearch}
+                onChange={(e) => { setActivitySearch(e.target.value); setActivityPage(1); }}
+                className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-dark-700 border border-gray-200 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
             <select
               value={activityLibraryFilter}
               onChange={(e) => { setActivityLibraryFilter(e.target.value); setActivityPage(1); }}
@@ -393,6 +571,15 @@ export default function UserDetail() {
               {libraries?.map((lib) => (
                 <option key={lib.id} value={lib.id}>{lib.name}</option>
               ))}
+            </select>
+            <select
+              value={activityTypeFilter}
+              onChange={(e) => { setActivityTypeFilter(e.target.value); setActivityPage(1); }}
+              className="px-4 py-2 bg-gray-50 dark:bg-dark-700 border border-gray-200 dark:border-dark-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">All Types</option>
+              <option value="movie">Movies</option>
+              <option value="episode">Episodes</option>
             </select>
           </div>
 

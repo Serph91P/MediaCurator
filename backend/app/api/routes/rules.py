@@ -13,7 +13,7 @@ from ...core.database import get_db
 from ...core.rate_limit import limiter, RateLimits
 from ...models import CleanupRule, SeriesEvaluationMode, SeriesDeleteTarget
 from ...schemas import CleanupRuleCreate, CleanupRuleUpdate, CleanupRuleResponse
-from ..deps import get_current_user
+from ..deps import get_current_user, get_current_active_admin
 
 router = APIRouter(prefix="/rules", tags=["Cleanup Rules"])
 
@@ -115,9 +115,9 @@ async def create_rule(
     request: Request,
     rule_data: CleanupRuleCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Create a new cleanup rule."""
+    """Create a new cleanup rule (admin only)."""
     rule = CleanupRule(
         name=rule_data.name,
         description=rule_data.description,
@@ -163,9 +163,9 @@ async def update_rule(
     rule_id: int,
     rule_data: CleanupRuleUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Update a cleanup rule."""
+    """Update a cleanup rule (admin only)."""
     result = await db.execute(
         select(CleanupRule).where(CleanupRule.id == rule_id)
     )
@@ -196,9 +196,9 @@ async def delete_rule(
     request: Request,
     rule_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Delete a cleanup rule."""
+    """Delete a cleanup rule (admin only)."""
     result = await db.execute(
         select(CleanupRule).where(CleanupRule.id == rule_id)
     )
@@ -220,9 +220,9 @@ async def toggle_rule(
     request: Request,
     rule_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Toggle a rule's enabled status."""
+    """Toggle a rule's enabled status (admin only)."""
     result = await db.execute(
         select(CleanupRule).where(CleanupRule.id == rule_id)
     )
@@ -258,9 +258,9 @@ async def bulk_action(
     request_obj: Request,
     request: BulkActionRequest,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Perform bulk operations on multiple rules."""
+    """Perform bulk operations on multiple rules (admin only)."""
     if request.action not in ["enable", "disable", "delete"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -428,9 +428,9 @@ async def import_rules(
     file: UploadFile = File(...),
     replace_existing: bool = False,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Import cleanup rules from JSON file."""
+    """Import cleanup rules from JSON file (admin only)."""
     if not file.filename.endswith('.json'):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

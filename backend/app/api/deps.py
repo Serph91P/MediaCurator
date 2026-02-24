@@ -9,6 +9,7 @@ from typing import Optional
 
 from ..core.database import get_db
 from ..core.security import decode_token
+from ..core.security_events import log_security_event, SecurityEventType
 from ..models import User
 
 # auto_error=False allows cookie-based auth fallback
@@ -38,6 +39,13 @@ async def get_current_user(
     token_data = decode_token(token)
     
     if token_data is None or token_data.user_id is None:
+        log_security_event(
+            SecurityEventType.AUTHZ_INVALID_TOKEN,
+            client_ip=request.client.host if request.client else "unknown",
+            path=str(request.url.path),
+            method=request.method,
+            detail="Token decode failed or missing user_id",
+        )
         raise credentials_exception
     
     result = await db.execute(
@@ -46,9 +54,25 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     
     if user is None:
+        log_security_event(
+            SecurityEventType.AUTHZ_INVALID_TOKEN,
+            client_ip=request.client.host if request.client else "unknown",
+            path=str(request.url.path),
+            method=request.method,
+            detail="User not found for token",
+        )
         raise credentials_exception
     
     if not user.is_active:
+        log_security_event(
+            SecurityEventType.AUTHZ_DENIED,
+            client_ip=request.client.host if request.client else "unknown",
+            user_id=user.id,
+            username=user.username,
+            path=str(request.url.path),
+            method=request.method,
+            detail="Inactive user attempted access",
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
@@ -62,6 +86,12 @@ async def get_current_active_admin(
 ) -> User:
     """Get the current user and verify they are an admin."""
     if not current_user.is_admin:
+        log_security_event(
+            SecurityEventType.AUTHZ_ADMIN_REQUIRED,
+            user_id=current_user.id,
+            username=current_user.username,
+            detail="Non-admin user attempted admin action",
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required"

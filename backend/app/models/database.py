@@ -115,6 +115,8 @@ class AuditActionType(str, Enum):
     
     # Additional actions
     MEDIA_FLAGGED = "media_flagged"
+    SUGGESTION_FLAGGED = "suggestion_flagged"
+    SUGGESTION_STAGED = "suggestion_staged"
     SYNC_COMPLETED = "sync_completed"
     ERROR = "error"
     TEST = "test"

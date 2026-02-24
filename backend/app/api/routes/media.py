@@ -9,13 +9,15 @@ from sqlalchemy import select, func, and_, or_, desc
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta, timezone
 import httpx
+from pydantic import BaseModel, Field, field_validator
 from loguru import logger
 
 from ...core.database import get_db
 from ...core.rate_limit import limiter, RateLimits
-from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats, CleanupLog, MediaServerUser, UserWatchHistory, Library
+from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats, CleanupLog, MediaServerUser, UserWatchHistory, Library, AuditActionType
 from ...schemas import CleanupLogResponse
 from ..deps import get_current_user
+from ...services.audit import AuditService
 
 router = APIRouter(prefix="/media", tags=["Media"])
 
@@ -1194,3 +1196,263 @@ async def get_media_image(
         logger.warning(f"Failed to fetch image for media {media_id}: {e}")
         raise HTTPException(status_code=502, detail="Could not reach media server")
 
+
+# --- Actionable Cleanup Suggestions ---
+
+# Hard limits to prevent abuse
+_MAX_SUGGESTION_BATCH_SIZE = 50
+_MAX_GRACE_PERIOD_DAYS = 365
+_MIN_GRACE_PERIOD_DAYS = 1
+
+
+class FlagSuggestionsRequest(BaseModel):
+    """Request schema for flagging cleanup suggestions."""
+    media_ids: List[int] = Field(
+        ...,
+        min_length=1,
+        max_length=_MAX_SUGGESTION_BATCH_SIZE,
+        description="List of media item IDs to flag for cleanup"
+    )
+    grace_period_days: int = Field(
+        default=7,
+        ge=_MIN_GRACE_PERIOD_DAYS,
+        le=_MAX_GRACE_PERIOD_DAYS,
+        description="Grace period in days before scheduled cleanup"
+    )
+
+    @field_validator('media_ids')
+    @classmethod
+    def validate_unique_ids(cls, v: List[int]) -> List[int]:
+        if len(v) != len(set(v)):
+            raise ValueError("Duplicate media IDs are not allowed")
+        return v
+
+
+class StageSuggestionsRequest(BaseModel):
+    """Request schema for staging cleanup suggestions."""
+    media_ids: List[int] = Field(
+        ...,
+        min_length=1,
+        max_length=_MAX_SUGGESTION_BATCH_SIZE,
+        description="List of media item IDs to move to staging"
+    )
+
+    @field_validator('media_ids')
+    @classmethod
+    def validate_unique_ids(cls, v: List[int]) -> List[int]:
+        if len(v) != len(set(v)):
+            raise ValueError("Duplicate media IDs are not allowed")
+        return v
+
+
+class SuggestionActionResponse(BaseModel):
+    """Response schema for cleanup suggestion actions."""
+    success: bool
+    message: str
+    flagged: int = 0
+    staged: int = 0
+    skipped: int = 0
+    failed: int = 0
+    total_size_bytes: float = 0
+    errors: List[str] = []
+
+
+@router.post("/cleanup-suggestions/flag", response_model=SuggestionActionResponse)
+@limiter.limit(RateLimits.CLEANUP_OPERATION)
+async def flag_cleanup_suggestions(
+    request: Request,
+    body: FlagSuggestionsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Flag suggested media items for cleanup with a grace period.
+
+    Sets flagged_for_cleanup = true and schedules cleanup after the grace period.
+    Items flagged manually (not by a rule) have flagged_by_rule_id = null so they
+    can be distinguished from rule-driven flags.
+    """
+    now = datetime.now(timezone.utc)
+    scheduled_at = now + timedelta(days=body.grace_period_days)
+
+    # Fetch all requested items in one query — avoid N+1
+    result = await db.execute(
+        select(MediaItem).where(MediaItem.id.in_(body.media_ids))
+    )
+    items_by_id = {item.id: item for item in result.scalars().all()}
+
+    flagged_count = 0
+    skipped_count = 0
+    failed_count = 0
+    total_size = 0.0
+    errors: List[str] = []
+    flagged_titles: List[str] = []
+
+    for media_id in body.media_ids:
+        item = items_by_id.get(media_id)
+        if not item:
+            failed_count += 1
+            errors.append(f"Media item {media_id} not found")
+            continue
+
+        # Skip items already flagged or staged — don't silently overwrite rule flags
+        if item.flagged_for_cleanup:
+            skipped_count += 1
+            errors.append(f"{item.title}: already flagged for cleanup")
+            continue
+        if item.is_staged:
+            skipped_count += 1
+            errors.append(f"{item.title}: already staged")
+            continue
+
+        item.flagged_for_cleanup = True
+        item.flagged_at = now
+        item.flagged_by_rule_id = None  # Manual flag, not rule-driven
+        item.scheduled_cleanup_at = scheduled_at
+        flagged_count += 1
+        total_size += item.size_bytes or 0
+        flagged_titles.append(item.title)
+
+    if flagged_count > 0:
+        await db.commit()
+
+        # Audit log the bulk action
+        await AuditService.log(
+            db=db,
+            action=AuditActionType.SUGGESTION_FLAGGED,
+            request=request,
+            user=current_user,
+            resource_type="media",
+            details={
+                "media_ids": [mid for mid in body.media_ids if mid in items_by_id and items_by_id[mid].flagged_for_cleanup],
+                "titles": flagged_titles,
+                "grace_period_days": body.grace_period_days,
+                "scheduled_cleanup_at": scheduled_at.isoformat(),
+                "count": flagged_count,
+                "total_size_bytes": total_size,
+            },
+        )
+
+        # Create cleanup log entries for each flagged item
+        for media_id in body.media_ids:
+            item = items_by_id.get(media_id)
+            if item and item.flagged_for_cleanup and item.flagged_at == now:
+                log_entry = CleanupLog(
+                    media_item_id=item.id,
+                    rule_id=None,
+                    action="flagged_from_suggestion",
+                    status="success",
+                    details={
+                        "grace_period_days": body.grace_period_days,
+                        "scheduled_cleanup_at": scheduled_at.isoformat(),
+                        "flagged_by_user": current_user.username,
+                    },
+                    media_title=item.title,
+                    media_path=item.path,
+                    media_size_bytes=item.size_bytes,
+                )
+                db.add(log_entry)
+        await db.commit()
+
+    logger.info(
+        f"User {current_user.username} flagged {flagged_count} items from suggestions "
+        f"(skipped={skipped_count}, failed={failed_count}, grace={body.grace_period_days}d)"
+    )
+
+    return SuggestionActionResponse(
+        success=failed_count == 0 and flagged_count > 0,
+        message=f"Flagged {flagged_count} item(s) for cleanup (grace period: {body.grace_period_days} days)",
+        flagged=flagged_count,
+        skipped=skipped_count,
+        failed=failed_count,
+        total_size_bytes=total_size,
+        errors=errors,
+    )
+
+
+@router.post("/cleanup-suggestions/stage", response_model=SuggestionActionResponse)
+@limiter.limit(RateLimits.CLEANUP_OPERATION)
+async def stage_cleanup_suggestions(
+    request: Request,
+    body: StageSuggestionsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Move suggested media items directly to staging.
+
+    Bypasses rules entirely — immediately relocates files to the staging
+    directory and starts the grace period countdown. Requires staging to be
+    enabled for each item's library (or globally).
+    """
+    from ...services.staging import StagingService
+    from ...services.emby import EmbyService
+
+    staging_service = StagingService(db)
+    emby_service = EmbyService(db)
+
+    # Fetch all requested items in one query
+    result = await db.execute(
+        select(MediaItem).where(MediaItem.id.in_(body.media_ids))
+    )
+    items_by_id = {item.id: item for item in result.scalars().all()}
+
+    staged_count = 0
+    skipped_count = 0
+    failed_count = 0
+    total_size = 0.0
+    errors: List[str] = []
+    staged_titles: List[str] = []
+
+    for media_id in body.media_ids:
+        item = items_by_id.get(media_id)
+        if not item:
+            failed_count += 1
+            errors.append(f"Media item {media_id} not found")
+            continue
+
+        # Skip already-staged items
+        if item.is_staged:
+            skipped_count += 1
+            errors.append(f"{item.title}: already staged")
+            continue
+
+        stage_result = await staging_service.move_to_staging(item, emby_service)
+        if stage_result["success"]:
+            staged_count += 1
+            total_size += item.size_bytes or 0
+            staged_titles.append(item.title)
+        else:
+            failed_count += 1
+            errors.append(f"{item.title}: {stage_result.get('error', 'Unknown error')}")
+
+    if staged_count > 0:
+        # Audit log the bulk action
+        await AuditService.log(
+            db=db,
+            action=AuditActionType.SUGGESTION_STAGED,
+            request=request,
+            user=current_user,
+            resource_type="media",
+            details={
+                "media_ids": [mid for mid in body.media_ids if mid in items_by_id and getattr(items_by_id[mid], 'is_staged', False)],
+                "titles": staged_titles,
+                "count": staged_count,
+                "total_size_bytes": total_size,
+            },
+        )
+
+    logger.info(
+        f"User {current_user.username} staged {staged_count} items from suggestions "
+        f"(skipped={skipped_count}, failed={failed_count})"
+    )
+
+    return SuggestionActionResponse(
+        success=failed_count == 0 and staged_count > 0,
+        message=f"Staged {staged_count} item(s) for cleanup",
+        staged=staged_count,
+        skipped=skipped_count,
+        failed=failed_count,
+        total_size_bytes=total_size,
+        errors=errors,
+    )

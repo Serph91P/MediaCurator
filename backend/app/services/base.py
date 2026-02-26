@@ -88,17 +88,17 @@ class BaseServiceClient(ABC):
         """Make a GET request."""
         return await self._request("GET", endpoint, params=params)
     
-    async def post(self, endpoint: str, json: Optional[Dict[str, Any]] = None) -> Any:
+    async def post(self, endpoint: str, params: Optional[Dict[str, Any]] = None, json: Optional[Dict[str, Any]] = None) -> Any:
         """Make a POST request."""
-        return await self._request("POST", endpoint, json=json)
+        return await self._request("POST", endpoint, params=params, json=json)
     
     async def put(self, endpoint: str, json: Optional[Dict[str, Any]] = None) -> Any:
         """Make a PUT request."""
         return await self._request("PUT", endpoint, json=json)
     
-    async def delete(self, endpoint: str) -> Any:
+    async def delete(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Make a DELETE request."""
-        return await self._request("DELETE", endpoint)
+        return await self._request("DELETE", endpoint, params=params)
     
     @abstractmethod
     async def test_connection(self) -> Dict[str, Any]:

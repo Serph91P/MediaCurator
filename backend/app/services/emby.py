@@ -61,6 +61,12 @@ class EmbyClient(BaseServiceClient):
         cache_data = f"{self.base_url}:{endpoint}:{json.dumps(params or {}, sort_keys=True)}"
         return hashlib.sha256(cache_data.encode()).hexdigest()
     
+    def invalidate_library_cache(self) -> None:
+        """Invalidate the cached library list."""
+        cache_key = self._make_cache_key("/Library/VirtualFolders")
+        self.cache.remove(cache_key)
+        logger.debug("Invalidated library cache")
+    
     def _get_headers(self) -> Dict[str, str]:
         return {
             "X-Emby-Token": self.api_key,
@@ -383,6 +389,9 @@ class EmbyClient(BaseServiceClient):
         result = await self.post("/Library/VirtualFolders", params={"name": name}, json=data)
         logger.info(f"Created library '{name}' at paths: {paths}")
         
+        # Invalidate cache so the new library is found
+        self.invalidate_library_cache()
+        
         # Get library ID
         libraries = await self.get_libraries()
         library = next((lib for lib in libraries if lib.get("Name") == name), None)
@@ -398,6 +407,7 @@ class EmbyClient(BaseServiceClient):
     async def delete_library(self, name: str) -> None:
         """Delete a library by name."""
         await self.delete("/Library/VirtualFolders", params={"name": name})
+        self.invalidate_library_cache()
         logger.info(f"Deleted library '{name}'")
     
     async def get_library_by_name(self, name: str) -> Optional[Dict[str, Any]]:

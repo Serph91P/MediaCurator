@@ -54,7 +54,9 @@ class SonarrClient(BaseServiceClient):
     
     async def delete_series(self, series_id: int, delete_files: bool = True) -> None:
         """Delete a series."""
-        await self.delete(f"/api/v3/series/{series_id}?deleteFiles={str(delete_files).lower()}")
+        await self.delete(f"/api/v3/series/{series_id}", params={
+            "deleteFiles": str(delete_files).lower(),
+        })
         logger.info(f"Deleted series {series_id} from Sonarr")
     
     async def unmonitor_series(self, series_id: int) -> Dict[str, Any]:

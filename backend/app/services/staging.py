@@ -220,11 +220,33 @@ class StagingService:
             
             # If Emby service provided, update libraries
             if emby_service:
-                # Remove from original library (trigger Emby scan)
-                # Add to staging library (will be created if not exists)
+                # Determine library type from source library for correct Emby recognition
+                # Get the source library to copy its type
+                library = None
+                if media_item.library_id:
+                    result = await self.db.execute(
+                        select(Library).where(Library.id == media_item.library_id)
+                    )
+                    library = result.scalar_one_or_none()
+                
+                # Map MediaCurator media types to Emby collection types
+                if library and library.media_type:
+                    if library.media_type.value in ("series", "episode", "season"):
+                        library_type = "tvshows"
+                    else:
+                        library_type = "movies"
+                else:
+                    # Fallback: determine from media item type
+                    if media_item.media_type.value in ("series", "episode", "season"):
+                        library_type = "tvshows"
+                    else:
+                        library_type = "movies"
+                
+                # Create staging library with correct type
                 staging_library_id = await emby_service.ensure_staging_library(
                     settings['library_name'],
-                    settings['staging_path']
+                    settings['staging_path'],
+                    library_type
                 )
                 media_item.staged_library_id = staging_library_id
             

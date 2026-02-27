@@ -355,7 +355,7 @@ class EmbyClient(BaseServiceClient):
         self,
         name: str,
         paths: List[str],
-        library_type: str = "mixed",
+        library_type: str = "movies",
         refresh_library: bool = True
     ) -> Dict[str, Any]:
         """
@@ -364,16 +364,21 @@ class EmbyClient(BaseServiceClient):
         Args:
             name: Library name
             paths: List of folder paths for the library
-            library_type: Type of library (movies, tvshows, mixed, music, etc.)
+            library_type: Type of library (movies, tvshows, music, etc.)
             refresh_library: Whether to refresh library after creation
             
         Returns:
             Dict with library info including ItemId
         """
+        # Emby requires collectionType as query parameter, not in body
+        params = {
+            "name": name,
+            "collectionType": library_type,
+            "refreshLibrary": str(refresh_library).lower()
+        }
+        
+        # LibraryOptions in body for additional settings
         data = {
-            "Name": name,
-            "Paths": paths,
-            "CollectionType": library_type if library_type != "mixed" else None,
             "LibraryOptions": {
                 "EnablePhotos": False,
                 "EnableRealtimeMonitor": True,
@@ -386,8 +391,8 @@ class EmbyClient(BaseServiceClient):
             }
         }
         
-        result = await self.post("/Library/VirtualFolders", params={"name": name}, json=data)
-        logger.info(f"Created library '{name}' at paths: {paths}")
+        result = await self.post("/Library/VirtualFolders", params=params, json=data)
+        logger.info(f"Created library '{name}' (type: {library_type}) at paths: {paths}")
         
         # Invalidate cache so the new library is found
         self.invalidate_library_cache()
@@ -395,12 +400,6 @@ class EmbyClient(BaseServiceClient):
         # Get library ID
         libraries = await self.get_libraries()
         library = next((lib for lib in libraries if lib.get("Name") == name), None)
-        
-        if library and refresh_library:
-            # Trigger library scan
-            library_id = library.get("ItemId")
-            if library_id:
-                await self.refresh_library(library_id)
         
         return library or {"Name": name, "Paths": paths}
     
@@ -423,7 +422,8 @@ class EmbyClient(BaseServiceClient):
     async def ensure_staging_library(
         self,
         library_name: str,
-        staging_path: str
+        staging_path: str,
+        library_type: str = "movies"
     ) -> Optional[str]:
         """
         Ensure staging library exists, create if not.
@@ -431,6 +431,7 @@ class EmbyClient(BaseServiceClient):
         Args:
             library_name: Name for the staging library
             staging_path: Path to staging directory
+            library_type: Type of library - 'movies' or 'tvshows'
             
         Returns:
             Library ItemId or None if failed
@@ -443,16 +444,16 @@ class EmbyClient(BaseServiceClient):
             logger.info(f"Staging library '{library_name}' already exists with ID {library_id}")
             return library_id
         
-        # Create library
+        # Create library with correct type for proper media recognition
         try:
             library = await self.create_library(
                 name=library_name,
                 paths=[staging_path],
-                library_type="mixed",  # Support both movies and series
+                library_type=library_type,
                 refresh_library=True
             )
             library_id = library.get("ItemId")
-            logger.info(f"Created staging library '{library_name}' with ID {library_id}")
+            logger.info(f"Created staging library '{library_name}' (type: {library_type}) with ID {library_id}")
             return library_id
         except ServiceClientError as e:
             logger.error(f"Failed to create staging library: {e}")
@@ -503,7 +504,8 @@ class EmbyService:
     async def ensure_staging_library(
         self,
         library_name: str,
-        staging_path: str
+        staging_path: str,
+        library_type: str = "movies"
     ) -> Optional[str]:
         """Ensure staging library exists on primary Emby service."""
         service = await self.get_primary_emby_service()
@@ -515,7 +517,7 @@ class EmbyService:
         if not client:
             return None
         
-        return await client.ensure_staging_library(library_name, staging_path)
+        return await client.ensure_staging_library(library_name, staging_path, library_type)
     
     async def refresh_staging_library(self, library_id: str) -> bool:
         """Refresh staging library on primary Emby service."""

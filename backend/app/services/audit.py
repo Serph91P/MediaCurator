@@ -16,14 +16,21 @@ class AuditService:
     
     @staticmethod
     def get_client_ip(request: Request) -> str:
-        """Extract client IP address from request."""
-        forwarded_for = request.headers.get("x-forwarded-for")
-        if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
-        real_ip = request.headers.get("x-real-ip")
-        if real_ip:
-            return real_ip
-        return request.client.host if request.client else "unknown"
+        """Extract client IP address, only trusting forwarded headers from trusted proxies."""
+        from ..core.config import get_settings
+        settings = get_settings()
+        trusted_proxies = settings.trusted_proxy_list
+        direct_ip = request.client.host if request.client else "unknown"
+
+        if trusted_proxies and direct_ip in trusted_proxies:
+            forwarded_for = request.headers.get("x-forwarded-for")
+            if forwarded_for:
+                return forwarded_for.split(",")[0].strip()
+            real_ip = request.headers.get("x-real-ip")
+            if real_ip:
+                return real_ip.strip()
+
+        return direct_ip
     
     @staticmethod
     def get_user_agent(request: Request) -> str:

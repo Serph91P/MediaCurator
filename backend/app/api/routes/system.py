@@ -1,23 +1,34 @@
 """
 System API routes (health, stats, settings).
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ...core.database import get_db
 from ...core.config import get_settings
-from ...models import MediaItem, CleanupLog, SystemSettings, MediaType
+from ...core.rate_limit import limiter, RateLimits
+from ...models import MediaItem, CleanupLog, SystemSettings, MediaType, User
 from ...schemas import SystemStats, HealthCheck, DiskSpaceInfo, SystemSettingResponse, SystemSettingUpdate, SystemSettingsResponse, SystemSettingsUpdate
 from ...services.version import version_service
-from ..deps import get_current_user, get_optional_user
+from ..deps import get_current_user, get_optional_user, get_current_active_admin
 
 router = APIRouter(prefix="/system", tags=["System"])
 settings = get_settings()
+
+# Allowlisted system setting keys that can be modified via PUT /settings/{key}
+ALLOWED_SETTING_KEYS = {
+    "cleanup_enabled",
+    "cleanup_schedule",
+    "sync_schedule",
+    "dry_run_mode",
+    "default_grace_period_days",
+    "max_deletions_per_run",
+}
 
 
 class VersionInfo(BaseModel):
@@ -26,10 +37,10 @@ class VersionInfo(BaseModel):
     base_version: str
     branch: str
     commit: str
-    commit_full: str
+    commit_full: Optional[str] = None
     commit_date: str | None
-    is_dirty: bool
-    remote_url: str | None
+    is_dirty: Optional[bool] = None
+    remote_url: Optional[str] = None
 
 
 class UpdateInfo(BaseModel):
@@ -44,14 +55,20 @@ class UpdateInfo(BaseModel):
 
 
 @router.get("/version", response_model=VersionInfo)
-async def get_version_info():
-    """Get detailed version information (no auth required)."""
-    return version_service.get_version_info()
+@limiter.limit(RateLimits.API_READ)
+async def get_version_info(request: Request, current_user = Depends(get_current_user)):
+    """Get detailed version information (requires auth)."""
+    info = version_service.get_version_info()
+    # Remove sensitive fields
+    info.pop("remote_url", None)
+    info.pop("is_dirty", None)
+    return info
 
 
 @router.get("/check-updates", response_model=UpdateInfo)
-async def check_for_updates():
-    """Check if updates are available on GitHub (no auth required)."""
+@limiter.limit(RateLimits.API_READ)
+async def check_for_updates(request: Request, current_user = Depends(get_current_user)):
+    """Check if updates are available on GitHub (requires auth)."""
     git_info = version_service.get_git_info()
     update_info = await version_service.check_for_updates()
     
@@ -67,18 +84,28 @@ async def check_for_updates():
 
 
 @router.get("/health", response_model=HealthCheck)
+@limiter.limit(RateLimits.HEALTH_CHECK)
 async def health_check(
-    db: AsyncSession = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user)
 ):
-    """Health check endpoint (no auth required)."""
-    # Check database
+    """Health check endpoint. Returns minimal info without auth, full details with auth."""
+    if not current_user:
+        return HealthCheck(
+            status="healthy",
+            version="",
+            database="",
+            scheduler=""
+        )
+
+    # Full details only for authenticated users
     try:
         await db.execute(select(func.count(MediaItem.id)))
         db_status = "healthy"
     except Exception:
         db_status = "unhealthy"
     
-    # Get version from version service
     version_info = version_service.get_git_info()
     
     return HealthCheck(
@@ -90,7 +117,9 @@ async def health_check(
 
 
 @router.get("/stats", response_model=SystemStats)
+@limiter.limit(RateLimits.API_READ)
 async def get_system_stats(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -120,7 +149,7 @@ async def get_system_stats(
     flagged = flagged_result.scalar() or 0
     
     # Deletion stats (last 30 days)
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     deleted_result = await db.execute(
         select(func.count(CleanupLog.id)).where(
             CleanupLog.action == "delete",
@@ -196,9 +225,11 @@ async def _set_setting_value(db: AsyncSession, key: str, value: Any, description
 
 
 @router.get("/settings", response_model=SystemSettingsResponse)
+@limiter.limit(RateLimits.API_READ)
 async def get_system_settings(
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Get all system settings as a single object."""
     return SystemSettingsResponse(
@@ -213,10 +244,12 @@ async def get_system_settings(
 
 
 @router.put("/settings", response_model=SystemSettingsResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_system_settings(
+    request: Request,
     settings_data: SystemSettingsUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Update multiple system settings at once."""
     # Update only provided fields
@@ -248,13 +281,20 @@ async def update_system_settings(
 
 
 @router.put("/settings/{key}", response_model=SystemSettingResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_system_setting(
+    request: Request,
     key: str,
     setting_data: SystemSettingUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Update a single system setting by key."""
+    if key not in ALLOWED_SETTING_KEYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown setting key: '{key}'. Allowed keys: {', '.join(sorted(ALLOWED_SETTING_KEYS))}"
+        )
     await _set_setting_value(db, key, setting_data.value)
     await db.commit()
     
@@ -265,10 +305,12 @@ async def update_system_setting(
 
 
 @router.post("/cleanup/run")
+@limiter.limit(RateLimits.CLEANUP_OPERATION)
 async def trigger_cleanup_run(
+    request: Request,
     dry_run: bool = False,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Manually trigger a cleanup run."""
     from ...services.cleanup_engine import CleanupEngine
@@ -285,10 +327,12 @@ async def trigger_cleanup_run(
 
 
 @router.get("/cleanup/preview")
+@limiter.limit(RateLimits.API_READ)
 async def preview_cleanup(
+    request: Request,
     rule_id: int = None,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """
     Preview what would be cleaned up without actually doing it.
@@ -302,9 +346,11 @@ async def preview_cleanup(
 
 
 @router.post("/sync/run")
+@limiter.limit(RateLimits.SYNC_OPERATION)
 async def trigger_sync_run(
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Manually trigger a sync run for all services."""
     from ...models import ServiceConnection

@@ -365,10 +365,13 @@ class NotificationService:
         **kwargs
     ) -> bool:
         """Send Discord webhook notification."""
+        from ..core.url_validation import validate_outbound_url
+
         webhook_url = config.get("webhook_url")
         if not webhook_url:
             logger.error("Discord webhook URL not configured")
             return False
+        validate_outbound_url(webhook_url)
         
         # Build embed
         embed = {
@@ -401,10 +404,13 @@ class NotificationService:
         **kwargs
     ) -> bool:
         """Send Slack webhook notification."""
+        from ..core.url_validation import validate_outbound_url
+
         webhook_url = config.get("webhook_url")
         if not webhook_url:
             logger.error("Slack webhook URL not configured")
             return False
+        validate_outbound_url(webhook_url)
         
         payload = {
             "blocks": [
@@ -433,10 +439,13 @@ class NotificationService:
         **kwargs
     ) -> bool:
         """Send generic webhook notification."""
+        from ..core.url_validation import validate_outbound_url
+
         url = config.get("url")
         if not url:
             logger.error("Webhook URL not configured")
             return False
+        validate_outbound_url(url)
         
         method = config.get("method", "POST").upper()
         headers = config.get("headers", {})

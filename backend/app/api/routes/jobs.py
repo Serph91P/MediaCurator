@@ -10,9 +10,9 @@ from pydantic import BaseModel
 
 from ...core.database import get_db
 from ...core.rate_limit import limiter, RateLimits
-from ...models import JobExecutionLog, SystemSettings
-from ...scheduler import scheduler, reschedule_job
-from ..deps import get_current_user
+from ...models import JobExecutionLog, SystemSettings, ServiceConnection
+from ...scheduler import scheduler, reschedule_job, run_service_sync_job
+from ..deps import get_current_user, get_current_active_admin
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -41,6 +41,13 @@ async def list_jobs(
     running_logs = result.scalars().all()
     running_job_ids = {log.job_id for log in running_logs}
     
+    # Get all services for potential sync jobs
+    services_result = await db.execute(
+        select(ServiceConnection).where(ServiceConnection.is_enabled == True)
+    )
+    services = services_result.scalars().all()
+    service_map = {s.id: s for s in services}
+    
     for job in scheduler.get_jobs():
         # Extract interval from trigger
         interval_str = str(job.trigger)
@@ -67,6 +74,18 @@ async def list_jobs(
             if running_log:
                 running_since = running_log.started_at.isoformat() if running_log.started_at else None
         
+        # Determine service info for service sync jobs
+        service_id = None
+        service_type = None
+        if job.id.startswith("sync_service_"):
+            try:
+                service_id = int(job.id.replace("sync_service_", ""))
+                if service_id in service_map:
+                    service = service_map[service_id]
+                    service_type = service.service_type.value if hasattr(service.service_type, 'value') else str(service.service_type)
+            except (ValueError, KeyError):
+                pass
+        
         jobs.append({
             "id": job.id,
             "name": job.name,
@@ -76,7 +95,31 @@ async def list_jobs(
             "interval_hours": interval_hours,
             "is_running": is_running,
             "running_since": running_since,
+            "service_id": service_id,
+            "service_type": service_type,
         })
+    
+    # Also check for running service syncs that may not have scheduler jobs yet
+    for log in running_logs:
+        if log.job_id.startswith("sync_service_") and not any(j["id"] == log.job_id for j in jobs):
+            try:
+                service_id = int(log.job_id.replace("sync_service_", ""))
+                if service_id in service_map:
+                    service = service_map[service_id]
+                    jobs.append({
+                        "id": log.job_id,
+                        "name": log.job_name,
+                        "next_run_time": None,
+                        "trigger": "manual",
+                        "interval_minutes": None,
+                        "interval_hours": None,
+                        "is_running": True,
+                        "running_since": log.started_at.isoformat() if log.started_at else None,
+                        "service_id": service_id,
+                        "service_type": service.service_type.value if hasattr(service.service_type, 'value') else str(service.service_type),
+                    })
+            except (ValueError, KeyError):
+                pass
     
     return {
         "running": scheduler.running,
@@ -115,6 +158,58 @@ async def get_job_history(
     } for log in executions]
 
 
+@router.post("/sync/service/{service_id}")
+@limiter.limit(RateLimits.CLEANUP_OPERATION)
+async def trigger_service_sync(
+    request: Request,
+    service_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_active_admin)
+):
+    """Manually trigger a sync for a specific service (admin only)."""
+    import asyncio
+    
+    # Check if service exists and is enabled
+    result = await db.execute(
+        select(ServiceConnection).where(ServiceConnection.id == service_id)
+    )
+    service = result.scalar_one_or_none()
+    
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Service with id {service_id} not found"
+        )
+    
+    if not service.is_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Service '{service.name}' is disabled"
+        )
+    
+    # Check if already running
+    job_id = f"sync_service_{service_id}"
+    running_result = await db.execute(
+        select(JobExecutionLog)
+        .where(JobExecutionLog.job_id == job_id)
+        .where(JobExecutionLog.status == "running")
+    )
+    if running_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Sync for service '{service.name}' is already running"
+        )
+    
+    # Start the sync in background
+    asyncio.create_task(run_service_sync_job(service_id))
+    
+    return {
+        "message": f"Sync triggered for service '{service.name}'",
+        "service_id": service_id,
+        "service_name": service.name
+    }
+
+
 @router.get("/history/recent")
 @limiter.limit(RateLimits.API_READ)
 async def get_recent_executions(
@@ -149,9 +244,9 @@ async def get_recent_executions(
 async def trigger_job(
     request: Request,
     job_id: str,
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Manually trigger a job execution."""
+    """Manually trigger a job execution (admin only)."""
     job = scheduler.get_job(job_id)
     if not job:
         raise HTTPException(
@@ -175,9 +270,9 @@ async def update_job_interval(
     job_id: str,
     update: JobIntervalUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Update the interval for a job."""
+    """Update the interval for a job (admin only)."""
     job = scheduler.get_job(job_id)
     if not job:
         raise HTTPException(

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ...core.database import get_db
 from ...core.rate_limit import limiter, RateLimits
@@ -15,7 +15,7 @@ from ...schemas import (
     ServiceConnectionResponse, ServiceConnectionTest
 )
 from ...services import SonarrClient, RadarrClient, EmbyClient
-from ..deps import get_current_user
+from ..deps import get_current_user, get_current_active_admin
 
 router = APIRouter(prefix="/services", tags=["Service Connections"])
 
@@ -68,9 +68,11 @@ async def create_service(
     request: Request,
     service_data: ServiceConnectionCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Create a new service connection."""
+    from ...core.url_validation import validate_outbound_url
+    validate_outbound_url(service_data.url, allow_private=True)
     service = ServiceConnection(**service_data.model_dump())
     db.add(service)
     await db.commit()
@@ -106,7 +108,7 @@ async def update_service(
     service_id: int,
     service_data: ServiceConnectionUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Update a service connection."""
     result = await db.execute(
@@ -134,7 +136,7 @@ async def delete_service(
     request: Request,
     service_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Delete a service connection."""
     result = await db.execute(
@@ -163,7 +165,7 @@ async def test_service(
     request: Request,
     service_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Test a service connection."""
     result = await db.execute(
@@ -182,7 +184,7 @@ async def test_service(
         
         # Update last sync time on success
         if test_result.get("success"):
-            service.last_sync = datetime.utcnow()
+            service.last_sync = datetime.now(timezone.utc)
             await db.commit()
         
         return ServiceConnectionTest(**test_result)
@@ -191,11 +193,15 @@ async def test_service(
 
 
 @router.post("/test", response_model=ServiceConnectionTest)
+@limiter.limit(RateLimits.TEST_OPERATION)
 async def test_new_service(
+    request: Request,
     service_data: ServiceConnectionCreate,
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Test a service connection without saving it."""
+    from ...core.url_validation import validate_outbound_url
+    validate_outbound_url(service_data.url, allow_private=True)
     # Create a temporary connection object
     temp_service = ServiceConnection(**service_data.model_dump())
     
@@ -211,10 +217,12 @@ async def test_new_service(
 async def sync_service(
     service_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
     """Sync media items from a service."""
     from ...services.sync import sync_service_media
+    from ...models import JobExecutionLog
+    from datetime import timezone
     
     result = await db.execute(
         select(ServiceConnection).where(ServiceConnection.id == service_id)
@@ -226,5 +234,49 @@ async def sync_service(
             detail="Service connection not found"
         )
     
-    sync_result = await sync_service_media(db, service)
-    return sync_result
+    # Create execution log for visibility in Jobs view
+    start_time = datetime.now(timezone.utc)
+    execution_log = JobExecutionLog(
+        job_id=f"sync_service_{service_id}",
+        job_name=f"Sync: {service.name}",
+        status="running",
+        started_at=start_time
+    )
+    db.add(execution_log)
+    await db.commit()
+    await db.refresh(execution_log)
+    
+    try:
+        sync_result = await sync_service_media(db, service)
+        
+        # Update execution log
+        end_time = datetime.now(timezone.utc)
+        execution_log.status = "success" if sync_result.get("success", True) else "error"
+        execution_log.completed_at = end_time
+        execution_log.duration_seconds = (end_time - start_time).total_seconds()
+        execution_log.details = {
+            "service_name": service.name,
+            "service_type": service.service_type.value,
+            "added": sync_result.get("added", 0),
+            "updated": sync_result.get("updated", 0),
+            "users_synced": sync_result.get("users_synced", 0)
+        }
+        if not sync_result.get("success", True):
+            execution_log.error_message = sync_result.get("message", "Unknown error")
+        
+        await db.commit()
+        return sync_result
+        
+    except Exception as e:
+        # Update execution log with error
+        end_time = datetime.now(timezone.utc)
+        try:
+            await db.rollback()
+            execution_log.status = "error"
+            execution_log.completed_at = end_time
+            execution_log.duration_seconds = (end_time - start_time).total_seconds()
+            execution_log.error_message = str(e)
+            await db.commit()
+        except Exception:
+            pass
+        raise

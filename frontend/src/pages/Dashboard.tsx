@@ -17,6 +17,27 @@ import {
 import api from '../lib/api'
 import { formatBytes, formatDateTime } from '../lib/utils'
 import type { SystemStats, MediaStats } from '../types'
+import {
+  AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts'
+
+interface ActivityStats {
+  period_days: number
+  total_plays: number
+  total_watch_seconds: number
+  unique_users: number
+  active_sessions: number
+  plays_by_day: { date: string; plays: number; duration_seconds: number }[]
+  plays_by_hour: { hour: number; plays: number }[]
+  plays_by_day_of_week: { day_of_week: number; plays: number }[]
+}
+
+interface GenreStatsResponse {
+  period_days: number
+  total_genres: number
+  genres: { genre: string; plays: number; duration_seconds: number }[]
+}
 
 // Stat Card Component
 function StatCard({ 
@@ -94,7 +115,7 @@ function DiskUsageBar({
   )
 }
 
-// Top List Item Component (Jellystat-style)
+// Top List Item Component
 function TopListItem({ 
   rank, 
   title, 
@@ -186,7 +207,7 @@ export default function Dashboard() {
     },
   })
 
-  // Dashboard stats (Jellystat-style with user tracking)
+  // Dashboard stats with user tracking
   const { data: dashboardStats } = useQuery({
     queryKey: ['dashboardStats', statsDays],
     queryFn: async () => {
@@ -202,6 +223,24 @@ export default function Dashboard() {
       return res.data
     },
     refetchInterval: 30000,
+  })
+
+  // Fetch activity stats for dashboard charts
+  const { data: activityStats } = useQuery({
+    queryKey: ['dashboardActivityStats', statsDays],
+    queryFn: async () => {
+      const res = await api.get<ActivityStats>(`/activity/stats?days=${statsDays}`)
+      return res.data
+    }
+  })
+
+  // Fetch genre stats for dashboard
+  const { data: genreStats } = useQuery({
+    queryKey: ['dashboardGenreStats', statsDays],
+    queryFn: async () => {
+      const res = await api.get<GenreStatsResponse>(`/activity/genre-stats?days=${statsDays}`)
+      return res.data
+    }
   })
 
   const isLoading = statsLoading || mediaLoading
@@ -270,7 +309,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Watch Statistics Section (Jellystat-style) */}
+      {/* Watch Statistics Section */}
       <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg">
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-dark-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -395,7 +434,166 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Library Overview (Jellystat-style) */}
+      {/* Play Trends Charts */}
+      {activityStats && activityStats.plays_by_day.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          {/* Daily Plays Chart */}
+          <div className="lg:col-span-2 bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Daily Plays (Last {statsDays} Days)
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={activityStats.plays_by_day}>
+                  <defs>
+                    <linearGradient id="dashPlaysGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-primary-500)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--color-primary-500)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" className="dark:opacity-20" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12, fill: 'var(--color-gray-500)' }}
+                    tickFormatter={(d: string) => {
+                      const date = new Date(d)
+                      return `${date.getMonth() + 1}/${date.getDate()}`
+                    }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis tick={{ fontSize: 12, fill: 'var(--color-gray-500)' }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--color-dark-800)',
+                      border: '1px solid var(--color-dark-700)',
+                      borderRadius: '0.5rem',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
+                    labelFormatter={(d: string) => new Date(d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                    formatter={(value: number, name: string) => [value, name === 'plays' ? 'Plays' : name]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="plays"
+                    stroke="var(--color-primary-500)"
+                    fill="url(#dashPlaysGradient)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Plays by Day of Week */}
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Plays by Day of Week
+            </h3>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={activityStats.plays_by_day_of_week.map(d => ({
+                  ...d,
+                  name: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.day_of_week]
+                }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" className="dark:opacity-20" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--color-gray-500)' }} />
+                  <YAxis tick={{ fontSize: 12, fill: 'var(--color-gray-500)' }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--color-dark-800)',
+                      border: '1px solid var(--color-dark-700)',
+                      borderRadius: '0.5rem',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
+                    formatter={(value: number) => [value, 'Plays']}
+                  />
+                  <Bar dataKey="plays" fill="var(--color-primary-500)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Plays by Hour */}
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Plays by Hour of Day
+            </h3>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={activityStats.plays_by_hour.map(d => ({
+                  ...d,
+                  label: d.hour === 0 ? '12 AM' : d.hour < 12 ? `${d.hour} AM` : d.hour === 12 ? '12 PM' : `${d.hour - 12} PM`
+                }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" className="dark:opacity-20" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--color-gray-500)' }} interval={2} />
+                  <YAxis tick={{ fontSize: 12, fill: 'var(--color-gray-500)' }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--color-dark-800)',
+                      border: '1px solid var(--color-dark-700)',
+                      borderRadius: '0.5rem',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
+                    formatter={(value: number) => [value, 'Plays']}
+                  />
+                  <Bar dataKey="plays" fill="var(--color-green-500)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Genre Distribution */}
+      {genreStats && genreStats.genres.length > 0 && (
+        <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700 shadow-lg p-4 sm:p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Genre Distribution (Last {statsDays} Days)
+          </h3>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={genreStats.genres.slice(0, 12).map(g => ({
+                  genre: g.genre,
+                  plays: g.plays,
+                  hours: Math.round(g.duration_seconds / 3600 * 10) / 10
+                }))}
+                margin={{ left: 5, right: 20, top: 5, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-gray-200)" className="dark:opacity-20" />
+                <XAxis
+                  dataKey="genre"
+                  tick={{ fontSize: 10, fill: 'var(--color-gray-500)' }}
+                  interval={0}
+                  angle={-35}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--color-gray-500)' }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--color-dark-800)',
+                    border: '1px solid var(--color-dark-700)',
+                    borderRadius: '0.5rem',
+                    color: '#fff',
+                    fontSize: '0.875rem'
+                  }}
+                  formatter={(value: number, name: string) => {
+                    if (name === 'plays') return [value, 'Plays']
+                    return [`${value}h`, 'Watch Time']
+                  }}
+                />
+                <Bar dataKey="plays" fill="var(--color-primary-500)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Library Overview */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <ServerStackIcon className="w-5 h-5" />

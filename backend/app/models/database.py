@@ -2,7 +2,7 @@
 Database models for the application.
 """
 from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, Text, ForeignKey,
+    Column, Integer, BigInteger, String, Boolean, DateTime, Text, ForeignKey,
     Float, Enum as SQLEnum, JSON, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
@@ -18,7 +18,7 @@ class ServiceType(str, Enum):
     RADARR = "radarr"
     EMBY = "emby"
     JELLYFIN = "jellyfin"
-    JELLYSTAT = "jellystat"
+
 
 
 class MediaType(str, Enum):
@@ -115,6 +115,8 @@ class AuditActionType(str, Enum):
     
     # Additional actions
     MEDIA_FLAGGED = "media_flagged"
+    SUGGESTION_FLAGGED = "suggestion_flagged"
+    SUGGESTION_STAGED = "suggestion_staged"
     SYNC_COMPLETED = "sync_completed"
     ERROR = "error"
     TEST = "test"
@@ -153,6 +155,8 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
+    failed_login_attempts = Column(Integer, default=0, nullable=False, server_default="0")
+    locked_until = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
@@ -327,6 +331,7 @@ class MediaItem(Base):
     
     # Series specific
     series_id = Column(String(100), nullable=True)
+    parent_id = Column(Integer, ForeignKey("media_items.id"), nullable=True)  # For episodes -> series/season
     season_number = Column(Integer, nullable=True)
     episode_number = Column(Integer, nullable=True)
     
@@ -504,6 +509,61 @@ class ImportStats(Base):
     
     # Relationships
     service_connection = relationship("ServiceConnection", backref="import_stats")
+
+
+class PlaybackActivity(Base):
+    """Detailed playback activity log for tracking what users watch, when, and how."""
+    __tablename__ = "playback_activities"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # User who watched
+    user_id = Column(Integer, ForeignKey("media_server_users.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    # What was watched (can be null if media item was deleted)
+    media_item_id = Column(Integer, ForeignKey("media_items.id", ondelete="SET NULL"), nullable=True, index=True)
+    media_title = Column(String(500), nullable=False)  # Store title in case item is deleted
+    
+    # Library context
+    library_id = Column(Integer, ForeignKey("libraries.id", ondelete="SET NULL"), nullable=True, index=True)
+    
+    # Playback session details
+    session_id = Column(String(100), nullable=True)  # External session ID from Emby
+    play_method = Column(String(50), nullable=True)  # DirectPlay, DirectStream, Transcode
+    
+    # Client information
+    client_name = Column(String(100), nullable=True)  # "Emby Web", "Emby for iOS", etc.
+    device_name = Column(String(200), nullable=True)  # "iPhone", "Samsung Smart TV", etc.
+    device_id = Column(String(200), nullable=True)  # Device unique ID
+    ip_address = Column(String(45), nullable=True)  # IPv4 or IPv6
+    
+    # Transcode information
+    is_transcoding = Column(Boolean, default=False)
+    transcode_video = Column(Boolean, default=False)
+    transcode_audio = Column(Boolean, default=False)
+    transcode_reason = Column(String(500), nullable=True)
+    
+    # Playback timing
+    started_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    ended_at = Column(DateTime(timezone=True), nullable=True)
+    duration_seconds = Column(Integer, default=0)  # How long they watched
+    
+    # Media position
+    position_ticks = Column(BigInteger, nullable=True)  # Current position in ticks
+    runtime_ticks = Column(BigInteger, nullable=True)  # Total runtime in ticks
+    played_percentage = Column(Float, default=0)  # 0-100
+    
+    # Is this an active/live session?
+    is_active = Column(Boolean, default=False, index=True)
+    
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("MediaServerUser", backref="playback_activities")
+    media_item = relationship("MediaItem", backref="playback_activities")
+    library = relationship("Library", backref="playback_activities")
 
 
 class MediaServerUser(Base):

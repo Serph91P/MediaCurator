@@ -4,14 +4,15 @@ Cleanup engine - evaluates rules and performs cleanup actions.
 from typing import Dict, Any, List, Optional
 from datetime import datetime as dt, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, and_, or_, func
 from loguru import logger
 import os
 import shutil
 
 from ..models import (
     MediaItem, CleanupRule, ServiceConnection, CleanupLog,
-    NotificationChannel, MediaType, RuleActionType, ServiceType
+    NotificationChannel, MediaType, RuleActionType, ServiceType,
+    UserWatchHistory, PlaybackActivity
 )
 from ..schemas import RuleConditions
 from .sonarr import SonarrClient
@@ -91,25 +92,25 @@ class CleanupEngine:
             
             # Skip recently added items
             if conditions.exclude_recently_added_days and item.added_at:
-                days_since_added = (dt.utcnow() - item.added_at).days
+                days_since_added = (dt.now(timezone.utc) - item.added_at).days
                 if days_since_added < conditions.exclude_recently_added_days:
                     continue
             
             # Check not watched days
             if conditions.not_watched_days:
                 if item.last_watched_at:
-                    days_since_watched = (dt.utcnow() - item.last_watched_at).days
+                    days_since_watched = (dt.now(timezone.utc) - item.last_watched_at).days
                     if days_since_watched < conditions.not_watched_days:
                         continue
                 elif item.added_at:
                     # Never watched - use added date
-                    days_since_added = (dt.utcnow() - item.added_at).days
+                    days_since_added = (dt.now(timezone.utc) - item.added_at).days
                     if days_since_added < conditions.not_watched_days:
                         continue
             
             # Check minimum age
             if conditions.min_age_days and item.added_at:
-                days_since_added = (dt.utcnow() - item.added_at).days
+                days_since_added = (dt.now(timezone.utc) - item.added_at).days
                 if days_since_added < conditions.min_age_days:
                     continue
             
@@ -136,6 +137,66 @@ class CleanupEngine:
                 if item.rating >= conditions.rating_below:
                     continue
             
+            # Phase 5: Per-user watch checks
+            # Check if any user is currently watching (active session)
+            if conditions.exclude_active_sessions:
+                active_result = await self.db.execute(
+                    select(func.count()).select_from(PlaybackActivity).where(
+                        and_(
+                            PlaybackActivity.media_item_id == item.id,
+                            PlaybackActivity.is_active == True
+                        )
+                    )
+                )
+                if active_result.scalar() > 0:
+                    logger.debug(f"Skipping {item.title} - currently being watched")
+                    continue
+            
+            # Check per-user watch history (no user watched in X days)
+            if conditions.no_user_watched_days is not None:
+                cutoff = dt.now(timezone.utc) - timedelta(days=conditions.no_user_watched_days)
+                recent_result = await self.db.execute(
+                    select(func.count()).select_from(UserWatchHistory).where(
+                        and_(
+                            UserWatchHistory.media_item_id == item.id,
+                            UserWatchHistory.last_played_at >= cutoff
+                        )
+                    )
+                )
+                if recent_result.scalar() > 0:
+                    logger.debug(f"Skipping {item.title} - a user watched within last {conditions.no_user_watched_days} days")
+                    continue
+            
+            # Check if specific users have it as favorite
+            if conditions.exclude_if_user_favorited:
+                fav_result = await self.db.execute(
+                    select(func.count()).select_from(UserWatchHistory).where(
+                        and_(
+                            UserWatchHistory.media_item_id == item.id,
+                            UserWatchHistory.user_id.in_(conditions.exclude_if_user_favorited),
+                            UserWatchHistory.is_favorite == True
+                        )
+                    )
+                )
+                if fav_result.scalar() > 0:
+                    logger.debug(f"Skipping {item.title} - favorited by a protected user")
+                    continue
+            
+            # Check minimum unique viewers
+            if conditions.min_unique_viewers is not None:
+                viewer_result = await self.db.execute(
+                    select(func.count(func.distinct(UserWatchHistory.user_id))).select_from(UserWatchHistory).where(
+                        and_(
+                            UserWatchHistory.media_item_id == item.id,
+                            UserWatchHistory.is_played == True
+                        )
+                    )
+                )
+                unique_viewers = viewer_result.scalar()
+                if unique_viewers >= conditions.min_unique_viewers:
+                    logger.debug(f"Skipping {item.title} - has {unique_viewers} unique viewers (min: {conditions.min_unique_viewers})")
+                    continue
+            
             matched_items.append(item)
         
         # Apply max items limit
@@ -153,7 +214,7 @@ class CleanupEngine:
     ) -> int:
         """Flag items for cleanup with grace period."""
         flagged_count = 0
-        now = dt.utcnow()
+        now = dt.now(timezone.utc)
         scheduled_at = now + timedelta(days=rule.grace_period_days)
         
         for item in items:
@@ -301,7 +362,7 @@ class CleanupEngine:
     
     async def run_scheduled_cleanups(self) -> Dict[str, Any]:
         """Run scheduled cleanups for flagged items past their grace period."""
-        now = dt.utcnow()
+        now = dt.now(timezone.utc)
         
         # Get items due for cleanup
         result = await self.db.execute(
@@ -557,7 +618,7 @@ class CleanupEngine:
         
         # Check recently added
         if getattr(conditions, 'exclude_recently_added_days', None) and item.added_at:
-            days_since_added = (dt.utcnow() - item.added_at).days
+            days_since_added = (dt.now(timezone.utc) - item.added_at).days
             if days_since_added < conditions.exclude_recently_added_days:
                 result["would_delete"] = False
                 result["skip_reasons"].append(
@@ -568,7 +629,7 @@ class CleanupEngine:
         # Check not watched days
         if conditions.not_watched_days:
             if item.last_watched_at:
-                days_since_watched = (dt.utcnow() - item.last_watched_at).days
+                days_since_watched = (dt.now(timezone.utc) - item.last_watched_at).days
                 if days_since_watched < conditions.not_watched_days:
                     result["would_delete"] = False
                     result["skip_reasons"].append(
@@ -580,7 +641,7 @@ class CleanupEngine:
                         f"Not watched for {days_since_watched} days (threshold: {conditions.not_watched_days} days)"
                     )
             elif item.added_at:
-                days_since_added = (dt.utcnow() - item.added_at).days
+                days_since_added = (dt.now(timezone.utc) - item.added_at).days
                 if days_since_added < conditions.not_watched_days:
                     result["would_delete"] = False
                     result["skip_reasons"].append(
@@ -594,7 +655,7 @@ class CleanupEngine:
         
         # Check minimum age
         if conditions.min_age_days and item.added_at:
-            days_since_added = (dt.utcnow() - item.added_at).days
+            days_since_added = (dt.now(timezone.utc) - item.added_at).days
             if days_since_added < conditions.min_age_days:
                 result["would_delete"] = False
                 result["skip_reasons"].append(
@@ -641,6 +702,99 @@ class CleanupEngine:
             else:
                 result["reasons"].append(
                     f"Rating ({item.rating}) below threshold ({conditions.rating_below})"
+                )
+        
+        # Phase 5: Per-user checks for preview
+        # Check active sessions
+        if conditions.exclude_active_sessions:
+            active_result = await self.db.execute(
+                select(func.count()).select_from(PlaybackActivity).where(
+                    and_(
+                        PlaybackActivity.media_item_id == item.id,
+                        PlaybackActivity.is_active == True
+                    )
+                )
+            )
+            active_count = active_result.scalar()
+            if active_count > 0:
+                result["would_delete"] = False
+                result["skip_reasons"].append(
+                    f"Currently being watched by {active_count} user(s)"
+                )
+                return result
+        
+        # Check per-user watch history
+        if conditions.no_user_watched_days is not None:
+            cutoff = dt.now(timezone.utc) - timedelta(days=conditions.no_user_watched_days)
+            recent_result = await self.db.execute(
+                select(func.count()).select_from(UserWatchHistory).where(
+                    and_(
+                        UserWatchHistory.media_item_id == item.id,
+                        UserWatchHistory.last_played_at >= cutoff
+                    )
+                )
+            )
+            recent_count = recent_result.scalar()
+            if recent_count > 0:
+                result["would_delete"] = False
+                result["skip_reasons"].append(
+                    f"{recent_count} user(s) watched within last {conditions.no_user_watched_days} days"
+                )
+                return result
+            else:
+                result["reasons"].append(
+                    f"No user watched within last {conditions.no_user_watched_days} days"
+                )
+        
+        # Check user-specific favorites
+        if conditions.exclude_if_user_favorited:
+            from ..models import MediaServerUser
+            # Get user names for reporting
+            user_result = await self.db.execute(
+                select(MediaServerUser.id, MediaServerUser.name).where(
+                    MediaServerUser.id.in_(conditions.exclude_if_user_favorited)
+                )
+            )
+            user_names = {row.id: row.name for row in user_result.all()}
+            
+            fav_result = await self.db.execute(
+                select(UserWatchHistory.user_id).where(
+                    and_(
+                        UserWatchHistory.media_item_id == item.id,
+                        UserWatchHistory.user_id.in_(conditions.exclude_if_user_favorited),
+                        UserWatchHistory.is_favorite == True
+                    )
+                )
+            )
+            fav_user_ids = [row[0] for row in fav_result.all()]
+            if fav_user_ids:
+                fav_names = [user_names.get(uid, f"User {uid}") for uid in fav_user_ids]
+                result["would_delete"] = False
+                result["skip_reasons"].append(
+                    f"Favorited by protected user(s): {', '.join(fav_names)}"
+                )
+                return result
+        
+        # Check minimum unique viewers
+        if conditions.min_unique_viewers is not None:
+            viewer_result = await self.db.execute(
+                select(func.count(func.distinct(UserWatchHistory.user_id))).select_from(UserWatchHistory).where(
+                    and_(
+                        UserWatchHistory.media_item_id == item.id,
+                        UserWatchHistory.is_played == True
+                    )
+                )
+            )
+            unique_viewers = viewer_result.scalar()
+            if unique_viewers >= conditions.min_unique_viewers:
+                result["would_delete"] = False
+                result["skip_reasons"].append(
+                    f"Has {unique_viewers} unique viewer(s) (minimum: {conditions.min_unique_viewers})"
+                )
+                return result
+            else:
+                result["reasons"].append(
+                    f"Only {unique_viewers} unique viewer(s) (below minimum: {conditions.min_unique_viewers})"
                 )
         
         # If we got here, item matches all conditions

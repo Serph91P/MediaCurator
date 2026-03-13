@@ -1,23 +1,31 @@
 """
 Media API routes.
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc
 from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import httpx
+from pydantic import BaseModel, Field, field_validator
+from loguru import logger
 
 from ...core.database import get_db
-from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats, CleanupLog, MediaServerUser, UserWatchHistory
+from ...core.rate_limit import limiter, RateLimits
+from ...models import MediaItem, ServiceConnection, ServiceType, MediaType, ImportStats, CleanupLog, MediaServerUser, UserWatchHistory, Library, AuditActionType
 from ...schemas import CleanupLogResponse
 from ..deps import get_current_user
+from ...services.audit import AuditService
 
 router = APIRouter(prefix="/media", tags=["Media"])
 
 
 @router.get("/stats")
+@limiter.limit(RateLimits.API_READ)
 async def get_media_stats(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -124,7 +132,9 @@ async def get_media_stats(
 
 
 @router.get("/import-stats")
+@limiter.limit(RateLimits.API_READ)
 async def get_import_stats(
+    request: Request,
     days: int = Query(default=30, ge=1, le=365),
     service_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
@@ -132,7 +142,7 @@ async def get_import_stats(
 ):
     """Get import statistics for the last N days, optionally filtered by service."""
     
-    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Build query
     query = select(ImportStats).where(ImportStats.created_at >= cutoff_date)
@@ -212,7 +222,9 @@ async def get_import_stats(
 
 
 @router.get("/watch-stats")
+@limiter.limit(RateLimits.API_READ)
 async def get_watch_stats(
+    request: Request,
     limit: int = Query(default=20, ge=1, le=100),
     days: int = Query(default=30, ge=1, le=365, description="Filter by last N days"),
     db: AsyncSession = Depends(get_db),
@@ -221,7 +233,7 @@ async def get_watch_stats(
     """Get watch statistics (most watched items, recently watched, etc.)."""
     
     # Calculate date filter
-    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Most watched items - prioritize items with actual watch counts
     from sqlalchemy.orm import joinedload
@@ -333,18 +345,20 @@ async def get_watch_stats(
 
 
 @router.get("/dashboard-stats")
+@limiter.limit(RateLimits.API_READ)
 async def get_dashboard_stats(
+    request: Request,
     days: int = Query(default=30, ge=1, le=365, description="Filter watch stats by last N days"),
     limit: int = Query(default=5, ge=1, le=20, description="Number of items per category"),
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """
-    Get comprehensive dashboard statistics similar to Jellystat.
+    Get comprehensive dashboard statistics.
     Includes: most viewed movies/series, library overview, watch trends.
     """
     
-    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Get service info for enrichment
     services_result = await db.execute(select(ServiceConnection))
@@ -381,33 +395,38 @@ async def get_dashboard_stats(
     most_viewed_movies = [format_item(m) for m in most_viewed_movies_result.scalars().all()]
     
     # === MOST VIEWED SERIES (aggregate episode plays per series) ===
-    # Get series with most total episode plays
+    # Get series with most total episode plays using series_id (external ID)
     series_plays_result = await db.execute(
         select(
-            MediaItem.parent_id,
+            MediaItem.series_id,
             func.sum(MediaItem.watch_count).label('total_plays')
         )
         .where(
             and_(
                 MediaItem.media_type == MediaType.EPISODE,
-                MediaItem.parent_id.isnot(None),
+                MediaItem.series_id.isnot(None),
                 MediaItem.watch_count > 0
             )
         )
-        .group_by(MediaItem.parent_id)
+        .group_by(MediaItem.series_id)
         .order_by(func.sum(MediaItem.watch_count).desc())
         .limit(limit)
     )
     series_plays = series_plays_result.all()
     
-    # Get the actual series info
+    # Get the actual series info using external_id
     most_viewed_series = []
     for row in series_plays:
-        if row.parent_id:
+        if row.series_id:
             series_result = await db.execute(
                 select(MediaItem)
                 .options(joinedload(MediaItem.service_connection))
-                .where(MediaItem.id == row.parent_id)
+                .where(
+                    and_(
+                        MediaItem.external_id == row.series_id,
+                        MediaItem.media_type == MediaType.SERIES
+                    )
+                )
             )
             series = series_result.scalar_one_or_none()
             if series:
@@ -678,7 +697,9 @@ async def get_dashboard_stats(
 
 
 @router.get("/audit-log", response_model=Dict[str, Any])
+@limiter.limit(RateLimits.API_READ)
 async def get_audit_log(
+    request: Request,
     action: Optional[str] = Query(None, description="Filter by action type (delete, notify, etc.)"),
     status: Optional[str] = Query(None, description="Filter by status (success, failed, skipped)"),
     start_date: Optional[datetime] = Query(None, description="Start date for filtering"),
@@ -794,3 +815,644 @@ async def get_audit_log(
         "action_breakdown": action_breakdown
     }
 
+
+@router.get("/content-reach")
+@limiter.limit(RateLimits.API_READ)
+async def get_content_reach(
+    request: Request,
+    library_id: Optional[int] = None,
+    media_type: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Shared vs. Solo vs. Unwatched content analysis.
+
+    - Shared: watched by 2+ unique users
+    - Solo: watched by exactly 1 user
+    - Unwatched: not watched by anyone
+    """
+    # Build base media query (movies and series only, not episodes/seasons)
+    media_query = select(MediaItem.id, MediaItem.title, MediaItem.media_type, MediaItem.size_bytes)
+    filters = [MediaItem.media_type.in_(["movie", "series"])]
+    if library_id is not None:
+        filters.append(MediaItem.library_id == library_id)
+    if media_type:
+        filters.append(MediaItem.media_type == media_type)
+    media_query = media_query.where(and_(*filters))
+
+    media_result = await db.execute(media_query)
+    media_items = media_result.all()
+
+    if not media_items:
+        return {
+            "total_items": 0,
+            "shared": {"count": 0, "pct": 0, "size_bytes": 0},
+            "solo": {"count": 0, "pct": 0, "size_bytes": 0},
+            "unwatched": {"count": 0, "pct": 0, "size_bytes": 0},
+            "top_shared": [],
+            "top_solo_large": [],
+        }
+
+    media_ids = [m.id for m in media_items]
+    media_map = {m.id: m for m in media_items}
+
+    # Count unique viewers per media item
+    viewer_query = (
+        select(
+            UserWatchHistory.media_item_id,
+            func.count(func.distinct(UserWatchHistory.user_id)).label("viewer_count"),
+        )
+        .where(and_(
+            UserWatchHistory.media_item_id.in_(media_ids),
+            UserWatchHistory.is_played == True,
+        ))
+        .group_by(UserWatchHistory.media_item_id)
+    )
+    viewer_result = await db.execute(viewer_query)
+    viewer_counts = {row.media_item_id: row.viewer_count for row in viewer_result.all()}
+
+    shared_items = []
+    solo_items = []
+    unwatched_items = []
+
+    for m in media_items:
+        vc = viewer_counts.get(m.id, 0)
+        mt = str(m.media_type)
+        if "." in mt:
+            mt = mt.split(".")[-1]
+        info = {"media_id": m.id, "title": m.title, "media_type": mt, "size_bytes": m.size_bytes or 0, "viewer_count": vc}
+        if vc >= 2:
+            shared_items.append(info)
+        elif vc == 1:
+            solo_items.append(info)
+        else:
+            unwatched_items.append(info)
+
+    total = len(media_items)
+    shared_size = sum(i["size_bytes"] for i in shared_items)
+    solo_size = sum(i["size_bytes"] for i in solo_items)
+    unwatched_size = sum(i["size_bytes"] for i in unwatched_items)
+
+    # Top shared (most viewers)
+    top_shared = sorted(shared_items, key=lambda x: x["viewer_count"], reverse=True)[:10]
+
+    # Top solo items by size (cleanup candidates)
+    top_solo_large = sorted(solo_items, key=lambda x: x["size_bytes"], reverse=True)[:10]
+
+    return {
+        "total_items": total,
+        "shared": {
+            "count": len(shared_items),
+            "pct": round(len(shared_items) / total * 100, 1),
+            "size_bytes": shared_size,
+        },
+        "solo": {
+            "count": len(solo_items),
+            "pct": round(len(solo_items) / total * 100, 1),
+            "size_bytes": solo_size,
+        },
+        "unwatched": {
+            "count": len(unwatched_items),
+            "pct": round(len(unwatched_items) / total * 100, 1),
+            "size_bytes": unwatched_size,
+        },
+        "top_shared": top_shared,
+        "top_solo_large": top_solo_large,
+    }
+
+
+@router.get("/cleanup-suggestions")
+@limiter.limit(RateLimits.API_READ)
+async def get_cleanup_suggestions(
+    request: Request,
+    days: int = Query(90, ge=7, le=365),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get analytics-based cleanup suggestions.
+    
+    Analyzes watch patterns and content usage to suggest items for cleanup:
+    - Unwatched content older than X days
+    - Abandoned content (started but never finished by anyone)
+    - Low-engagement content (watched by very few users)
+    - Completed and stale content (fully watched, not rewatched)
+    - Large files with low watch counts (storage hogs)
+    """
+    from ...models import PlaybackActivity
+    
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=days)
+    
+    # Get all media items with sizes
+    items_result = await db.execute(
+        select(MediaItem).where(
+            and_(
+                MediaItem.media_type.in_([MediaType.MOVIE, MediaType.SERIES]),
+                MediaItem.size_bytes > 0
+            )
+        )
+    )
+    all_items = items_result.scalars().all()
+    
+    if not all_items:
+        return {"suggestions": [], "summary": {}}
+    
+    # Pre-fetch per-user data for all items
+    # Get unique viewer counts per item
+    viewer_counts_result = await db.execute(
+        select(
+            UserWatchHistory.media_item_id,
+            func.count(func.distinct(UserWatchHistory.user_id)).label("viewers"),
+            func.max(UserWatchHistory.last_played_at).label("last_played"),
+            func.avg(UserWatchHistory.played_percentage).label("avg_progress")
+        ).where(UserWatchHistory.is_played == True)
+        .group_by(UserWatchHistory.media_item_id)
+    )
+    viewer_data = {
+        row.media_item_id: {
+            "viewers": row.viewers,
+            "last_played": row.last_played,
+            "avg_progress": float(row.avg_progress) if row.avg_progress else 0
+        }
+        for row in viewer_counts_result.all()
+    }
+    
+    # Get abandoned items (started but avg progress < 25%)
+    abandoned_result = await db.execute(
+        select(
+            UserWatchHistory.media_item_id,
+            func.count(func.distinct(UserWatchHistory.user_id)).label("starters"),
+            func.avg(UserWatchHistory.played_percentage).label("avg_pct")
+        ).group_by(UserWatchHistory.media_item_id)
+        .having(func.avg(UserWatchHistory.played_percentage) < 25)
+    )
+    abandoned_ids = {row.media_item_id for row in abandoned_result.all()}
+    
+    # Get active sessions (items currently being watched)
+    active_result = await db.execute(
+        select(PlaybackActivity.media_item_id).where(PlaybackActivity.is_active == True).distinct()
+    )
+    active_ids = {row[0] for row in active_result.all()}
+    
+    suggestions = []
+    
+    # Get total user count (for low-engagement calculation)
+    total_users_result = await db.execute(select(func.count()).select_from(MediaServerUser))
+    total_users = total_users_result.scalar() or 1
+    
+    for item in all_items:
+        # Skip items currently being watched
+        if item.id in active_ids:
+            continue
+        # Skip staged items
+        if getattr(item, 'is_staged', False):
+            continue
+        # Skip already flagged items
+        if getattr(item, 'flagged_for_cleanup', False):
+            continue
+        
+        vdata = viewer_data.get(item.id)
+        unique_viewers = vdata["viewers"] if vdata else 0
+        last_played = vdata["last_played"] if vdata else None
+        avg_progress = vdata["avg_progress"] if vdata else 0
+        
+        suggestion_reasons = []
+        score = 0  # Higher score = stronger suggestion
+        
+        # Category 1: Unwatched content
+        if not item.is_watched and not vdata:
+            age_days = (now - item.added_at).days if item.added_at else 0
+            if age_days > days:
+                suggestion_reasons.append(f"Never watched, added {age_days} days ago")
+                score += 30 + min(age_days // 30, 20)  # Up to +50
+        
+        # Category 2: Abandoned content
+        if item.id in abandoned_ids and vdata:
+            suggestion_reasons.append(f"Abandoned by viewers (avg progress: {avg_progress:.0f}%)")
+            score += 25
+        
+        # Category 3: Low engagement (only 1 viewer on shared server)
+        if total_users > 1 and unique_viewers <= 1 and item.added_at and (now - item.added_at).days > days:
+            suggestion_reasons.append(f"Low engagement: only {unique_viewers} viewer(s) out of {total_users} users")
+            score += 15
+        
+        # Category 4: Completed & stale (watched but not rewatched in X days)
+        if vdata and avg_progress > 90 and last_played and last_played < cutoff:
+            days_since = (now - last_played).days
+            suggestion_reasons.append(f"Fully watched, not revisited in {days_since} days")
+            score += 20 + min(days_since // 30, 10)
+        
+        # Category 5: Storage hogs (large files with low watch count)
+        size_gb = (item.size_bytes or 0) / (1024**3)
+        if size_gb > 5 and (item.watch_count or 0) <= 1:
+            suggestion_reasons.append(f"Large file ({size_gb:.1f} GB) with only {item.watch_count or 0} total plays")
+            score += 15 + int(size_gb)
+        
+        if suggestion_reasons:
+            suggestions.append({
+                "item_id": item.id,
+                "title": item.title,
+                "media_type": item.media_type.value if hasattr(item.media_type, 'value') else str(item.media_type),
+                "size_bytes": item.size_bytes or 0,
+                "added_at": item.added_at.isoformat() if item.added_at else None,
+                "last_watched_at": last_played.isoformat() if last_played else None,
+                "watch_count": item.watch_count or 0,
+                "unique_viewers": unique_viewers,
+                "avg_progress": round(avg_progress, 1),
+                "score": score,
+                "reasons": suggestion_reasons,
+            })
+    
+    # Sort by score descending
+    suggestions.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Limit to top 50
+    suggestions = suggestions[:50]
+    
+    # Build categories for summary
+    cat_counts = {"unwatched": 0, "abandoned": 0, "low_engagement": 0, "stale": 0, "storage_hog": 0}
+    total_reclaimable = 0
+    for s in suggestions:
+        total_reclaimable += s["size_bytes"]
+        for reason in s["reasons"]:
+            if "Never watched" in reason:
+                cat_counts["unwatched"] += 1
+            if "Abandoned" in reason:
+                cat_counts["abandoned"] += 1
+            if "Low engagement" in reason:
+                cat_counts["low_engagement"] += 1
+            if "not revisited" in reason:
+                cat_counts["stale"] += 1
+            if "Large file" in reason:
+                cat_counts["storage_hog"] += 1
+    
+    return {
+        "suggestions": suggestions,
+        "summary": {
+            "total_suggestions": len(suggestions),
+            "total_reclaimable_bytes": total_reclaimable,
+            "days_analyzed": days,
+            "categories": cat_counts,
+        }
+    }
+
+
+# Simple in-memory image cache (max 200 items, TTL 1 hour)
+_image_cache: Dict[int, tuple[bytes, str, datetime]] = {}
+_IMAGE_CACHE_MAX = 200
+_IMAGE_CACHE_TTL = timedelta(hours=1)
+
+
+@router.get("/{media_id}/image")
+@limiter.limit(RateLimits.API_READ)
+async def get_media_image(
+    request: Request,
+    media_id: int,
+    max_height: int = Query(300, ge=50, le=1000),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Proxy media poster image from the media server (Emby/Jellyfin).
+
+    Fetches the Primary image for the given media item, caches it in memory,
+    and streams it back to the client. This avoids exposing the media server
+    API key to the frontend.
+    """
+    # Check cache
+    now = datetime.now(timezone.utc)
+    if media_id in _image_cache:
+        img_bytes, content_type, cached_at = _image_cache[media_id]
+        if now - cached_at < _IMAGE_CACHE_TTL:
+            return Response(
+                content=img_bytes,
+                media_type=content_type,
+                headers={"Cache-Control": "public, max-age=3600"}
+            )
+        else:
+            del _image_cache[media_id]
+
+    # Get media item with its service connection
+    result = await db.execute(
+        select(MediaItem)
+        .options(joinedload(MediaItem.service_connection))
+        .where(MediaItem.id == media_id)
+    )
+    media_item = result.scalar_one_or_none()
+
+    if not media_item:
+        raise HTTPException(status_code=404, detail="Media item not found")
+
+    if not media_item.service_connection:
+        raise HTTPException(status_code=404, detail="No service connection for this media item")
+
+    sc = media_item.service_connection
+    base_url = sc.url.rstrip("/")
+    external_id = media_item.external_id
+
+    # For series items, try parent (series) image if episode/season
+    image_item_id = external_id
+    if media_item.media_type in ("episode", "season") and media_item.series_id:
+        # Get the series' external_id for a better poster
+        series_result = await db.execute(
+            select(MediaItem.external_id).where(MediaItem.id == media_item.series_id)
+        )
+        series_ext_id = series_result.scalar_one_or_none()
+        if series_ext_id:
+            image_item_id = series_ext_id
+
+    # Construct image URL based on service type
+    image_url = f"{base_url}/Items/{image_item_id}/Images/Primary"
+    params = {"maxHeight": str(max_height)}
+
+    # Set up headers for the media server
+    if sc.service_type in (ServiceType.EMBY, ServiceType.JELLYFIN):
+        headers = {"X-Emby-Token": sc.api_key}
+    else:
+        headers = {"X-Api-Key": sc.api_key}
+
+    try:
+        async with httpx.AsyncClient(verify=sc.verify_ssl, timeout=15) as client:
+            resp = await client.get(image_url, params=params, headers=headers)
+            if resp.status_code == 200:
+                img_bytes = resp.content
+                content_type = resp.headers.get("content-type", "image/jpeg")
+
+                # Cache (evict oldest if full)
+                if len(_image_cache) >= _IMAGE_CACHE_MAX:
+                    oldest_key = min(_image_cache, key=lambda k: _image_cache[k][2])
+                    del _image_cache[oldest_key]
+                _image_cache[media_id] = (img_bytes, content_type, now)
+
+                return Response(
+                    content=img_bytes,
+                    media_type=content_type,
+                    headers={"Cache-Control": "public, max-age=3600"}
+                )
+            else:
+                raise HTTPException(status_code=404, detail="Image not found on media server")
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to fetch image for media {media_id}: {e}")
+        raise HTTPException(status_code=502, detail="Could not reach media server")
+
+
+# --- Actionable Cleanup Suggestions ---
+
+# Hard limits to prevent abuse
+_MAX_SUGGESTION_BATCH_SIZE = 50
+_MAX_GRACE_PERIOD_DAYS = 365
+_MIN_GRACE_PERIOD_DAYS = 1
+
+
+class FlagSuggestionsRequest(BaseModel):
+    """Request schema for flagging cleanup suggestions."""
+    media_ids: List[int] = Field(
+        ...,
+        min_length=1,
+        max_length=_MAX_SUGGESTION_BATCH_SIZE,
+        description="List of media item IDs to flag for cleanup"
+    )
+    grace_period_days: int = Field(
+        default=7,
+        ge=_MIN_GRACE_PERIOD_DAYS,
+        le=_MAX_GRACE_PERIOD_DAYS,
+        description="Grace period in days before scheduled cleanup"
+    )
+
+    @field_validator('media_ids')
+    @classmethod
+    def validate_unique_ids(cls, v: List[int]) -> List[int]:
+        if len(v) != len(set(v)):
+            raise ValueError("Duplicate media IDs are not allowed")
+        return v
+
+
+class StageSuggestionsRequest(BaseModel):
+    """Request schema for staging cleanup suggestions."""
+    media_ids: List[int] = Field(
+        ...,
+        min_length=1,
+        max_length=_MAX_SUGGESTION_BATCH_SIZE,
+        description="List of media item IDs to move to staging"
+    )
+
+    @field_validator('media_ids')
+    @classmethod
+    def validate_unique_ids(cls, v: List[int]) -> List[int]:
+        if len(v) != len(set(v)):
+            raise ValueError("Duplicate media IDs are not allowed")
+        return v
+
+
+class SuggestionActionResponse(BaseModel):
+    """Response schema for cleanup suggestion actions."""
+    success: bool
+    message: str
+    flagged: int = 0
+    staged: int = 0
+    skipped: int = 0
+    failed: int = 0
+    total_size_bytes: float = 0
+    errors: List[str] = []
+
+
+@router.post("/cleanup-suggestions/flag", response_model=SuggestionActionResponse)
+@limiter.limit(RateLimits.CLEANUP_OPERATION)
+async def flag_cleanup_suggestions(
+    request: Request,
+    body: FlagSuggestionsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Flag suggested media items for cleanup with a grace period.
+
+    Sets flagged_for_cleanup = true and schedules cleanup after the grace period.
+    Items flagged manually (not by a rule) have flagged_by_rule_id = null so they
+    can be distinguished from rule-driven flags.
+    """
+    now = datetime.now(timezone.utc)
+    scheduled_at = now + timedelta(days=body.grace_period_days)
+
+    # Fetch all requested items in one query — avoid N+1
+    result = await db.execute(
+        select(MediaItem).where(MediaItem.id.in_(body.media_ids))
+    )
+    items_by_id = {item.id: item for item in result.scalars().all()}
+
+    flagged_count = 0
+    skipped_count = 0
+    failed_count = 0
+    total_size = 0.0
+    errors: List[str] = []
+    flagged_titles: List[str] = []
+
+    for media_id in body.media_ids:
+        item = items_by_id.get(media_id)
+        if not item:
+            failed_count += 1
+            errors.append(f"Media item {media_id} not found")
+            continue
+
+        # Skip items already flagged or staged — don't silently overwrite rule flags
+        if item.flagged_for_cleanup:
+            skipped_count += 1
+            errors.append(f"{item.title}: already flagged for cleanup")
+            continue
+        if item.is_staged:
+            skipped_count += 1
+            errors.append(f"{item.title}: already staged")
+            continue
+
+        item.flagged_for_cleanup = True
+        item.flagged_at = now
+        item.flagged_by_rule_id = None  # Manual flag, not rule-driven
+        item.scheduled_cleanup_at = scheduled_at
+        flagged_count += 1
+        total_size += item.size_bytes or 0
+        flagged_titles.append(item.title)
+
+    if flagged_count > 0:
+        await db.commit()
+
+        # Audit log the bulk action
+        await AuditService.log(
+            db=db,
+            action=AuditActionType.SUGGESTION_FLAGGED,
+            request=request,
+            user=current_user,
+            resource_type="media",
+            details={
+                "media_ids": [mid for mid in body.media_ids if mid in items_by_id and items_by_id[mid].flagged_for_cleanup],
+                "titles": flagged_titles,
+                "grace_period_days": body.grace_period_days,
+                "scheduled_cleanup_at": scheduled_at.isoformat(),
+                "count": flagged_count,
+                "total_size_bytes": total_size,
+            },
+        )
+
+        # Create cleanup log entries for each flagged item
+        for media_id in body.media_ids:
+            item = items_by_id.get(media_id)
+            if item and item.flagged_for_cleanup and item.flagged_at == now:
+                log_entry = CleanupLog(
+                    media_item_id=item.id,
+                    rule_id=None,
+                    action="flagged_from_suggestion",
+                    status="success",
+                    details={
+                        "grace_period_days": body.grace_period_days,
+                        "scheduled_cleanup_at": scheduled_at.isoformat(),
+                        "flagged_by_user": current_user.username,
+                    },
+                    media_title=item.title,
+                    media_path=item.path,
+                    media_size_bytes=item.size_bytes,
+                )
+                db.add(log_entry)
+        await db.commit()
+
+    logger.info(
+        f"User {current_user.username} flagged {flagged_count} items from suggestions "
+        f"(skipped={skipped_count}, failed={failed_count}, grace={body.grace_period_days}d)"
+    )
+
+    return SuggestionActionResponse(
+        success=failed_count == 0 and flagged_count > 0,
+        message=f"Flagged {flagged_count} item(s) for cleanup (grace period: {body.grace_period_days} days)",
+        flagged=flagged_count,
+        skipped=skipped_count,
+        failed=failed_count,
+        total_size_bytes=total_size,
+        errors=errors,
+    )
+
+
+@router.post("/cleanup-suggestions/stage", response_model=SuggestionActionResponse)
+@limiter.limit(RateLimits.CLEANUP_OPERATION)
+async def stage_cleanup_suggestions(
+    request: Request,
+    body: StageSuggestionsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Move suggested media items directly to staging.
+
+    Bypasses rules entirely — immediately relocates files to the staging
+    directory and starts the grace period countdown. Requires staging to be
+    enabled for each item's library (or globally).
+    """
+    from ...services.staging import StagingService
+    from ...services.emby import EmbyService
+
+    staging_service = StagingService(db)
+    emby_service = EmbyService(db)
+
+    # Fetch all requested items in one query
+    result = await db.execute(
+        select(MediaItem).where(MediaItem.id.in_(body.media_ids))
+    )
+    items_by_id = {item.id: item for item in result.scalars().all()}
+
+    staged_count = 0
+    skipped_count = 0
+    failed_count = 0
+    total_size = 0.0
+    errors: List[str] = []
+    staged_titles: List[str] = []
+
+    for media_id in body.media_ids:
+        item = items_by_id.get(media_id)
+        if not item:
+            failed_count += 1
+            errors.append(f"Media item {media_id} not found")
+            continue
+
+        # Skip already-staged items
+        if item.is_staged:
+            skipped_count += 1
+            errors.append(f"{item.title}: already staged")
+            continue
+
+        stage_result = await staging_service.move_to_staging(item, emby_service)
+        if stage_result["success"]:
+            staged_count += 1
+            total_size += item.size_bytes or 0
+            staged_titles.append(item.title)
+        else:
+            failed_count += 1
+            errors.append(f"{item.title}: {stage_result.get('error', 'Unknown error')}")
+
+    if staged_count > 0:
+        # Audit log the bulk action
+        await AuditService.log(
+            db=db,
+            action=AuditActionType.SUGGESTION_STAGED,
+            request=request,
+            user=current_user,
+            resource_type="media",
+            details={
+                "media_ids": [mid for mid in body.media_ids if mid in items_by_id and getattr(items_by_id[mid], 'is_staged', False)],
+                "titles": staged_titles,
+                "count": staged_count,
+                "total_size_bytes": total_size,
+            },
+        )
+
+    logger.info(
+        f"User {current_user.username} staged {staged_count} items from suggestions "
+        f"(skipped={skipped_count}, failed={failed_count})"
+    )
+
+    return SuggestionActionResponse(
+        success=failed_count == 0 and staged_count > 0,
+        message=f"Staged {staged_count} item(s) for cleanup",
+        staged=staged_count,
+        skipped=skipped_count,
+        failed=failed_count,
+        total_size_bytes=total_size,
+        errors=errors,
+    )

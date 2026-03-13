@@ -372,6 +372,15 @@ export default function Rules() {
                       {rule.conditions.exclude_favorited && (
                         <span className="mr-3">• Excludes favorites</span>
                       )}
+                      {rule.conditions.no_user_watched_days && (
+                        <span className="mr-3">• No user watched: {rule.conditions.no_user_watched_days} days</span>
+                      )}
+                      {rule.conditions.exclude_active_sessions && (
+                        <span className="mr-3">• Protects active sessions</span>
+                      )}
+                      {rule.conditions.min_unique_viewers && (
+                        <span className="mr-3">• Min viewers: {rule.conditions.min_unique_viewers}</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -496,6 +505,11 @@ function RuleModal({
       watched_progress_below: (initialData?.conditions as any)?.watched_progress_below || null,
       exclude_recently_added_days: (initialData?.conditions as any)?.exclude_recently_added_days || null,
       add_import_exclusion: (initialData?.conditions as any)?.add_import_exclusion ?? true,
+      // Phase 5: Smart Cleanup
+      no_user_watched_days: (initialData?.conditions as any)?.no_user_watched_days || null,
+      exclude_if_user_favorited: (initialData?.conditions as any)?.exclude_if_user_favorited || [],
+      exclude_active_sessions: (initialData?.conditions as any)?.exclude_active_sessions ?? true,
+      min_unique_viewers: (initialData?.conditions as any)?.min_unique_viewers || null,
     },
     action: initialData?.action || 'delete',
     grace_period_days: existingRule?.grace_period_days ?? template?.grace_period_days ?? 7,
@@ -926,6 +940,99 @@ function RuleModal({
                     />
                     <span className="text-sm text-dark-200">Add to Import Exclusion on Delete</span>
                   </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Phase 5: Smart Cleanup - Per-User Conditions */}
+            <div className="border-t border-gray-200 dark:border-dark-700 pt-5">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Smart Cleanup (Per-User)</h4>
+              <p className="text-xs text-dark-400 mb-4">Evaluate cleanup conditions against individual user watch data instead of global stats</p>
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">
+                      No User Watched (days)
+                      <span className="text-xs text-dark-400 ml-2 font-normal block">Delete only if NO user watched in X days</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                      value={formData.conditions.no_user_watched_days || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: {
+                          ...formData.conditions,
+                          no_user_watched_days: e.target.value ? parseInt(e.target.value) : null
+                        }
+                      })}
+                      placeholder="90"
+                      min={0}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">
+                      Min Unique Viewers
+                      <span className="text-xs text-dark-400 ml-2 font-normal block">Only delete if fewer than X viewers</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                      value={formData.conditions.min_unique_viewers || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: {
+                          ...formData.conditions,
+                          min_unique_viewers: e.target.value ? parseInt(e.target.value) : null
+                        }
+                      })}
+                      placeholder="2"
+                      min={0}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.conditions.exclude_active_sessions ?? true}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditions: { ...formData.conditions, exclude_active_sessions: e.target.checked }
+                      })}
+                      className="rounded border-dark-600 bg-dark-700 text-primary-500"
+                    />
+                    <span className="text-sm text-dark-200">Protect Currently Watching</span>
+                    <span className="text-xs text-dark-400">(Never delete items with active playback sessions)</span>
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-dark-200 mb-2">
+                    Protected User Favorites
+                    <span className="text-xs text-dark-400 ml-2 font-normal block">
+                      Enter user IDs (comma-separated) whose favorites should never be deleted
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    className="block w-full px-3 py-2 bg-dark-800 border border-dark-600 rounded-lg text-gray-800 dark:text-dark-100 placeholder-dark-400 focus:outline-2 focus:outline-primary-500 focus:border-transparent transition-colors"
+                    value={(formData.conditions.exclude_if_user_favorited || []).join(', ')}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      conditions: {
+                        ...formData.conditions,
+                        exclude_if_user_favorited: e.target.value 
+                          ? e.target.value.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+                          : []
+                      }
+                    })}
+                    placeholder="1, 2, 3"
+                  />
+                  <p className="text-xs text-dark-500 mt-1">
+                    User IDs can be found on the Users page. Leave empty to disable.
+                  </p>
                 </div>
               </div>
             </div>

@@ -5,5 +5,5 @@ from .database import (
     ServiceType, MediaType, RuleActionType, NotificationType,
     SeriesEvaluationMode, SeriesDeleteTarget, AuditActionType,
     JobExecutionLog, ImportStats, AuditLog,
-    MediaServerUser, UserWatchHistory
+    MediaServerUser, UserWatchHistory, PlaybackActivity
 )

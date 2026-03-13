@@ -1,15 +1,16 @@
 """
 Libraries API routes - auto-synced from Emby/Jellyfin.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
-from typing import List, Dict, Any
-from datetime import datetime, timedelta
+from sqlalchemy import select, and_, func, or_
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta, timezone
 from loguru import logger
 
 from ...core.database import get_db
-from ...models import Library, ServiceConnection, ServiceType, MediaType, MediaItem, UserWatchHistory
+from ...core.rate_limit import limiter, RateLimits
+from ...models import Library, ServiceConnection, ServiceType, MediaType, MediaItem, UserWatchHistory, PlaybackActivity
 from ...schemas import LibraryUpdate, LibraryResponse, LibrarySyncResponse
 from ...services import EmbyClient
 from ..deps import get_current_user
@@ -18,11 +19,13 @@ router = APIRouter(prefix="/libraries", tags=["Libraries"])
 
 
 @router.get("/stats")
+@limiter.limit(RateLimits.API_READ)
 async def get_library_stats(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ) -> List[Dict[str, Any]]:
-    """Get detailed statistics for all libraries (Jellystat-style)."""
+    """Get detailed statistics for all libraries."""
     
     result = await db.execute(
         select(Library).order_by(Library.media_type, Library.name)
@@ -191,7 +194,9 @@ async def get_library_stats(
 
 
 @router.get("/", response_model=List[LibraryResponse])
+@limiter.limit(RateLimits.API_READ)
 async def list_libraries(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -201,7 +206,9 @@ async def list_libraries(
 
 
 @router.get("/{library_id}", response_model=LibraryResponse)
+@limiter.limit(RateLimits.API_READ)
 async def get_library(
+    request: Request,
     library_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -219,8 +226,419 @@ async def get_library(
     return library
 
 
+@router.get("/{library_id}/details")
+@limiter.limit(RateLimits.API_READ)
+async def get_library_details(
+    request: Request,
+    library_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Get detailed statistics for a specific library."""
+    result = await db.execute(
+        select(Library).where(Library.id == library_id)
+    )
+    library = result.scalar_one_or_none()
+    if not library:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Library not found"
+        )
+    
+    # Get service info
+    service_result = await db.execute(
+        select(ServiceConnection).where(ServiceConnection.id == library.service_connection_id)
+    )
+    service = service_result.scalar_one_or_none()
+    
+    # Time periods
+    now = datetime.now(timezone.utc)
+    day_ago = now - timedelta(days=1)
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+    
+    # Build base stats
+    if library.media_type == MediaType.MOVIE:
+        # Movie library
+        total_items = await db.execute(
+            select(func.count(MediaItem.id)).where(
+                and_(MediaItem.library_id == library.id, MediaItem.media_type == MediaType.MOVIE)
+            )
+        )
+        total_items_count = total_items.scalar() or 0
+        
+        # Total size
+        total_size = await db.execute(
+            select(func.sum(MediaItem.size_bytes)).where(
+                and_(MediaItem.library_id == library.id, MediaItem.media_type == MediaType.MOVIE)
+            )
+        )
+        total_size_bytes = int(total_size.scalar() or 0)
+        
+        # Total plays
+        total_plays = await db.execute(
+            select(func.sum(MediaItem.watch_count)).where(
+                and_(MediaItem.library_id == library.id, MediaItem.media_type == MediaType.MOVIE)
+            )
+        )
+        total_plays_count = int(total_plays.scalar() or 0)
+        
+        item_breakdown = {
+            "movies": total_items_count,
+            "series": 0,
+            "seasons": 0,
+            "episodes": 0
+        }
+    else:
+        # Series library
+        series_count = await db.execute(
+            select(func.count(MediaItem.id)).where(
+                and_(MediaItem.library_id == library.id, MediaItem.media_type == MediaType.SERIES)
+            )
+        )
+        series_count_val = series_count.scalar() or 0
+        
+        season_count = await db.execute(
+            select(func.count(MediaItem.id)).where(
+                and_(MediaItem.library_id == library.id, MediaItem.media_type == MediaType.SEASON)
+            )
+        )
+        season_count_val = season_count.scalar() or 0
+        
+        episode_count = await db.execute(
+            select(func.count(MediaItem.id)).where(
+                and_(MediaItem.library_id == library.id, MediaItem.media_type == MediaType.EPISODE)
+            )
+        )
+        total_items_count = episode_count.scalar() or 0
+        
+        # Total size
+        total_size = await db.execute(
+            select(func.sum(MediaItem.size_bytes)).where(MediaItem.library_id == library.id)
+        )
+        total_size_bytes = int(total_size.scalar() or 0)
+        
+        # Total plays (from episodes)
+        total_plays = await db.execute(
+            select(func.sum(MediaItem.watch_count)).where(
+                and_(MediaItem.library_id == library.id, MediaItem.media_type == MediaType.EPISODE)
+            )
+        )
+        total_plays_count = int(total_plays.scalar() or 0)
+        
+        item_breakdown = {
+            "movies": 0,
+            "series": series_count_val,
+            "seasons": season_count_val,
+            "episodes": total_items_count
+        }
+    
+    # Activity stats by time period
+    plays_24h = await db.execute(
+        select(func.count(PlaybackActivity.id)).where(
+            and_(
+                PlaybackActivity.library_id == library.id,
+                PlaybackActivity.started_at >= day_ago
+            )
+        )
+    )
+    plays_7d = await db.execute(
+        select(func.count(PlaybackActivity.id)).where(
+            and_(
+                PlaybackActivity.library_id == library.id,
+                PlaybackActivity.started_at >= week_ago
+            )
+        )
+    )
+    plays_30d = await db.execute(
+        select(func.count(PlaybackActivity.id)).where(
+            and_(
+                PlaybackActivity.library_id == library.id,
+                PlaybackActivity.started_at >= month_ago
+            )
+        )
+    )
+    
+    # Watch time by period
+    watch_time_24h = await db.execute(
+        select(func.coalesce(func.sum(PlaybackActivity.duration_seconds), 0)).where(
+            and_(
+                PlaybackActivity.library_id == library.id,
+                PlaybackActivity.started_at >= day_ago
+            )
+        )
+    )
+    watch_time_7d = await db.execute(
+        select(func.coalesce(func.sum(PlaybackActivity.duration_seconds), 0)).where(
+            and_(
+                PlaybackActivity.library_id == library.id,
+                PlaybackActivity.started_at >= week_ago
+            )
+        )
+    )
+    watch_time_30d = await db.execute(
+        select(func.coalesce(func.sum(PlaybackActivity.duration_seconds), 0)).where(
+            and_(
+                PlaybackActivity.library_id == library.id,
+                PlaybackActivity.started_at >= month_ago
+            )
+        )
+    )
+    
+    # Top users for this library (last 30 days)
+    top_users = await db.execute(
+        select(
+            PlaybackActivity.user_id,
+            func.count(PlaybackActivity.id).label("plays"),
+            func.sum(PlaybackActivity.duration_seconds).label("watch_time")
+        )
+        .where(
+            and_(
+                PlaybackActivity.library_id == library.id,
+                PlaybackActivity.started_at >= month_ago
+            )
+        )
+        .group_by(PlaybackActivity.user_id)
+        .order_by(func.count(PlaybackActivity.id).desc())
+        .limit(5)
+    )
+    top_users_list = [
+        {
+            "user_id": row.user_id,
+            "plays": row.plays,
+            "watch_time_seconds": int(row.watch_time or 0)
+        }
+        for row in top_users.all()
+    ]
+    
+    # Recently watched items
+    recently_watched = await db.execute(
+        select(MediaItem)
+        .where(
+            and_(
+                MediaItem.library_id == library.id,
+                MediaItem.last_watched_at.isnot(None)
+            )
+        )
+        .order_by(MediaItem.last_watched_at.desc())
+        .limit(10)
+    )
+    recently_watched_list = [
+        {
+            "id": item.id,
+            "title": item.title,
+            "media_type": item.media_type.value,
+            "last_watched_at": item.last_watched_at.isoformat() if item.last_watched_at else None,
+            "watch_count": item.watch_count
+        }
+        for item in recently_watched.scalars().all()
+    ]
+    
+    # Active sessions in this library
+    active_sessions = await db.execute(
+        select(func.count(PlaybackActivity.id)).where(
+            and_(
+                PlaybackActivity.library_id == library.id,
+                PlaybackActivity.is_active == True
+            )
+        )
+    )
+    
+    return {
+        "id": library.id,
+        "name": library.name,
+        "type": "Movies" if library.media_type == MediaType.MOVIE else "Series",
+        "media_type": library.media_type.value,
+        "is_enabled": library.is_enabled,
+        "path": library.path,
+        "service_name": service.name if service else None,
+        "external_id": library.external_id,
+        "last_synced_at": library.last_synced_at.isoformat() if library.last_synced_at else None,
+        
+        # Item counts
+        "total_items": total_items_count,
+        "total_size_bytes": total_size_bytes,
+        "total_plays": total_plays_count,
+        "item_breakdown": item_breakdown,
+        
+        # Time-based stats
+        "stats": {
+            "plays_24h": plays_24h.scalar() or 0,
+            "plays_7d": plays_7d.scalar() or 0,
+            "plays_30d": plays_30d.scalar() or 0,
+            "watch_time_24h": int(watch_time_24h.scalar() or 0),
+            "watch_time_7d": int(watch_time_7d.scalar() or 0),
+            "watch_time_30d": int(watch_time_30d.scalar() or 0)
+        },
+        
+        # Top users
+        "top_users": top_users_list,
+        
+        # Recently watched
+        "recently_watched": recently_watched_list,
+        
+        # Active sessions
+        "active_sessions": active_sessions.scalar() or 0
+    }
+
+
+@router.get("/{library_id}/media")
+@limiter.limit(RateLimits.API_READ)
+async def get_library_media(
+    request: Request,
+    library_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    search: Optional[str] = None,
+    sort_by: str = Query("title", pattern="^(title|added_at|last_watched_at|watch_count|size_bytes)$"),
+    sort_order: str = Query("asc", pattern="^(asc|desc)$"),
+    media_type: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Get paginated media items for a library."""
+    result = await db.execute(
+        select(Library).where(Library.id == library_id)
+    )
+    library = result.scalar_one_or_none()
+    if not library:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Library not found"
+        )
+    
+    # Build query
+    query = select(MediaItem).where(MediaItem.library_id == library_id)
+    count_query = select(func.count(MediaItem.id)).where(MediaItem.library_id == library_id)
+    
+    # Filter by media type (for Series library, show only series or episodes)
+    if media_type:
+        media_type_enum = MediaType(media_type)
+        query = query.where(MediaItem.media_type == media_type_enum)
+        count_query = count_query.where(MediaItem.media_type == media_type_enum)
+    elif library.media_type == MediaType.SERIES:
+        # By default show only series (not seasons/episodes)
+        query = query.where(MediaItem.media_type == MediaType.SERIES)
+        count_query = count_query.where(MediaItem.media_type == MediaType.SERIES)
+    
+    # Search filter
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.where(MediaItem.title.ilike(search_pattern))
+        count_query = count_query.where(MediaItem.title.ilike(search_pattern))
+    
+    # Get total count
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+    
+    # Sorting
+    sort_column = getattr(MediaItem, sort_by, MediaItem.title)
+    if sort_order == "desc":
+        query = query.order_by(sort_column.desc().nullslast())
+    else:
+        query = query.order_by(sort_column.asc().nullsfirst())
+    
+    # Pagination
+    offset = (page - 1) * page_size
+    query = query.offset(offset).limit(page_size)
+    
+    result = await db.execute(query)
+    items = result.scalars().all()
+    
+    return {
+        "items": [
+            {
+                "id": item.id,
+                "title": item.title,
+                "media_type": item.media_type.value,
+                "external_id": item.external_id,
+                "added_at": item.added_at.isoformat() if item.added_at else None,
+                "last_watched_at": item.last_watched_at.isoformat() if item.last_watched_at else None,
+                "watch_count": item.watch_count,
+                "size_bytes": item.size_bytes,
+                "year": item.year
+            }
+            for item in items
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size if total > 0 else 1
+    }
+
+
+@router.get("/{library_id}/activity")
+@limiter.limit(RateLimits.API_READ)
+async def get_library_activity(
+    request: Request,
+    library_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Get playback activity for a specific library."""
+    result = await db.execute(
+        select(Library).where(Library.id == library_id)
+    )
+    library = result.scalar_one_or_none()
+    if not library:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Library not found"
+        )
+    
+    # Get total count
+    count_query = select(func.count(PlaybackActivity.id)).where(
+        PlaybackActivity.library_id == library_id
+    )
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+    
+    # Get activity
+    offset = (page - 1) * page_size
+    query = (
+        select(PlaybackActivity)
+        .where(PlaybackActivity.library_id == library_id)
+        .order_by(PlaybackActivity.started_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    result = await db.execute(query)
+    activities = result.scalars().all()
+    
+    return {
+        "items": [
+            {
+                "id": activity.id,
+                "user_id": activity.user_id,
+                "media_title": activity.media_title,
+                "client_name": activity.client_name,
+                "device_name": activity.device_name,
+                "ip_address": activity.ip_address,
+                "play_method": activity.play_method,
+                "is_transcoding": activity.is_transcoding,
+                "transcode_video": activity.transcode_video,
+                "transcode_audio": activity.transcode_audio,
+                "started_at": activity.started_at.isoformat() if activity.started_at else None,
+                "ended_at": activity.ended_at.isoformat() if activity.ended_at else None,
+                "duration_seconds": activity.duration_seconds,
+                "played_percentage": activity.played_percentage,
+                "is_active": activity.is_active
+            }
+            for activity in activities
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size if total > 0 else 1
+    }
+
+
 @router.patch("/{library_id}", response_model=LibraryResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_library(
+    request: Request,
     library_id: int,
     library_data: LibraryUpdate,
     db: AsyncSession = Depends(get_db),
@@ -246,7 +664,9 @@ async def update_library(
 
 
 @router.post("/{library_id}/toggle", response_model=LibraryResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def toggle_library(
+    request: Request,
     library_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -280,7 +700,9 @@ def _determine_media_type(collection_type: str) -> MediaType:
 
 
 @router.post("/sync", response_model=LibrarySyncResponse)
+@limiter.limit(RateLimits.SYNC_OPERATION)
 async def sync_all_libraries(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -347,7 +769,7 @@ async def sync_all_libraries(
                     lib.name = name
                     lib.path = path
                     lib.media_type = media_type
-                    lib.last_synced_at = datetime.utcnow()
+                    lib.last_synced_at = datetime.now(timezone.utc)
                 else:
                     # Create new library
                     new_lib = Library(
@@ -357,7 +779,7 @@ async def sync_all_libraries(
                         media_type=media_type,
                         path=path,
                         is_enabled=True,
-                        last_synced_at=datetime.utcnow()
+                        last_synced_at=datetime.now(timezone.utc)
                     )
                     db.add(new_lib)
                     total_synced += 1
@@ -369,7 +791,7 @@ async def sync_all_libraries(
                     total_removed += 1
             
             # Update service sync time
-            service.last_sync = datetime.utcnow()
+            service.last_sync = datetime.now(timezone.utc)
             
         except Exception as e:
             logger.error(f"Error syncing libraries from {service.name}: {e}")
@@ -391,7 +813,9 @@ async def sync_all_libraries(
 
 
 @router.post("/sync/{service_id}", response_model=LibrarySyncResponse)
+@limiter.limit(RateLimits.SYNC_OPERATION)
 async def sync_service_libraries(
+    request: Request,
     service_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -455,7 +879,7 @@ async def sync_service_libraries(
                 lib.name = name
                 lib.path = path
                 lib.media_type = media_type
-                lib.last_synced_at = datetime.utcnow()
+                lib.last_synced_at = datetime.now(timezone.utc)
             else:
                 # Create new
                 new_lib = Library(
@@ -465,7 +889,7 @@ async def sync_service_libraries(
                     media_type=media_type,
                     path=path,
                     is_enabled=True,
-                    last_synced_at=datetime.utcnow()
+                    last_synced_at=datetime.now(timezone.utc)
                 )
                 db.add(new_lib)
                 synced += 1
@@ -476,7 +900,7 @@ async def sync_service_libraries(
                 await db.delete(lib)
                 removed += 1
         
-        service.last_sync = datetime.utcnow()
+        service.last_sync = datetime.now(timezone.utc)
         await db.commit()
         
         message = f"Synced {synced} new libraries from {service.name}"

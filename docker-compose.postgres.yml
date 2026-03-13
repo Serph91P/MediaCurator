@@ -1,0 +1,98 @@
+# Production Docker Compose Configuration with PostgreSQL
+# For standard setup with SQLite, see docker-compose.yml
+# For development, see docker-compose.dev.yml
+
+services:
+  mediacurator:
+    image: ghcr.io/serph91p/mediacurator:latest
+    container_name: mediacurator
+    restart: unless-stopped
+    user: "1000:1000"
+    
+    ports:
+      - "8080:8080"
+    
+    environment:
+      - TZ=${TZ:-Europe/Berlin}
+      - "SECRET_KEY=${SECRET_KEY:?ERROR: SECRET_KEY must be set. Generate one with: openssl rand -hex 32}"
+      
+      # PostgreSQL Database Configuration
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-mediacurator}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mediacurator}
+      - POSTGRES_DB=${POSTGRES_DB:-mediacurator}
+      
+      # ── Cookie Auth & Reverse Proxy ──────────────────────────────────
+      # CORS: Comma-separated origins matching the URL users see in the browser.
+      # - CORS_ORIGINS=https://media.example.com
+      
+      # Trusted proxy IPs for correct client IP resolution.
+      # - TRUSTED_PROXIES=172.18.0.1
+      
+      # Optional: Token lifetimes
+      # - ACCESS_TOKEN_EXPIRE_MINUTES=15
+      # - REFRESH_TOKEN_EXPIRE_DAYS=30
+      
+      # Optional: Audit log retention in days
+      # - AUDIT_RETENTION_DAYS=90
+      
+      # Optional: Debug mode (not recommended for production)
+      # - DEBUG=false
+    
+    volumes:
+      - mediacurator_config:/app/config
+      - mediacurator_logs:/app/logs
+      - ${MEDIA_PATH:-/data}:/data:ro
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: mediacurator_postgres
+    restart: unless-stopped
+    
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-mediacurator}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mediacurator}
+      - POSTGRES_DB=${POSTGRES_DB:-mediacurator}
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mediacurator} -d ${POSTGRES_DB:-mediacurator}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    
+    # Expose port only if needed for external access
+    # ports:
+    #   - "5432:5432"
+
+volumes:
+  mediacurator_config:
+    driver: local
+  mediacurator_logs:
+    driver: local
+  postgres_data:
+    driver: local

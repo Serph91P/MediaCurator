@@ -119,3 +119,11 @@ def decode_token(token: str, verify_type: Optional[str] = None) -> Optional[Toke
         return TokenData(user_id=user_id, username=username, token_type=token_type)
     except (JWTError, ValueError, TypeError):
         return None
+
+
+def create_ws_token(user_id: int, username: str) -> str:
+    """Create a short-lived token for WebSocket authentication (30 seconds)."""
+    return create_access_token(
+        data={"sub": str(user_id), "username": username},
+        expires_delta=timedelta(seconds=30)
+    )

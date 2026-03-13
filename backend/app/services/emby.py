@@ -7,7 +7,7 @@ from sqlalchemy import select
 from .base import BaseServiceClient, ServiceClientError
 from ..models import ServiceConnection
 from loguru import logger
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 
@@ -23,7 +23,7 @@ class SimpleCache:
         """Get value from cache if not expired."""
         if key in self._cache:
             value, expiry = self._cache[key]
-            if datetime.utcnow() < expiry:
+            if datetime.now(timezone.utc) < expiry:
                 return value
             else:
                 del self._cache[key]
@@ -32,7 +32,7 @@ class SimpleCache:
     def set(self, key: str, value: Any, ttl: Optional[int] = None):
         """Set value in cache with TTL in seconds."""
         ttl = ttl or self.default_ttl
-        expiry = datetime.utcnow() + timedelta(seconds=ttl)
+        expiry = datetime.now(timezone.utc) + timedelta(seconds=ttl)
         self._cache[key] = (value, expiry)
     
     def clear(self):
@@ -59,7 +59,13 @@ class EmbyClient(BaseServiceClient):
     def _make_cache_key(self, endpoint: str, params: Optional[Dict] = None) -> str:
         """Generate cache key from endpoint and params."""
         cache_data = f"{self.base_url}:{endpoint}:{json.dumps(params or {}, sort_keys=True)}"
-        return hashlib.md5(cache_data.encode()).hexdigest()
+        return hashlib.sha256(cache_data.encode()).hexdigest()
+    
+    def invalidate_library_cache(self) -> None:
+        """Invalidate the cached library list."""
+        cache_key = self._make_cache_key("/Library/VirtualFolders")
+        self.cache.remove(cache_key)
+        logger.debug("Invalidated library cache")
     
     def _get_headers(self) -> Dict[str, str]:
         return {
@@ -261,20 +267,27 @@ class EmbyClient(BaseServiceClient):
         self,
         user_id: str,
         parent_id: Optional[str] = None,
-        include_item_types: Optional[List[str]] = None
+        include_item_types: Optional[List[str]] = None,
+        fields: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Get library items with full watch data in a single request.
         This is more efficient than fetching items and watch data separately.
         """
-        fields = [
+        default_fields = [
             "Path", "Overview", "Genres", "Tags", "DateCreated", "PremiereDate",
-            "CommunityRating", "Size", "MediaSources",
+            "CommunityRating", "Size", "MediaSources", "RunTimeTicks",
             # Include UserData fields
         ]
+        # Merge custom fields if provided
+        if fields:
+            all_fields = list(set(default_fields + fields))
+        else:
+            all_fields = default_fields
+            
         params = {
             "Recursive": "true",
-            "Fields": ",".join(fields),
+            "Fields": ",".join(all_fields),
             "EnableUserData": "true",  # Include UserData in response
         }
         if parent_id:
@@ -342,7 +355,7 @@ class EmbyClient(BaseServiceClient):
         self,
         name: str,
         paths: List[str],
-        library_type: str = "mixed",
+        library_type: str = "movies",
         refresh_library: bool = True
     ) -> Dict[str, Any]:
         """
@@ -351,16 +364,21 @@ class EmbyClient(BaseServiceClient):
         Args:
             name: Library name
             paths: List of folder paths for the library
-            library_type: Type of library (movies, tvshows, mixed, music, etc.)
+            library_type: Type of library (movies, tvshows, music, etc.)
             refresh_library: Whether to refresh library after creation
             
         Returns:
             Dict with library info including ItemId
         """
+        # Emby requires collectionType as query parameter, not in body
+        params = {
+            "name": name,
+            "collectionType": library_type,
+            "refreshLibrary": str(refresh_library).lower()
+        }
+        
+        # LibraryOptions in body for additional settings
         data = {
-            "Name": name,
-            "Paths": paths,
-            "CollectionType": library_type if library_type != "mixed" else None,
             "LibraryOptions": {
                 "EnablePhotos": False,
                 "EnableRealtimeMonitor": True,
@@ -373,24 +391,22 @@ class EmbyClient(BaseServiceClient):
             }
         }
         
-        result = await self.post("/Library/VirtualFolders", params={"name": name}, json=data)
-        logger.info(f"Created library '{name}' at paths: {paths}")
+        result = await self.post("/Library/VirtualFolders", params=params, json=data)
+        logger.info(f"Created library '{name}' (type: {library_type}) at paths: {paths}")
+        
+        # Invalidate cache so the new library is found
+        self.invalidate_library_cache()
         
         # Get library ID
         libraries = await self.get_libraries()
         library = next((lib for lib in libraries if lib.get("Name") == name), None)
-        
-        if library and refresh_library:
-            # Trigger library scan
-            library_id = library.get("ItemId")
-            if library_id:
-                await self.refresh_library(library_id)
         
         return library or {"Name": name, "Paths": paths}
     
     async def delete_library(self, name: str) -> None:
         """Delete a library by name."""
         await self.delete("/Library/VirtualFolders", params={"name": name})
+        self.invalidate_library_cache()
         logger.info(f"Deleted library '{name}'")
     
     async def get_library_by_name(self, name: str) -> Optional[Dict[str, Any]]:
@@ -406,7 +422,8 @@ class EmbyClient(BaseServiceClient):
     async def ensure_staging_library(
         self,
         library_name: str,
-        staging_path: str
+        staging_path: str,
+        library_type: str = "movies"
     ) -> Optional[str]:
         """
         Ensure staging library exists, create if not.
@@ -414,6 +431,7 @@ class EmbyClient(BaseServiceClient):
         Args:
             library_name: Name for the staging library
             staging_path: Path to staging directory
+            library_type: Type of library - 'movies' or 'tvshows'
             
         Returns:
             Library ItemId or None if failed
@@ -426,16 +444,16 @@ class EmbyClient(BaseServiceClient):
             logger.info(f"Staging library '{library_name}' already exists with ID {library_id}")
             return library_id
         
-        # Create library
+        # Create library with correct type for proper media recognition
         try:
             library = await self.create_library(
                 name=library_name,
                 paths=[staging_path],
-                library_type="mixed",  # Support both movies and series
+                library_type=library_type,
                 refresh_library=True
             )
             library_id = library.get("ItemId")
-            logger.info(f"Created staging library '{library_name}' with ID {library_id}")
+            logger.info(f"Created staging library '{library_name}' (type: {library_type}) with ID {library_id}")
             return library_id
         except ServiceClientError as e:
             logger.error(f"Failed to create staging library: {e}")
@@ -486,7 +504,8 @@ class EmbyService:
     async def ensure_staging_library(
         self,
         library_name: str,
-        staging_path: str
+        staging_path: str,
+        library_type: str = "movies"
     ) -> Optional[str]:
         """Ensure staging library exists on primary Emby service."""
         service = await self.get_primary_emby_service()
@@ -498,7 +517,7 @@ class EmbyService:
         if not client:
             return None
         
-        return await client.ensure_staging_library(library_name, staging_path)
+        return await client.ensure_staging_library(library_name, staging_path, library_type)
     
     async def refresh_staging_library(self, library_id: str) -> bool:
         """Refresh staging library on primary Emby service."""

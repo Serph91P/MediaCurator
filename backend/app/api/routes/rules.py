@@ -1,7 +1,7 @@
 """
 Cleanup rules API routes.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -10,9 +10,10 @@ from pydantic import BaseModel
 import json
 
 from ...core.database import get_db
+from ...core.rate_limit import limiter, RateLimits
 from ...models import CleanupRule, SeriesEvaluationMode, SeriesDeleteTarget
 from ...schemas import CleanupRuleCreate, CleanupRuleUpdate, CleanupRuleResponse
-from ..deps import get_current_user
+from ..deps import get_current_user, get_current_active_admin
 
 router = APIRouter(prefix="/rules", tags=["Cleanup Rules"])
 
@@ -95,7 +96,9 @@ async def get_series_options(current_user = Depends(get_current_user)):
 
 
 @router.get("/", response_model=List[CleanupRuleResponse])
+@limiter.limit(RateLimits.API_READ)
 async def list_rules(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -107,12 +110,14 @@ async def list_rules(
 
 
 @router.post("/", response_model=CleanupRuleResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(RateLimits.API_WRITE)
 async def create_rule(
+    request: Request,
     rule_data: CleanupRuleCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Create a new cleanup rule."""
+    """Create a new cleanup rule (admin only)."""
     rule = CleanupRule(
         name=rule_data.name,
         description=rule_data.description,
@@ -131,7 +136,9 @@ async def create_rule(
 
 
 @router.get("/{rule_id}", response_model=CleanupRuleResponse)
+@limiter.limit(RateLimits.API_READ)
 async def get_rule(
+    request: Request,
     rule_id: int,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -150,13 +157,15 @@ async def get_rule(
 
 
 @router.put("/{rule_id}", response_model=CleanupRuleResponse)
+@limiter.limit(RateLimits.API_WRITE)
 async def update_rule(
+    request: Request,
     rule_id: int,
     rule_data: CleanupRuleUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Update a cleanup rule."""
+    """Update a cleanup rule (admin only)."""
     result = await db.execute(
         select(CleanupRule).where(CleanupRule.id == rule_id)
     )
@@ -182,12 +191,14 @@ async def update_rule(
 
 
 @router.delete("/{rule_id}")
+@limiter.limit(RateLimits.API_WRITE)
 async def delete_rule(
+    request: Request,
     rule_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Delete a cleanup rule."""
+    """Delete a cleanup rule (admin only)."""
     result = await db.execute(
         select(CleanupRule).where(CleanupRule.id == rule_id)
     )
@@ -204,12 +215,14 @@ async def delete_rule(
 
 
 @router.post("/{rule_id}/toggle")
+@limiter.limit(RateLimits.API_WRITE)
 async def toggle_rule(
+    request: Request,
     rule_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Toggle a rule's enabled status."""
+    """Toggle a rule's enabled status (admin only)."""
     result = await db.execute(
         select(CleanupRule).where(CleanupRule.id == rule_id)
     )
@@ -240,12 +253,14 @@ class BulkActionResult(BaseModel):
 
 
 @router.post("/bulk-action", response_model=BulkActionResult)
+@limiter.limit(RateLimits.BULK_OPERATION)
 async def bulk_action(
+    request_obj: Request,
     request: BulkActionRequest,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Perform bulk operations on multiple rules."""
+    """Perform bulk operations on multiple rules (admin only)."""
     if request.action not in ["enable", "disable", "delete"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -362,7 +377,9 @@ async def get_rule_templates(
 
 
 @router.get("/export/all")
+@limiter.limit(RateLimits.API_READ)
 async def export_rules(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -405,21 +422,31 @@ class ImportResult(BaseModel):
 
 
 @router.post("/import", response_model=ImportResult)
+@limiter.limit(RateLimits.BULK_OPERATION)
 async def import_rules(
+    request: Request,
     file: UploadFile = File(...),
     replace_existing: bool = False,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_admin)
 ):
-    """Import cleanup rules from JSON file."""
+    """Import cleanup rules from JSON file (admin only)."""
     if not file.filename.endswith('.json'):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only JSON files are supported"
         )
     
+    # Enforce 1 MB file size limit
+    MAX_IMPORT_SIZE = 1 * 1024 * 1024  # 1 MB
+    content = await file.read()
+    if len(content) > MAX_IMPORT_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Maximum import size is {MAX_IMPORT_SIZE // 1024} KB."
+        )
+
     try:
-        content = await file.read()
         data = json.loads(content.decode('utf-8'))
     except json.JSONDecodeError as e:
         raise HTTPException(

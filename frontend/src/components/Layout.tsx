@@ -2,6 +2,8 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/auth'
 import { useThemeStore } from '../stores/theme'
+import { useJobsStore } from '../stores/jobs'
+import { useJobWebSocket } from '../hooks/useJobWebSocket'
 import api from '../lib/api'
 import { useState, useEffect } from 'react'
 import {
@@ -23,14 +25,22 @@ import {
   SunIcon,
   MoonIcon,
   ComputerDesktopIcon,
+  UsersIcon,
+  ChartBarIcon,
+  ChartPieIcon,
+  LightBulbIcon,
 } from '@heroicons/react/24/outline'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
+  { name: 'Libraries', href: '/libraries', icon: FolderIcon },
+  { name: 'Users', href: '/users', icon: UsersIcon },
+  { name: 'Activity', href: '/activity', icon: ChartBarIcon },
+  { name: 'Analytics', href: '/analytics', icon: ChartPieIcon },
   { name: 'Services', href: '/services', icon: ServerStackIcon },
   { name: 'Rules', href: '/rules', icon: ClipboardDocumentListIcon },
-  { name: 'Libraries', href: '/libraries', icon: FolderIcon },
   { name: 'Preview', href: '/preview', icon: EyeIcon },
+  { name: 'Suggestions', href: '/suggestions', icon: LightBulbIcon },
   { name: 'Staging', href: '/staging', icon: ArchiveBoxIcon },
   { name: 'Jobs', href: '/jobs', icon: CpuChipIcon },
   { name: 'Notifications', href: '/notifications', icon: BellIcon },
@@ -41,6 +51,8 @@ const navigation = [
 export default function Layout() {
   const { user, logout } = useAuthStore()
   const { theme, setTheme } = useThemeStore()
+  const runningCount = useJobsStore((s) => s.runningCount)
+  useJobWebSocket() // Global WebSocket connection for all pages
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const stored = localStorage.getItem('sidebarCollapsed')
@@ -98,6 +110,7 @@ export default function Layout() {
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
@@ -153,7 +166,17 @@ export default function Layout() {
                 }`
               }
             >
-              <item.icon className="w-5 h-5 sm:w-5 sm:h-5 flex-shrink-0" />
+              <div className="relative flex-shrink-0">
+                <item.icon className="w-5 h-5 sm:w-5 sm:h-5" />
+                {item.name === 'Jobs' && runningCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex items-center justify-center h-4 w-4 rounded-full bg-blue-500 text-[10px] font-bold text-white">
+                      {runningCount}
+                    </span>
+                  </span>
+                )}
+              </div>
               {(!sidebarCollapsed || sidebarOpen) && <span>{item.name}</span>}
             </NavLink>
           ))}
@@ -250,15 +273,15 @@ export default function Layout() {
                 </svg>
                 <div>
                   <p className="text-sm font-medium text-white">
-                    Update verfügbar! 
+                    Update available! 
                     {updateData.commits_behind > 0 && (
                       <span className="ml-2">
-                        {updateData.commits_behind} neue{updateData.commits_behind === 1 ? 'r' : ''} Commit{updateData.commits_behind === 1 ? '' : 's'}
+                        {updateData.commits_behind} new commit{updateData.commits_behind === 1 ? '' : 's'}
                       </span>
                     )}
                   </p>
                   <p className="text-xs text-primary-100">
-                    Aktuelle Version: {updateData.current_version?.split('-')[0] || updateData.current_commit} → Neueste: {updateData.latest_version || updateData.latest_commit}
+                    Current: {updateData.current_version?.split('-')[0] || updateData.current_commit} → Latest: {updateData.latest_version || updateData.latest_commit}
                   </p>
                 </div>
               </div>
@@ -268,7 +291,7 @@ export default function Layout() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white text-primary-600 rounded-lg hover:bg-primary-50 transition-colors"
               >
-                Changelog ansehen
+                View Changelog
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>

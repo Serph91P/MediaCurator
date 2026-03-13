@@ -29,6 +29,10 @@ services:
       # Development settings
       - DEBUG=true
       
+      # CORS & proxy (defaults work for local dev: localhost:5173 + localhost:8080)
+      # - CORS_ORIGINS=http://localhost:5173,http://localhost:8080
+      # - TRUSTED_PROXIES=
+      
       # Optional: Pre-create admin user for dev
       # - INITIAL_ADMIN_USER=admin
       # - INITIAL_ADMIN_PASSWORD=admin123

@@ -12,28 +12,28 @@ from fastapi import Request, Response
 from typing import Optional, Callable, Union
 from loguru import logger
 
+from .security_events import log_security_event, SecurityEventType
+
 
 def get_client_ip(request: Request) -> str:
     """
     Get client IP address from request.
-    Handles X-Forwarded-For header for reverse proxy setups.
+    Only trusts X-Forwarded-For when the direct client is a configured trusted proxy.
     """
-    # Check for X-Forwarded-For header (common in reverse proxy setups)
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        # Take the first IP (original client)
-        return forwarded_for.split(",")[0].strip()
-    
-    # Check for X-Real-IP header (nginx)
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return real_ip.strip()
-    
-    # Fall back to direct client IP
-    if request.client:
-        return request.client.host
-    
-    return "unknown"
+    from .config import get_settings
+    settings = get_settings()
+    trusted_proxies = settings.trusted_proxy_list
+    direct_ip = request.client.host if request.client else "unknown"
+
+    if trusted_proxies and direct_ip in trusted_proxies:
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip()
+        real_ip = request.headers.get("X-Real-IP")
+        if real_ip:
+            return real_ip.strip()
+
+    return direct_ip
 
 
 def get_rate_limit_key(request: Request) -> str:
@@ -104,8 +104,12 @@ def create_rate_limit_response(request: Request, exc: RateLimitExceeded) -> Resp
     # Extract retry-after from the exception
     retry_after = getattr(exc, "retry_after", 60)
     
-    logger.warning(
-        f"Rate limit exceeded for {get_client_ip(request)} on {request.url.path}"
+    log_security_event(
+        SecurityEventType.RATE_LIMIT_EXCEEDED,
+        client_ip=get_client_ip(request),
+        path=str(request.url.path),
+        method=request.method,
+        detail=f"Retry after {retry_after}s",
     )
     
     response = JSONResponse(

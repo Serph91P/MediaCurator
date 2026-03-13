@@ -2,9 +2,10 @@
 Pydantic schemas for API request/response validation.
 """
 from pydantic import BaseModel, Field, HttpUrl, EmailStr, field_validator
-from typing import Optional, List, Dict, Any
+from typing import ClassVar, Optional, List, Dict, Any, Set, Union
 from datetime import datetime
 from enum import Enum
+import re
 
 
 # ==================== Enums ====================
@@ -14,7 +15,7 @@ class ServiceType(str, Enum):
     RADARR = "radarr"
     EMBY = "emby"
     JELLYFIN = "jellyfin"
-    JELLYSTAT = "jellystat"
+
 
 
 class MediaType(str, Enum):
@@ -104,8 +105,9 @@ class TokenRefreshRequest(BaseModel):
 
 
 class TokenRefreshResponse(BaseModel):
-    """Response from token refresh."""
+    """Response from token refresh (includes rotated refresh token)."""
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     expires_in: int
 
@@ -141,6 +143,19 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
+
+    @field_validator('password')
+    @classmethod
+    def validate_password_complexity(cls, v: str) -> str:
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain at least one digit')
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\/~`]', v):
+            raise ValueError('Password must contain at least one special character')
+        return v
 
 
 class UserUpdate(BaseModel):
@@ -198,6 +213,14 @@ class ServiceConnectionResponse(ServiceConnectionBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     last_sync: Optional[datetime] = None
+
+    @field_validator('api_key', mode='before')
+    @classmethod
+    def mask_api_key(cls, v: str) -> str:
+        """Mask the API key, showing only first 4 and last 4 characters."""
+        if not v or len(v) <= 8:
+            return '***'
+        return f"{v[:4]}{'*' * (len(v) - 8)}{v[-4:]}"
 
     class Config:
         from_attributes = True
@@ -266,6 +289,11 @@ class RuleConditions(BaseModel):
     add_import_exclusion: bool = True  # Add to import exclusion list when deleting
     watched_progress_below: Optional[int] = Field(None, ge=0, le=100)  # Only delete if progress below X%
     exclude_recently_added_days: Optional[int] = Field(None, ge=0)  # Exclude recently added items
+    # Phase 5: Smart Cleanup - Per-user conditions
+    no_user_watched_days: Optional[int] = Field(None, ge=0)  # Delete only if NO user watched in X days
+    exclude_if_user_favorited: List[int] = []  # Never delete if any of these user IDs have it as favorite
+    exclude_active_sessions: bool = True  # Never delete if any user is currently watching
+    min_unique_viewers: Optional[int] = Field(None, ge=0)  # Only delete if fewer than X unique viewers
 
 
 class CleanupRuleBase(BaseModel):
@@ -338,7 +366,26 @@ class NotificationChannelBase(BaseModel):
 
 
 class NotificationChannelCreate(NotificationChannelBase):
-    pass
+
+    @field_validator('config')
+    @classmethod
+    def validate_config_for_type(cls, v, info):
+        """Validate notification config has required keys for the notification type."""
+        ntype = info.data.get('notification_type')
+        if ntype == NotificationType.DISCORD:
+            if not v.get('webhook_url'):
+                raise ValueError("Discord config requires 'webhook_url'")
+        elif ntype == NotificationType.SLACK:
+            if not v.get('webhook_url'):
+                raise ValueError("Slack config requires 'webhook_url'")
+        elif ntype == NotificationType.WEBHOOK:
+            if not v.get('url'):
+                raise ValueError("Webhook config requires 'url'")
+        elif ntype == NotificationType.APPRISE:
+            urls = v.get('urls')
+            if not urls or not isinstance(urls, list) or len(urls) == 0:
+                raise ValueError("Apprise config requires 'urls' list with at least one entry")
+        return v
 
 
 class NotificationChannelUpdate(BaseModel):
@@ -361,6 +408,21 @@ class NotificationChannelResponse(NotificationChannelBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    SENSITIVE_CONFIG_KEYS: ClassVar[Set[str]] = {"webhook_url", "token", "bot_token", "api_key", "password", "secret", "url"}
+
+    @field_validator('config', mode='before')
+    @classmethod
+    def mask_sensitive_config(cls, v):
+        if not isinstance(v, dict):
+            return v
+        masked = {}
+        for key, value in v.items():
+            if any(s in key.lower() for s in cls.SENSITIVE_CONFIG_KEYS) and isinstance(value, str) and len(value) > 8:
+                masked[key] = value[:4] + "***" + value[-4:]
+            else:
+                masked[key] = value
+        return masked
 
     class Config:
         from_attributes = True
@@ -468,7 +530,14 @@ class SystemSettingResponse(BaseModel):
 
 
 class SystemSettingUpdate(BaseModel):
-    value: Any
+    value: Union[bool, int, str]
+
+    @field_validator('value', mode='before')
+    @classmethod
+    def reject_complex_types(cls, v):
+        if isinstance(v, (list, dict)) or v is None:
+            raise ValueError('Setting value must be a bool, int, or str')
+        return v
 
 
 class SystemSettingsResponse(BaseModel):

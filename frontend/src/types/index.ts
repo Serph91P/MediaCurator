@@ -26,7 +26,7 @@ export interface Session {
   is_current: boolean
 }
 
-export type ServiceType = 'sonarr' | 'radarr' | 'emby' | 'jellyfin' | 'jellystat'
+export type ServiceType = 'sonarr' | 'radarr' | 'emby' | 'jellyfin'
 export type MediaType = 'movie' | 'series' | 'episode' | 'season'
 export type RuleActionType = 'delete' | 'delete_and_unmonitor' | 'notify_only' | 'move_to_trash' | 'unmonitor'
 export type NotificationType = 'webhook' | 'discord' | 'slack' | 'email' | 'apprise'
@@ -99,6 +99,11 @@ export interface RuleConditions {
   add_import_exclusion?: boolean  // Add to Import-Exclusion-List
   watched_progress_below?: number | null  // Only delete if progress below X%
   exclude_recently_added_days?: number | null  // Exclude recently added items
+  // Phase 5: Smart Cleanup - Per-user conditions
+  no_user_watched_days?: number | null  // Delete only if NO user watched in X days
+  exclude_if_user_favorited?: number[]  // Never delete if these user IDs have it as favorite
+  exclude_active_sessions?: boolean  // Never delete if any user is currently watching
+  min_unique_viewers?: number | null  // Only delete if fewer than X unique viewers
 }
 
 export interface CleanupRule {

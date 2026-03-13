@@ -41,8 +41,10 @@ class RadarrClient(BaseServiceClient):
     
     async def delete_movie(self, movie_id: int, delete_files: bool = True, add_exclusion: bool = False) -> None:
         """Delete a movie."""
-        params = f"deleteFiles={str(delete_files).lower()}&addImportExclusion={str(add_exclusion).lower()}"
-        await self.delete(f"/api/v3/movie/{movie_id}?{params}")
+        await self.delete(f"/api/v3/movie/{movie_id}", params={
+            "deleteFiles": str(delete_files).lower(),
+            "addImportExclusion": str(add_exclusion).lower(),
+        })
         logger.info(f"Deleted movie {movie_id} from Radarr")
     
     async def unmonitor_movie(self, movie_id: int) -> Dict[str, Any]:

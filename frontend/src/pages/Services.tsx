@@ -11,7 +11,6 @@ const serviceTypes: { value: ServiceType; label: string; category: string }[] = 
   { value: 'radarr', label: 'Radarr', category: 'Download Manager' },
   { value: 'emby', label: 'Emby', category: 'Media Server' },
   { value: 'jellyfin', label: 'Jellyfin', category: 'Media Server' },
-  { value: 'jellystat', label: 'Jellystat', category: 'Media Server' },
 ]
 
 const getServiceCategory = (type: ServiceType): string => {

@@ -1,0 +1,7 @@
+{
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    {
+      "text": "Use Conventional Commits format: <type>(<scope>): <description>. Types: feat (minor bump), fix (patch bump), docs, style, refactor, perf, test, chore, ci. Use ! after type for breaking changes (major bump). Scopes: api, ui, auth, db, docker, sync, rules, notifications, scheduler. Description must be lowercase, imperative mood, no period at end. English only."
+    }
+  ]
+}

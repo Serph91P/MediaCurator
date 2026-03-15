@@ -41,26 +41,99 @@ jobs:
         env:
           REF: ${{ github.ref }}
         run: |
-          # Get commit count for consistent versioning across branches
-          COMMIT_COUNT=$(git rev-list --count HEAD)
-          
-          if [[ "$REF" == refs/tags/vdev.* ]]; then
-            # Dev tag (e.g., vdev.0.0.103 -> dev.0.0.103)
+          if [[ "$REF" == refs/tags/v* ]]; then
+            # Manual tag push - use the tag version directly
             VERSION=${GITHUB_REF#refs/tags/v}
-            IS_PRERELEASE=true
-          elif [[ "$REF" == refs/tags/v* ]]; then
-            # Stable tag (e.g., v1.2.3 -> 1.2.3)
-            VERSION=${GITHUB_REF#refs/tags/v}
-            IS_PRERELEASE=false
-          elif [[ "$REF" == refs/heads/main ]]; then
-            # Main branch - stable release with same count as dev
-            VERSION="0.0.${COMMIT_COUNT}"
-            IS_PRERELEASE=false
+            if [[ "$VERSION" == *-dev* ]] || [[ "$VERSION" == dev.* ]]; then
+              IS_PRERELEASE=true
+            else
+              IS_PRERELEASE=false
+            fi
           else
-            # Develop branch - prerelease with dev prefix
-            VERSION="dev.0.0.${COMMIT_COUNT}"
-            IS_PRERELEASE=true
+            # Auto-version: find highest version across ALL tags (dev + stable)
+            # Extract numeric version from all tags: v0.0.236, vdev.0.0.235, v0.1.0-dev, etc.
+            HIGHEST_TAG=""
+            HIGHEST_MAJOR=0
+            HIGHEST_MINOR=0
+            HIGHEST_PATCH=0
+            
+            for tag in $(git tag -l 'v*'); do
+              # Strip tag prefix: v0.0.236 -> 0.0.236, vdev.0.0.235 -> 0.0.235
+              ver="$tag"
+              ver="${ver#v}"       # remove leading v
+              ver="${ver#dev.}"    # remove dev. prefix (old format)
+              ver="${ver%%-dev*}"  # remove -dev* suffix (new format)
+              
+              M=$(echo "$ver" | cut -d. -f1)
+              m=$(echo "$ver" | cut -d. -f2)
+              P=$(echo "$ver" | cut -d. -f3)
+              
+              # Skip if not numeric
+              [[ "$M" =~ ^[0-9]+$ ]] || continue
+              [[ "$m" =~ ^[0-9]+$ ]] || continue
+              [[ "$P" =~ ^[0-9]+$ ]] || continue
+              
+              # Compare: is this tag's version higher than current highest?
+              if (( M > HIGHEST_MAJOR )) || \
+                 (( M == HIGHEST_MAJOR && m > HIGHEST_MINOR )) || \
+                 (( M == HIGHEST_MAJOR && m == HIGHEST_MINOR && P > HIGHEST_PATCH )); then
+                HIGHEST_MAJOR=$M
+                HIGHEST_MINOR=$m
+                HIGHEST_PATCH=$P
+                HIGHEST_TAG="$tag"
+              fi
+            done
+            
+            echo "Highest existing version: ${HIGHEST_MAJOR}.${HIGHEST_MINOR}.${HIGHEST_PATCH} (tag: ${HIGHEST_TAG:-none})"
+            
+            # Analyze commits since last tag for conventional commit bump type
+            BUMP="patch"
+            if [ -n "$HIGHEST_TAG" ]; then
+              COMMITS=$(git log "${HIGHEST_TAG}..HEAD" --pretty=format:"%s%n%b" 2>/dev/null || echo "")
+            else
+              COMMITS=$(git log --pretty=format:"%s%n%b" 2>/dev/null || echo "")
+            fi
+            
+            # Check for breaking changes -> major bump
+            if echo "$COMMITS" | grep -qiE '(^[a-z]+!:|BREAKING CHANGE)'; then
+              BUMP="major"
+            # Check for features -> minor bump
+            elif echo "$COMMITS" | grep -qiE '^feat(\(|:)'; then
+              BUMP="minor"
+            fi
+            
+            echo "Bump type: $BUMP"
+            
+            # Calculate next version
+            case "$BUMP" in
+              major)
+                NEXT_MAJOR=$((HIGHEST_MAJOR + 1))
+                NEXT_MINOR=0
+                NEXT_PATCH=0
+                ;;
+              minor)
+                NEXT_MAJOR=$HIGHEST_MAJOR
+                NEXT_MINOR=$((HIGHEST_MINOR + 1))
+                NEXT_PATCH=0
+                ;;
+              patch)
+                NEXT_MAJOR=$HIGHEST_MAJOR
+                NEXT_MINOR=$HIGHEST_MINOR
+                NEXT_PATCH=$((HIGHEST_PATCH + 1))
+                ;;
+            esac
+            
+            VERSION="${NEXT_MAJOR}.${NEXT_MINOR}.${NEXT_PATCH}"
+            
+            if [[ "$REF" == refs/heads/main ]]; then
+              IS_PRERELEASE=false
+            else
+              # Develop branch: append -dev suffix
+              VERSION="${VERSION}-dev"
+              IS_PRERELEASE=true
+            fi
           fi
+          
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "is_prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
           echo "Version: ${VERSION}, Prerelease: ${IS_PRERELEASE}"
@@ -72,9 +145,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             # For tagged releases
-            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/vdev') }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/vdev') }}
-            type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/vdev') }}
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'dev') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'dev') }}
+            type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'dev') }}
             # For main branch
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=stable,enable=${{ github.ref == 'refs/heads/main' }}
@@ -153,17 +226,15 @@ jobs:
           CURRENT_VERSION="${{ needs.prepare.outputs.version }}"
           BRANCH="$REF_NAME"
           
-          # Find the last tag based on branch
-          # For develop: look for vdev.* tags only
-          # For main/tags: look for v* tags (excluding vdev.*)
+          # Find the last tag for changelog comparison
           if [[ "$BRANCH" == "develop" ]]; then
-            # Get all dev tags, sort by version number, take the last one
-            LAST_TAG=$(git tag -l 'vdev.*' --sort=-version:refname | head -n1 || echo "")
-            echo "Looking for dev tags only"
+            # Get last dev tag (old vdev.* or new v*-dev format), sorted by creation date
+            LAST_TAG=$(git tag -l --sort=-creatordate | grep -E '(^vdev\.|.*-dev$)' | head -n1 || echo "")
+            echo "Looking for dev tags"
           else
-            # Get stable tags (v* but not vdev.*), sort by version, take the last one
-            LAST_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -v '^vdev\.' | head -n1 || echo "")
-            echo "Looking for stable tags only"
+            # Get last stable tag (exclude all dev tags)
+            LAST_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -vE '(^vdev\.|.*-dev$)' | head -n1 || echo "")
+            echo "Looking for stable tags"
           fi
           
           echo "Branch: $BRANCH"
@@ -293,7 +364,7 @@ jobs:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', needs.prepare.outputs.version) }}
           # CRITICAL: Create tag on the current commit, not the default branch
           target_commitish: ${{ github.sha }}
-          name: ${{ github.ref_name == 'develop' && format('Development Build {0}', needs.prepare.outputs.version) || format('Release {0}', needs.prepare.outputs.version) }}
+          name: ${{ needs.prepare.outputs.is_prerelease == 'true' && format('Development Build {0}', needs.prepare.outputs.version) || format('Release {0}', needs.prepare.outputs.version) }}
           body_path: release_notes.md
           draft: false
           prerelease: ${{ needs.prepare.outputs.is_prerelease }}

@@ -3,6 +3,7 @@ Sonarr API client for series management.
 """
 from typing import Dict, Any, List, Optional
 from .base import BaseServiceClient, ServiceClientError
+from .results import DeleteResult
 from loguru import logger
 
 
@@ -47,17 +48,37 @@ class SonarrClient(BaseServiceClient):
         """Get episode files for a series."""
         return await self.get("/api/v3/episodefile", params={"seriesId": series_id})
     
-    async def delete_episode_file(self, episode_file_id: int) -> None:
-        """Delete an episode file."""
-        await self.delete(f"/api/v3/episodefile/{episode_file_id}")
-        logger.info(f"Deleted episode file {episode_file_id} from Sonarr")
+    async def delete_episode_file(self, episode_file_id: int) -> DeleteResult:
+        """Delete an episode file. Returns a DeleteResult instead of raising on HTTP errors."""
+        try:
+            await self.delete(f"/api/v3/episodefile/{episode_file_id}")
+            logger.info(f"Deleted episode file {episode_file_id} from Sonarr")
+            return DeleteResult.ok(deleted_files=True,
+                                   message=f"episodefile {episode_file_id} deleted")
+        except ServiceClientError as e:
+            logger.warning(f"Sonarr delete_episode_file({episode_file_id}) failed: {e.message}")
+            return DeleteResult.failure(
+                message=e.message,
+                http_status=e.status_code,
+                deleted_files=False,
+            )
     
-    async def delete_series(self, series_id: int, delete_files: bool = True) -> None:
-        """Delete a series."""
-        await self.delete(f"/api/v3/series/{series_id}", params={
-            "deleteFiles": str(delete_files).lower(),
-        })
-        logger.info(f"Deleted series {series_id} from Sonarr")
+    async def delete_series(self, series_id: int, delete_files: bool = True) -> DeleteResult:
+        """Delete a series. Returns a DeleteResult instead of raising on HTTP errors."""
+        try:
+            await self.delete(f"/api/v3/series/{series_id}", params={
+                "deleteFiles": str(delete_files).lower(),
+            })
+            logger.info(f"Deleted series {series_id} from Sonarr (delete_files={delete_files})")
+            return DeleteResult.ok(deleted_files=delete_files,
+                                   message=f"series {series_id} deleted")
+        except ServiceClientError as e:
+            logger.warning(f"Sonarr delete_series({series_id}) failed: {e.message}")
+            return DeleteResult.failure(
+                message=e.message,
+                http_status=e.status_code,
+                deleted_files=False,
+            )
     
     async def unmonitor_series(self, series_id: int) -> Dict[str, Any]:
         """Unmonitor a series."""

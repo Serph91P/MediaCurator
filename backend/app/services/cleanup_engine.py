@@ -17,7 +17,7 @@ from ..models import (
 from ..schemas import RuleConditions
 from .sonarr import SonarrClient
 from .radarr import RadarrClient
-from .emby import EmbyClient
+from .emby import EmbyClient, invalidate_emby_cache
 from .notifications import NotificationService, NotificationColors, create_cleanup_notification_message
 
 
@@ -265,42 +265,49 @@ class CleanupEngine:
                 conditions = RuleConditions(**rule.conditions) if isinstance(rule.conditions, dict) else rule.conditions
                 add_exclusion = getattr(conditions, 'add_import_exclusion', True)
                 
+                # delete_result is set for DELETE / DELETE_AND_UNMONITOR; remains
+                # None for non-deleting actions (UNMONITOR / NOTIFY_ONLY).
+                delete_result = None
+
                 if action == RuleActionType.DELETE:
                     if service_connection.service_type == ServiceType.RADARR:
-                        await client.delete_movie(int(item.external_id), delete_files=True, add_exclusion=add_exclusion)
+                        delete_result = await client.delete_movie(
+                            int(item.external_id), delete_files=True, add_exclusion=add_exclusion
+                        )
                     elif service_connection.service_type == ServiceType.SONARR:
                         if item.media_type == MediaType.EPISODE:
-                            await client.delete_episode_file(int(item.external_id))
+                            delete_result = await client.delete_episode_file(int(item.external_id))
                         else:
-                            await client.delete_series(int(item.external_id), delete_files=True)
-                            # Add to import exclusion manually for Sonarr
-                            if add_exclusion and item.series_id:
+                            delete_result = await client.delete_series(
+                                int(item.external_id), delete_files=True
+                            )
+                            # Add to import exclusion manually for Sonarr — only on success
+                            if delete_result.success and add_exclusion and item.series_id:
                                 try:
-                                    # Get TVDB ID from series data if available
                                     series = await client.get_series_by_id(int(item.external_id))
                                     tvdb_id = series.get("tvdbId")
                                     if tvdb_id:
                                         await client.add_import_list_exclusion(tvdb_id, item.title)
                                 except Exception as e:
                                     logger.warning(f"Failed to add import exclusion for {item.title}: {e}")
-                
+
                 elif action == RuleActionType.DELETE_AND_UNMONITOR:
                     # Delete files but keep the series/movie in arr as unmonitored
                     if service_connection.service_type == ServiceType.RADARR:
-                        # First unmonitor, then delete files only (not the movie entry)
                         await client.unmonitor_movie(int(item.external_id))
-                        # Delete the movie file but keep the movie entry
-                        await client.delete_movie(int(item.external_id), delete_files=True, add_exclusion=False)
+                        delete_result = await client.delete_movie(
+                            int(item.external_id), delete_files=True, add_exclusion=False
+                        )
                     elif service_connection.service_type == ServiceType.SONARR:
                         if item.media_type == MediaType.EPISODE:
-                            # Unmonitor the episode then delete the file
                             await client.unmonitor_episode(int(item.external_id))
-                            await client.delete_episode_file(int(item.external_id))
+                            delete_result = await client.delete_episode_file(int(item.external_id))
                         else:
-                            # For series: unmonitor and delete files, but keep series entry
                             await client.unmonitor_series(int(item.external_id))
-                            await client.delete_series(int(item.external_id), delete_files=True)
-                
+                            delete_result = await client.delete_series(
+                                int(item.external_id), delete_files=True
+                            )
+
                 elif action == RuleActionType.UNMONITOR:
                     if service_connection.service_type == ServiceType.RADARR:
                         await client.unmonitor_movie(int(item.external_id))
@@ -309,18 +316,52 @@ class CleanupEngine:
                             await client.unmonitor_episode(int(item.external_id))
                         else:
                             await client.unmonitor_series(int(item.external_id))
-                
+
                 elif action == RuleActionType.NOTIFY_ONLY:
                     # Just log, no actual deletion
                     pass
-                
+
+                # If a delete was attempted but failed, do NOT remove the local
+                # record. Log the failure and surface it to the caller.
+                if delete_result is not None and not delete_result.success:
+                    logger.error(
+                        f"Remote delete failed for '{item.title}' "
+                        f"(service={service_connection.name}, "
+                        f"http={delete_result.http_status}): {delete_result.message}"
+                    )
+                    log_entry = CleanupLog(
+                        media_item_id=item.id,
+                        rule_id=rule.id,
+                        action=action.value,
+                        status="failed",
+                        error_message=(
+                            f"HTTP {delete_result.http_status}: {delete_result.message}"
+                            if delete_result.http_status is not None
+                            else delete_result.message
+                        ),
+                        details={
+                            "service": service_connection.name,
+                            "http_status": delete_result.http_status,
+                        },
+                        media_title=item.title,
+                        media_path=item.path,
+                        media_size_bytes=item.size_bytes,
+                    )
+                    self.db.add(log_entry)
+                    await self.db.commit()
+                    return False
+
                 # Log the action
                 log_entry = CleanupLog(
                     media_item_id=item.id,
                     rule_id=rule.id,
                     action=action.value,
                     status="success",
-                    details={"service": service_connection.name},
+                    details={
+                        "service": service_connection.name,
+                        "http_status": delete_result.http_status if delete_result else None,
+                        "deleted_files": delete_result.deleted_files if delete_result else False,
+                    },
                     media_title=item.title,
                     media_path=item.path,
                     media_size_bytes=item.size_bytes
@@ -329,6 +370,12 @@ class CleanupEngine:
                 
                 # Update item status
                 if action in (RuleActionType.DELETE, RuleActionType.DELETE_AND_UNMONITOR):
+                    # Files were removed from Sonarr/Radarr — clear shared
+                    # Emby cache so subsequent reads don't return stale items.
+                    try:
+                        invalidate_emby_cache()
+                    except Exception as e:  # pragma: no cover - defensive
+                        logger.warning(f"Failed to invalidate Emby cache after delete: {e}")
                     await self.db.delete(item)
                 else:
                     item.flagged_for_cleanup = False

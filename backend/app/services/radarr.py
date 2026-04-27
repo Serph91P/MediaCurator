@@ -3,6 +3,7 @@ Radarr API client for movie management.
 """
 from typing import Dict, Any, List
 from .base import BaseServiceClient, ServiceClientError
+from .results import DeleteResult
 from loguru import logger
 
 
@@ -39,13 +40,23 @@ class RadarrClient(BaseServiceClient):
         """Get a specific movie by ID."""
         return await self.get(f"/api/v3/movie/{movie_id}")
     
-    async def delete_movie(self, movie_id: int, delete_files: bool = True, add_exclusion: bool = False) -> None:
-        """Delete a movie."""
-        await self.delete(f"/api/v3/movie/{movie_id}", params={
-            "deleteFiles": str(delete_files).lower(),
-            "addImportExclusion": str(add_exclusion).lower(),
-        })
-        logger.info(f"Deleted movie {movie_id} from Radarr")
+    async def delete_movie(self, movie_id: int, delete_files: bool = True, add_exclusion: bool = False) -> DeleteResult:
+        """Delete a movie. Returns a DeleteResult instead of raising on HTTP errors."""
+        try:
+            await self.delete(f"/api/v3/movie/{movie_id}", params={
+                "deleteFiles": str(delete_files).lower(),
+                "addImportExclusion": str(add_exclusion).lower(),
+            })
+            logger.info(f"Deleted movie {movie_id} from Radarr (delete_files={delete_files})")
+            return DeleteResult.ok(deleted_files=delete_files,
+                                   message=f"movie {movie_id} deleted")
+        except ServiceClientError as e:
+            logger.warning(f"Radarr delete_movie({movie_id}) failed: {e.message}")
+            return DeleteResult.failure(
+                message=e.message,
+                http_status=e.status_code,
+                deleted_files=False,
+            )
     
     async def unmonitor_movie(self, movie_id: int) -> Dict[str, Any]:
         """Unmonitor a movie."""
@@ -57,10 +68,20 @@ class RadarrClient(BaseServiceClient):
         """Get all movie files."""
         return await self.get("/api/v3/moviefile")
     
-    async def delete_movie_file(self, movie_file_id: int) -> None:
-        """Delete a movie file."""
-        await self.delete(f"/api/v3/moviefile/{movie_file_id}")
-        logger.info(f"Deleted movie file {movie_file_id} from Radarr")
+    async def delete_movie_file(self, movie_file_id: int) -> DeleteResult:
+        """Delete a movie file. Returns a DeleteResult instead of raising on HTTP errors."""
+        try:
+            await self.delete(f"/api/v3/moviefile/{movie_file_id}")
+            logger.info(f"Deleted movie file {movie_file_id} from Radarr")
+            return DeleteResult.ok(deleted_files=True,
+                                   message=f"moviefile {movie_file_id} deleted")
+        except ServiceClientError as e:
+            logger.warning(f"Radarr delete_movie_file({movie_file_id}) failed: {e.message}")
+            return DeleteResult.failure(
+                message=e.message,
+                http_status=e.status_code,
+                deleted_files=False,
+            )
     
     async def get_tags(self) -> List[Dict[str, Any]]:
         """Get all tags."""

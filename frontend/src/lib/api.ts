@@ -99,6 +99,31 @@ api.interceptors.response.use(
         return api(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError)
+        // Diagnostic: if the backend now reports setup_required=true even
+        // though the user *was* logged in, the database / secret key likely
+        // changed unexpectedly. Surface a one-off toast so the operator
+        // notices instead of silently bouncing back to the wizard.
+        try {
+          const setupRes = await axios.get<{ setup_required: boolean }>(
+            `${API_BASE_URL}/auth/setup-required`,
+            { withCredentials: true },
+          )
+          if (setupRes.data?.setup_required) {
+            // Use sessionStorage so we only warn once per browser session.
+            if (!sessionStorage.getItem('mc_setup_warning_shown')) {
+              sessionStorage.setItem('mc_setup_warning_shown', '1')
+              // Dynamic import to avoid a hard dependency cycle in tests.
+              const toast = (await import('react-hot-toast')).default
+              toast.error(
+                'Session expired and the server reports no users exist. ' +
+                'Verify your database volume and SECRET_KEY are persisted.',
+                { duration: 8000 },
+              )
+            }
+          }
+        } catch {
+          // Diagnostic check failed — fall through to login redirect.
+        }
         window.location.href = '/login'
         return Promise.reject(refreshError)
       } finally {

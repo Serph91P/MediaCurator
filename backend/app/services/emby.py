@@ -49,6 +49,17 @@ class SimpleCache:
 _emby_cache = SimpleCache(default_ttl=300)  # 5 minutes default
 
 
+def invalidate_emby_cache() -> None:
+    """Module-level helper: clear the shared Emby cache.
+
+    Called after destructive operations that originate outside an EmbyClient
+    instance (e.g. cleanup engine deleting via Sonarr/Radarr) so that
+    subsequent Emby reads reflect the new state.
+    """
+    _emby_cache.clear()
+    logger.debug("Cleared shared Emby cache")
+
+
 class EmbyClient(BaseServiceClient):
     """Client for Emby API."""
     
@@ -66,6 +77,15 @@ class EmbyClient(BaseServiceClient):
         cache_key = self._make_cache_key("/Library/VirtualFolders")
         self.cache.remove(cache_key)
         logger.debug("Invalidated library cache")
+
+    def invalidate_all_cache(self) -> None:
+        """Invalidate ALL cached Emby responses.
+
+        Use after a destructive operation (delete, refresh) so subsequent
+        reads see fresh data instead of stale per-user item lists.
+        """
+        self.cache.clear()
+        logger.debug("Invalidated all Emby cache entries")
     
     def _get_headers(self) -> Dict[str, str]:
         return {

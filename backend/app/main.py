@@ -57,7 +57,34 @@ async def lifespan(app: FastAPI):
     async with async_session_maker() as db:
         await migrate_database(db)
     logger.info("Database migrations completed")
-    
+
+    # Startup state snapshot — surfaces empty/wrong database immediately so the
+    # operator notices before users see the setup wizard reappearing.
+    try:
+        from sqlalchemy import select, func
+        from .models import User, ServiceConnection, Library, MediaItem
+        async with async_session_maker() as db:
+            user_count = (await db.execute(select(func.count(User.id)))).scalar() or 0
+            service_count = (await db.execute(select(func.count(ServiceConnection.id)))).scalar() or 0
+            library_count = (await db.execute(select(func.count(Library.id)))).scalar() or 0
+            media_count = (await db.execute(select(func.count(MediaItem.id)))).scalar() or 0
+        logger.info(
+            "Startup snapshot — users={users}, services={services}, "
+            "libraries={libraries}, media_items={media}",
+            users=user_count,
+            services=service_count,
+            libraries=library_count,
+            media=media_count,
+        )
+        if user_count == 0:
+            logger.warning(
+                "No users found in database — the setup wizard will appear. "
+                "If you previously had users, verify your database volume is "
+                "mounted correctly and SECRET_KEY / DATABASE_URL are unchanged."
+            )
+    except Exception as exc:  # pragma: no cover — defensive logging only
+        logger.warning("Startup snapshot failed: {}", exc)
+
     # Start scheduler
     from .scheduler import start_scheduler, stop_scheduler, load_saved_job_intervals
     start_scheduler()

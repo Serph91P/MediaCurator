@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, desc
+from sqlalchemy import select, func, and_, or_, desc, Integer
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta, timezone
 import httpx
@@ -944,21 +944,78 @@ async def get_cleanup_suggestions(
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=days)
     
-    # Get all media items with sizes
+    # Get all SERIES + MOVIE items (we accept size_bytes=0 for series because
+    # series rows usually have no size of their own — episodes carry the size,
+    # and we aggregate it below).
     items_result = await db.execute(
         select(MediaItem).where(
-            and_(
-                MediaItem.media_type.in_([MediaType.MOVIE, MediaType.SERIES]),
-                MediaItem.size_bytes > 0
-            )
+            MediaItem.media_type.in_([MediaType.MOVIE, MediaType.SERIES])
         )
     )
     all_items = items_result.scalars().all()
-    
+
     if not all_items:
         return {"suggestions": [], "summary": {}}
-    
-    # Pre-fetch per-user data for all items
+
+    # ---- Aggregate episode data up to series level ----------------
+    # For series we need: sum(size_bytes), max(watch_count), max(last_watched_at),
+    # set(viewers via UserWatchHistory) — none of which live on the series row.
+    series_ids = [i.id for i in all_items if i.media_type == MediaType.SERIES]
+    series_episode_stats: dict[int, dict] = {}
+    series_viewer_stats: dict[int, dict] = {}
+
+    if series_ids:
+        # Episode aggregates per series (size, watch_count, last_watched, is_watched)
+        ep_agg_result = await db.execute(
+            select(
+                MediaItem.parent_id.label("series_id"),
+                func.coalesce(func.sum(MediaItem.size_bytes), 0).label("total_size"),
+                func.count(MediaItem.id).label("episode_count"),
+                func.sum(
+                    func.cast(MediaItem.is_watched, Integer)  # type: ignore[arg-type]
+                ).label("watched_episodes"),
+                func.max(MediaItem.last_watched_at).label("last_watched"),
+                func.sum(MediaItem.watch_count).label("total_plays"),
+            )
+            .where(
+                MediaItem.parent_id.in_(series_ids),
+                MediaItem.media_type == MediaType.EPISODE,
+            )
+            .group_by(MediaItem.parent_id)
+        )
+        for row in ep_agg_result.all():
+            series_episode_stats[row.series_id] = {
+                "total_size": int(row.total_size or 0),
+                "episode_count": int(row.episode_count or 0),
+                "watched_episodes": int(row.watched_episodes or 0),
+                "last_watched": row.last_watched,
+                "total_plays": int(row.total_plays or 0),
+            }
+
+        # Per-user viewer aggregates per series (joined via episodes)
+        ep_viewer_result = await db.execute(
+            select(
+                MediaItem.parent_id.label("series_id"),
+                func.count(func.distinct(UserWatchHistory.user_id)).label("viewers"),
+                func.max(UserWatchHistory.last_played_at).label("last_played"),
+                func.avg(UserWatchHistory.played_percentage).label("avg_progress"),
+            )
+            .join(MediaItem, MediaItem.id == UserWatchHistory.media_item_id)
+            .where(
+                MediaItem.parent_id.in_(series_ids),
+                MediaItem.media_type == MediaType.EPISODE,
+                UserWatchHistory.is_played == True,
+            )
+            .group_by(MediaItem.parent_id)
+        )
+        for row in ep_viewer_result.all():
+            series_viewer_stats[row.series_id] = {
+                "viewers": int(row.viewers or 0),
+                "last_played": row.last_played,
+                "avg_progress": float(row.avg_progress) if row.avg_progress else 0,
+            }
+
+    # Pre-fetch per-user data for movie items via UserWatchHistory grouped by media_item_id
     # Get unique viewer counts per item
     viewer_counts_result = await db.execute(
         select(
@@ -1011,8 +1068,31 @@ async def get_cleanup_suggestions(
         # Skip already flagged items
         if getattr(item, 'flagged_for_cleanup', False):
             continue
-        
-        vdata = viewer_data.get(item.id)
+
+        # For SERIES, fall back to aggregated episode data when the
+        # series row itself has no size / watch_count / viewer history.
+        if item.media_type == MediaType.SERIES:
+            ep_stats = series_episode_stats.get(item.id)
+            v_stats = series_viewer_stats.get(item.id)
+
+            # Skip series with no episodes synced yet — no data to judge on.
+            if not ep_stats:
+                continue
+
+            effective_size = item.size_bytes or ep_stats["total_size"]
+            effective_watch_count = item.watch_count or ep_stats["total_plays"]
+            # A series counts as "watched" if at least one episode was watched.
+            effective_is_watched = item.is_watched or ep_stats["watched_episodes"] > 0
+            vdata = v_stats  # may be None if no episode was ever played by anyone
+        else:
+            # Movies: skip if we have no size info — there's nothing to reclaim.
+            if not (item.size_bytes or 0) > 0:
+                continue
+            effective_size = item.size_bytes or 0
+            effective_watch_count = item.watch_count or 0
+            effective_is_watched = item.is_watched
+            vdata = viewer_data.get(item.id)
+
         unique_viewers = vdata["viewers"] if vdata else 0
         last_played = vdata["last_played"] if vdata else None
         avg_progress = vdata["avg_progress"] if vdata else 0
@@ -1021,7 +1101,7 @@ async def get_cleanup_suggestions(
         score = 0  # Higher score = stronger suggestion
         
         # Category 1: Unwatched content
-        if not item.is_watched and not vdata:
+        if not effective_is_watched and not vdata:
             age_days = (now - item.added_at).days if item.added_at else 0
             if age_days > days:
                 suggestion_reasons.append(f"Never watched, added {age_days} days ago")
@@ -1044,9 +1124,9 @@ async def get_cleanup_suggestions(
             score += 20 + min(days_since // 30, 10)
         
         # Category 5: Storage hogs (large files with low watch count)
-        size_gb = (item.size_bytes or 0) / (1024**3)
-        if size_gb > 5 and (item.watch_count or 0) <= 1:
-            suggestion_reasons.append(f"Large file ({size_gb:.1f} GB) with only {item.watch_count or 0} total plays")
+        size_gb = effective_size / (1024**3)
+        if size_gb > 5 and effective_watch_count <= 1:
+            suggestion_reasons.append(f"Large file ({size_gb:.1f} GB) with only {effective_watch_count} total plays")
             score += 15 + int(size_gb)
         
         if suggestion_reasons:
@@ -1054,10 +1134,10 @@ async def get_cleanup_suggestions(
                 "item_id": item.id,
                 "title": item.title,
                 "media_type": item.media_type.value if hasattr(item.media_type, 'value') else str(item.media_type),
-                "size_bytes": item.size_bytes or 0,
+                "size_bytes": effective_size,
                 "added_at": item.added_at.isoformat() if item.added_at else None,
                 "last_watched_at": last_played.isoformat() if last_played else None,
-                "watch_count": item.watch_count or 0,
+                "watch_count": effective_watch_count,
                 "unique_viewers": unique_viewers,
                 "avg_progress": round(avg_progress, 1),
                 "score": score,

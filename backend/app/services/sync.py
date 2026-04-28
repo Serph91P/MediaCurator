@@ -465,7 +465,21 @@ async def _sync_emby(
             emby_user_id = emby_user["Id"]
             emby_user_name = emby_user.get("Name", "Unknown")
             is_admin = emby_user.get("Policy", {}).get("IsAdministrator", False)
-            
+
+            # Authoritative "last seen" comes from Emby's user object, not
+            # from sync wall-clock time. Prefer LastActivityDate (any session
+            # incl. browsing), fall back to LastLoginDate.
+            emby_last_seen: Optional[datetime] = None
+            for field in ("LastActivityDate", "LastLoginDate"):
+                raw = emby_user.get(field)
+                if not raw:
+                    continue
+                try:
+                    emby_last_seen = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                    break
+                except (ValueError, AttributeError) as e:
+                    logger.debug(f"Could not parse Emby user {field}={raw!r}: {e}")
+
             result = await db.execute(
                 select(MediaServerUser).where(
                     MediaServerUser.external_id == emby_user_id,
@@ -473,20 +487,23 @@ async def _sync_emby(
                 )
             )
             db_user = result.scalar_one_or_none()
-            
+
             if db_user:
                 db_user.name = emby_user_name
                 db_user.is_admin = is_admin
+                if emby_last_seen is not None:
+                    db_user.last_activity_at = emby_last_seen
             else:
                 db_user = MediaServerUser(
                     external_id=emby_user_id,
                     service_connection_id=service.id,
                     name=emby_user_name,
-                    is_admin=is_admin
+                    is_admin=is_admin,
+                    last_activity_at=emby_last_seen,
                 )
                 db.add(db_user)
                 await db.flush()
-            
+
             user_id_map[emby_user_id] = db_user.id
             users_synced += 1
         
@@ -686,11 +703,17 @@ async def _sync_emby(
             if db_user:
                 db_user.total_plays = user_play_count.get(db_user_id, 0)
                 db_user.total_watch_time_seconds = user_watch_time.get(db_user_id, 0)
-                if db_user_id in user_last_activity:
-                    db_user.last_activity_at = user_last_activity[db_user_id]
-                elif user_play_count.get(db_user_id, 0) > 0 and not db_user.last_activity_at:
-                    # Fallback: user has plays but no parseable LastPlayedDate
-                    db_user.last_activity_at = datetime.now(timezone.utc)
+                # Only update last_activity_at if we have a real LastPlayedDate
+                # newer than what's already stored (which may have come from
+                # Emby's LastActivityDate during the user-sync step). NEVER
+                # fall back to datetime.now() — that lies and makes every user
+                # who ever played anything appear to have been active at the
+                # last sync time.
+                parsed = user_last_activity.get(db_user_id)
+                if parsed is not None and (
+                    db_user.last_activity_at is None or parsed > db_user.last_activity_at
+                ):
+                    db_user.last_activity_at = parsed
         
         # === SAVE USER WATCH HISTORY ===
         logger.info(f"Saving {len(user_watch_data)} user watch history records...")

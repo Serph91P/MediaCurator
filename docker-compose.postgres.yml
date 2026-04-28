@@ -74,6 +74,13 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-mediacurator}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mediacurator}
       - POSTGRES_DB=${POSTGRES_DB:-mediacurator}
+      # Postgres 18 changed the default PGDATA layout to
+      # /var/lib/postgresql/<major>/docker. We pin PGDATA to the legacy
+      # path so existing volumes from prior versions (and the volume mount
+      # below at /var/lib/postgresql/data) keep working without manual
+      # pg_upgrade. See:
+      # https://github.com/docker-library/postgres/pull/1259
+      - PGDATA=/var/lib/postgresql/data
     
     volumes:
       - postgres_data:/var/lib/postgresql/data

@@ -24,7 +24,19 @@ def generate_csrf_token() -> str:
 
 
 def set_csrf_cookie(response: Response, token: str) -> None:
-    """Set a non-httpOnly CSRF cookie (readable by JavaScript)."""
+    """Set a non-httpOnly CSRF cookie (readable by JavaScript).
+
+    The cookie's lifetime is tied to the refresh-token lifetime (i.e. the
+    actual session length), NOT the short-lived access token. Otherwise the
+    CSRF cookie expires while the user still has a valid refresh token,
+    which causes:
+      1. Any POST/PUT/DELETE after the access-token TTL fails with 403
+         "CSRF token missing".
+      2. The follow-up POST /api/auth/refresh ALSO fails with 403 for the
+         same reason, so the user is silently logged out mid-session.
+    The double-submit defence does not depend on token freshness, only on
+    the attacker not being able to read the cookie from another origin.
+    """
     settings = get_settings()
     is_secure = not settings.debug
     response.set_cookie(
@@ -34,7 +46,7 @@ def set_csrf_cookie(response: Response, token: str) -> None:
         secure=is_secure,
         samesite="lax",
         path="/",
-        max_age=settings.access_token_expire_minutes * 60,
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
     )
 
 

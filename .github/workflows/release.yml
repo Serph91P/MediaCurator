@@ -356,7 +356,7 @@ jobs:
           cat release_notes.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           # For tags: use the tag name directly
           # For develop: create vdev.X.X.X tag

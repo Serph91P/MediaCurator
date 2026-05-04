@@ -12,7 +12,7 @@ asyncpg>=0.30.0  # PostgreSQL async driver
 # Security
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
-argon2-cffi>=23.1.0
+argon2-cffi>=25.1.0
 slowapi>=0.1.9
 
 # HTTP Client for API calls
